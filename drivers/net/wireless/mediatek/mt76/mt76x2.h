@@ -32,6 +32,9 @@
 #define MT7662_ROM_PATCH	"mt7662_rom_patch.bin"
 #define MT7662_EEPROM_SIZE	512
 
+#define MT7662U_FIRMWARE	"mt7662u.bin"
+#define MT7662U_ROM_PATCH	"mt7662u_rom_patch.bin"
+
 #define MT76x2_RX_RING_SIZE	256
 #define MT_RX_HEADROOM		32
 
@@ -52,6 +55,7 @@ struct mt76x2_mcu {
 
 	struct completion resp_cmpl;
 	struct sk_buff_head res_q;
+	struct mt76_usb_buf res_u;
 
 	u32 msg_seq;
 };
@@ -105,6 +109,7 @@ struct mt76x2_dev {
 
 	struct tasklet_struct tx_tasklet;
 	struct tasklet_struct pre_tbtt_tasklet;
+	struct delayed_work stat_work;
 	struct delayed_work cal_work;
 	struct delayed_work mac_work;
 
