@@ -276,9 +276,10 @@ static inline struct mt76_usb_buf
 	unsigned long flags;
 
 	spin_lock_irqsave(&q->lock, flags);
-	if (q->head != q->tail) {
+	if (q->queued > 0) {
 		buf = &q->entry[q->head].ubuf;
 		q->head = (q->head + 1) % q->ndesc;
+		q->queued--;
 	}
 	spin_unlock_irqrestore(&q->lock, flags);
 
@@ -355,6 +356,7 @@ static void mt76_usb_complete_rx(struct urb *urb)
 		goto out;
 
 	q->tail = (q->tail + 1) % q->ndesc;
+	q->queued++;
 	tasklet_schedule(&dev->usb.rx_tasklet);
 out:
 	spin_unlock_irqrestore(&q->lock, flags);
@@ -400,6 +402,7 @@ int mt76_usb_submit_rx_buffers(struct mt76_dev *dev)
 			break;
 	}
 	q->head = q->tail = 0;
+	q->queued = 0;
 	spin_unlock_irqrestore(&q->lock, flags);
 
 	return err;
@@ -475,14 +478,14 @@ static int mt76_usb_tx_queue_skb(struct mt76_dev *dev, struct mt76_queue *q,
 				 struct ieee80211_sta *sta)
 {
 	struct usb_interface *intf = to_usb_interface(dev->dev);
-	u16 idx = q->tail, next_idx = (q->tail + 1) % q->ndesc;
 	struct usb_device *udev = interface_to_usbdev(intf);
 	u8 ep = q2ep(q->hw_idx);
 	struct mt76_usb_buf *buf;
+	u16 idx = q->tail;
 	unsigned int pipe;
 	int err;
 
-	if (next_idx == q->head)
+	if (q->queued == q->ndesc)
 		return -ENOSPC;
 
 	err = dev->drv->tx_prepare_skb(dev, NULL, skb, q, wcid, sta, NULL);
@@ -492,8 +495,8 @@ static int mt76_usb_tx_queue_skb(struct mt76_dev *dev, struct mt76_queue *q,
 	buf = &q->entry[idx].ubuf;
 	buf->done = false;
 
+	q->tail = (q->tail + 1) % q->ndesc;
 	q->entry[idx].skb = skb;
-	q->tail = next_idx;
 	q->queued++;
 
 	pipe = usb_sndbulkpipe(udev, dev->usb.out_ep[ep]);
