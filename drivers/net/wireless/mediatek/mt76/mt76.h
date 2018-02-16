@@ -22,6 +22,7 @@
 #include <linux/spinlock.h>
 #include <linux/skbuff.h>
 #include <linux/leds.h>
+#include <linux/usb.h>
 #include <net/mac80211.h>
 #include "util.h"
 
@@ -63,12 +64,24 @@ struct mt76_queue_buf {
 	int len;
 };
 
+struct mt76_usb_buf {
+	struct mt76_dev *dev;
+	struct urb *urb;
+	dma_addr_t dma;
+	void *buf;
+	size_t len;
+	bool done;
+};
+
 struct mt76_queue_entry {
 	union {
 		void *buf;
 		struct sk_buff *skb;
 	};
-	struct mt76_txwi_cache *txwi;
+	union {
+		struct mt76_txwi_cache *txwi;
+		struct mt76_usb_buf ubuf;
+	};
 	bool schedule;
 };
 
@@ -89,6 +102,7 @@ struct mt76_queue {
 	struct list_head swq;
 	int swq_queued;
 
+	u16 first;
 	u16 head;
 	u16 tail;
 	int ndesc;
@@ -194,6 +208,9 @@ enum {
 	MT76_STATE_RUNNING,
 	MT76_SCANNING,
 	MT76_RESET,
+	MT76_REMOVED,
+	MT76_READING_STATS,
+	MT76_PENDING_STATS,
 };
 
 struct mt76_hw_cap {
@@ -231,6 +248,55 @@ struct mt76_channel_state {
 struct mt76_sband {
 	struct ieee80211_supported_band sband;
 	struct mt76_channel_state *chan;
+};
+
+/* addr req mask */
+#define MT_VEND_TYPE_EEPROM	BIT(31)
+#define MT_VEND_TYPE_CFG	BIT(30)
+#define MT_VEND_TYPE_MASK	(MT_VEND_TYPE_EEPROM | MT_VEND_TYPE_CFG)
+
+#define MT_VEND_ADDR(type, n)	(MT_VEND_TYPE_##type | (n))
+enum mt_vendor_req {
+	MT_VEND_DEV_MODE =	0x1,
+	MT_VEND_WRITE =		0x2,
+	MT_VEND_MULTI_WRITE =	0x6,
+	MT_VEND_MULTI_READ =	0x7,
+	MT_VEND_READ_EEPROM =	0x9,
+	MT_VEND_WRITE_FCE =	0x42,
+	MT_VEND_WRITE_CFG =	0x46,
+	MT_VEND_READ_CFG =	0x47,
+};
+
+enum mt76_usb_in_ep {
+	MT_EP_IN_PKT_RX,
+	MT_EP_IN_CMD_RESP,
+	__MT_EP_IN_MAX,
+};
+
+enum mt76_usb_out_ep {
+	MT_EP_OUT_INBAND_CMD,
+	MT_EP_OUT_AC_BK,
+	MT_EP_OUT_AC_BE,
+	MT_EP_OUT_AC_VI,
+	MT_EP_OUT_AC_VO,
+	MT_EP_OUT_HCCA,
+	__MT_EP_OUT_MAX,
+};
+
+#define MT_URB_SIZE		(PAGE_SIZE << 3)
+#define MT_NUM_TX_ENTRIES	256
+#define MT_NUM_RX_ENTRIES	32
+struct mt76_usb {
+	struct mutex usb_ctrl_mtx;
+	u8 data[32];
+
+	struct tasklet_struct rx_tasklet;
+	struct tasklet_struct tx_tasklet;
+
+	u8 out_ep[__MT_EP_OUT_MAX];
+	u16 out_max_packet;
+	u8 in_ep[__MT_EP_IN_MAX];
+	u16 in_max_packet;
 };
 
 struct mt76_dev {
@@ -272,6 +338,8 @@ struct mt76_dev {
 	char led_name[32];
 	bool led_al;
 	u8 led_pin;
+
+	struct mt76_usb usb;
 };
 
 enum mt76_phy_type {
@@ -389,6 +457,15 @@ struct dentry *mt76_register_debugfs(struct mt76_dev *dev);
 int mt76_eeprom_init(struct mt76_dev *dev, int len);
 void mt76_eeprom_override(struct mt76_dev *dev);
 
+/*
+ * Hardware uses mirrored order of queues with Q3
+ * having the highest priority
+ */
+static inline u8 q2hwq(u8 q)
+{
+	return q ^ 0x3;
+}
+
 static inline struct ieee80211_txq *
 mtxq_to_txq(struct mt76_txq *mtxq)
 {
@@ -447,5 +524,41 @@ void mt76_rx_complete(struct mt76_dev *dev, struct sk_buff_head *frames,
 void mt76_rx_poll_complete(struct mt76_dev *dev, enum mt76_rxq_id q,
 			   struct napi_struct *napi);
 void mt76_rx_aggr_reorder(struct sk_buff *skb, struct sk_buff_head *frames);
+
+/* usb */
+static inline bool mt76_usb_urb_error(struct urb *urb)
+{
+	return urb->status &&
+	       urb->status != -ENOENT &&
+	       urb->status != -ECONNRESET &&
+	       urb->status != -ESHUTDOWN;
+}
+
+/* Map hardware queues to usb endpoints */
+static inline u8 q2ep(u8 qid)
+{
+	/* TODO: take management packets to queue 5 */
+	return qid + 1;
+}
+
+int mt76_usb_vendor_request(struct mt76_dev *dev, u8 req,
+			    u8 req_type, u16 val, u16 offset,
+			    void *buf, size_t len);
+void mt76_usb_single_wr(struct mt76_dev *dev, const u8 req,
+			const u16 offset, const u32 val);
+int mt76_usb_init(struct mt76_dev *dev, struct usb_interface *intf);
+void mt76_usb_deinit(struct mt76_dev *dev);
+int mt76_usb_buf_alloc(struct mt76_dev *dev, struct mt76_usb_buf *buf,
+		       size_t len);
+void mt76_usb_buf_free(struct mt76_dev *dev, struct mt76_usb_buf *buf);
+int mt76_usb_submit_buf(struct mt76_dev *dev, int dir, int index,
+			struct mt76_usb_buf *buf, gfp_t gfp,
+			usb_complete_t complete_fn, void *context);
+int mt76_usb_alloc_rx(struct mt76_dev *dev);
+int mt76_usb_alloc_tx(struct mt76_dev *dev);
+void mt76_usb_free_rx(struct mt76_dev *dev);
+void mt76_usb_free_tx(struct mt76_dev *dev);
+void mt76_usb_stop_rx(struct mt76_dev *dev);
+void mt76_usb_stop_tx(struct mt76_dev *dev);
 
 #endif
