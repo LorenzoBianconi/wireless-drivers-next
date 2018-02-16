@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 Felix Fietkau <nbd@nbd.name>
+ * Copyright (C) 2018 Lorenzo Bianconi <lorenzo.bianconi83@gmail.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -13,31 +13,11 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
-#ifndef __MT76_DMA_H
-#define __MT76_DMA_H
 
-#define MT_RING_SIZE			0x10
+#include <linux/module.h>
 
-#define MT_DMA_CTL_SD_LEN1		GENMASK(13, 0)
-#define MT_DMA_CTL_LAST_SEC1		BIT(14)
-#define MT_DMA_CTL_BURST		BIT(15)
-#define MT_DMA_CTL_SD_LEN0		GENMASK(29, 16)
-#define MT_DMA_CTL_LAST_SEC0		BIT(30)
-#define MT_DMA_CTL_DMA_DONE		BIT(31)
-
-#define MT_DMA_HDR_LEN			4
-#define MT_RX_INFO_LEN			4
-#define MT_FCE_INFO_LEN			4
-#define MT_RX_RXWI_LEN			32
-
-struct mt76_desc {
-	__le32 buf0;
-	__le32 ctrl;
-	__le32 buf1;
-	__le32 info;
-} __packed __aligned(4);
-
-int mt76_dma_attach(struct mt76_dev *dev);
-void mt76_dma_cleanup(struct mt76_dev *dev);
+#ifndef __CHECKER__
+#define CREATE_TRACE_POINTS
+#include "usb_trace.h"
 
 #endif
