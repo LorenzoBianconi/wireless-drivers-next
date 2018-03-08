@@ -61,8 +61,7 @@ mt76x2_mcu_get_response(struct mt76x2_dev *dev, unsigned long expires)
 		return NULL;
 
 	timeout = expires - jiffies;
-	wait_event_timeout(dev->mcu.wait, !skb_queue_empty(&dev->mcu.res_q),
-			   timeout);
+	wait_for_completion_timeout(&dev->mcu.resp_cmpl, timeout);
 	return skb_dequeue(&dev->mcu.res_q);
 }
 

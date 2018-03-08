@@ -47,7 +47,7 @@
 struct mt76x2_mcu {
 	struct mutex mutex;
 
-	wait_queue_head_t wait;
+	struct completion resp_cmpl;
 	struct sk_buff_head res_q;
 
 	u32 msg_seq;
