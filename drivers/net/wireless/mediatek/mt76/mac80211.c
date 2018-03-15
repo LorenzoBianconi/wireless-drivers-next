@@ -423,17 +423,28 @@ void mt76_wcid_key_setup(struct mt76_dev *dev, struct mt76_wcid *wcid,
 			 struct ieee80211_key_conf *key)
 {
 	struct ieee80211_key_seq seq;
-	int i;
+	int i, num_tids;
 
 	wcid->rx_check_pn = false;
 
 	if (!key)
 		return;
 
-	if (key->cipher == WLAN_CIPHER_SUITE_CCMP)
+	switch (key->cipher) {
+	case WLAN_CIPHER_SUITE_BIP_CMAC_256:
+	case WLAN_CIPHER_SUITE_BIP_GMAC_128:
+	case WLAN_CIPHER_SUITE_BIP_GMAC_256:
+	case WLAN_CIPHER_SUITE_AES_CMAC:
+		num_tids = 1;
+		break;
+	case WLAN_CIPHER_SUITE_CCMP:
 		wcid->rx_check_pn = true;
+	default:
+		num_tids = IEEE80211_NUM_TIDS;
+		break;
+	}
 
-	for (i = 0; i < IEEE80211_NUM_TIDS; i++) {
+	for (i = 0; i < num_tids; i++) {
 		ieee80211_get_key_rx_seq(key, i, &seq);
 		memcpy(wcid->rx_key_pn[i], seq.ccmp.pn, sizeof(seq.ccmp.pn));
 	}
