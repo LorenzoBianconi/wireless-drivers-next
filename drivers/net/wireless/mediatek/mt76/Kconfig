@@ -1,5 +1,8 @@
 config MT76_CORE
 	tristate
+	select MAC80211_LEDS
+	select LEDS_CLASS
+	select NEW_LEDS
 
 config MT76x2E
 	tristate "MediaTek MT76x2E (PCIe) support"
