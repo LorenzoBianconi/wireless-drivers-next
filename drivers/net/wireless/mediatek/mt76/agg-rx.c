@@ -112,7 +112,7 @@ mt76_rx_aggr_reorder_work(struct work_struct *work)
 	if (nframes)
 		ieee80211_queue_delayed_work(tid->dev->hw, &tid->reorder_work,
 					     REORDER_TIMEOUT);
-	mt76_rx_complete(dev, &frames, -1);
+	mt76_rx_complete(dev, &frames, NULL);
 
 	local_bh_enable();
 }
