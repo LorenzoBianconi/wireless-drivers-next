@@ -515,6 +515,28 @@ out:
 	rcu_read_unlock();
 }
 
+static struct mt76x2_tx_status
+mt76x2_mac_load_tx_status(struct mt76x2_dev *dev)
+{
+	struct mt76x2_tx_status stat = {};
+	u32 stat1, stat2;
+
+	stat2 = mt76_rr(dev, MT_TX_STAT_FIFO_EXT);
+	stat1 = mt76_rr(dev, MT_TX_STAT_FIFO);
+
+	stat.valid = !!(stat1 & MT_TX_STAT_FIFO_VALID);
+	stat.success = !!(stat1 & MT_TX_STAT_FIFO_SUCCESS);
+	stat.aggr = !!(stat1 & MT_TX_STAT_FIFO_AGGR);
+	stat.ack_req = !!(stat1 & MT_TX_STAT_FIFO_ACKREQ);
+	stat.wcid = FIELD_GET(MT_TX_STAT_FIFO_WCID, stat1);
+	stat.rate = FIELD_GET(MT_TX_STAT_FIFO_RATE, stat1);
+
+	stat.retry = FIELD_GET(MT_TX_STAT_FIFO_EXT_RETRY, stat2);
+	stat.pktid = FIELD_GET(MT_TX_STAT_FIFO_EXT_PKTID, stat2);
+
+	return stat;
+}
+
 void mt76x2_mac_poll_tx_status(struct mt76x2_dev *dev, bool irq)
 {
 	struct mt76x2_tx_status stat = {};
@@ -527,26 +549,13 @@ void mt76x2_mac_poll_tx_status(struct mt76x2_dev *dev, bool irq)
 	trace_mac_txstat_poll(dev);
 
 	while (!irq || !kfifo_is_full(&dev->txstatus_fifo)) {
-		u32 stat1, stat2;
-
 		spin_lock_irqsave(&dev->irq_lock, flags);
-		stat2 = mt76_rr(dev, MT_TX_STAT_FIFO_EXT);
-		stat1 = mt76_rr(dev, MT_TX_STAT_FIFO);
-		if (!(stat1 & MT_TX_STAT_FIFO_VALID)) {
-			spin_unlock_irqrestore(&dev->irq_lock, flags);
-			break;
-		}
-
+		stat = mt76x2_mac_load_tx_status(dev);
 		spin_unlock_irqrestore(&dev->irq_lock, flags);
 
-		stat.valid = 1;
-		stat.success = !!(stat1 & MT_TX_STAT_FIFO_SUCCESS);
-		stat.aggr = !!(stat1 & MT_TX_STAT_FIFO_AGGR);
-		stat.ack_req = !!(stat1 & MT_TX_STAT_FIFO_ACKREQ);
-		stat.wcid = FIELD_GET(MT_TX_STAT_FIFO_WCID, stat1);
-		stat.rate = FIELD_GET(MT_TX_STAT_FIFO_RATE, stat1);
-		stat.retry = FIELD_GET(MT_TX_STAT_FIFO_EXT_RETRY, stat2);
-		stat.pktid = FIELD_GET(MT_TX_STAT_FIFO_EXT_PKTID, stat2);
+		if (!stat.valid)
+			break;
+
 		trace_mac_txstat_fetch(dev, &stat);
 
 		if (!irq) {
