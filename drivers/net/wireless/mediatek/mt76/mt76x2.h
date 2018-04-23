@@ -207,6 +207,8 @@ static inline bool wait_for_wpdma(struct mt76x2_dev *dev)
 
 extern const struct ieee80211_ops mt76x2_ops;
 
+extern struct ieee80211_rate mt76x2_rates[12];
+
 struct mt76x2_dev *mt76x2_alloc_device(struct device *pdev);
 int mt76x2_register_device(struct mt76x2_dev *dev);
 void mt76x2_init_debugfs(struct mt76x2_dev *dev);
@@ -273,5 +275,9 @@ int mt76x2_insert_hdr_pad(struct sk_buff *skb);
 struct mt76x2_tx_status mt76x2_mac_load_tx_status(struct mt76x2_dev *dev);
 void mt76x2_send_tx_status(struct mt76x2_dev *dev,
 			   struct mt76x2_tx_status *stat, u8 *update);
+void mt76x2_reset_wlan(struct mt76x2_dev *dev, bool enable);
+void mt76x2_init_txpower(struct mt76x2_dev *dev,
+			 struct ieee80211_supported_band *sband);
+void mt76_write_mac_initvals(struct mt76x2_dev *dev);
 
 #endif
