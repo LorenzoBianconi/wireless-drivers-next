@@ -293,81 +293,83 @@ mt76_txq_send_burst(struct mt76_dev *dev, struct mt76_queue *hwq,
 		    struct mt76_txq *mtxq, bool *empty)
 {
 	struct ieee80211_txq *txq = mtxq_to_txq(mtxq);
-	struct ieee80211_tx_info *info;
+	struct sk_buff *skb, *nxt_skb = NULL;
+	bool ampdu, cur_ampdu, last = false;
 	struct mt76_wcid *wcid = mtxq->wcid;
-	struct sk_buff *skb;
-	int n_frames = 1, limit;
 	struct ieee80211_tx_rate tx_rate;
-	bool ampdu;
-	bool probe;
-	int idx;
+	int idx = 0, n_frames = 0, limit;
+	struct ieee80211_tx_info *info;
 
 	skb = mt76_txq_dequeue(dev, mtxq, false);
 	if (!skb) {
 		*empty = true;
 		return 0;
 	}
-
 	info = IEEE80211_SKB_CB(skb);
+
 	if (!wcid->tx_rate_set)
 		ieee80211_get_tx_rates(txq->vif, txq->sta, skb,
 				       info->control.rates, 1);
 	tx_rate = info->control.rates[0];
 
-	probe = (info->flags & IEEE80211_TX_CTL_RATE_CTRL_PROBE);
-	ampdu = IEEE80211_SKB_CB(skb)->flags & IEEE80211_TX_CTL_AMPDU;
+	info = IEEE80211_SKB_CB(skb);
+	ampdu = info->flags & IEEE80211_TX_CTL_AMPDU;
 	limit = ampdu ? 16 : 3;
-
 	if (ampdu)
 		mt76_check_agg_ssn(mtxq, skb);
 
-	idx = mt76_tx_queue_skb(dev, hwq, skb, wcid, txq->sta);
+	if (info->flags & IEEE80211_TX_CTL_RATE_CTRL_PROBE) {
+		idx = mt76_tx_queue_skb(dev, hwq, skb,
+					wcid, txq->sta);
+		if (idx < 0)
+			return idx;
 
-	if (idx < 0)
-		return idx;
+		dev->queue_ops->kick(dev, hwq);
+		return 1;
+	} else {
+		nxt_skb = skb;
+	}
 
-	do {
-		bool cur_ampdu;
-
-		if (probe)
-			break;
-
+	while (!last) {
 		if (test_bit(MT76_SCANNING, &dev->state) ||
 		    test_bit(MT76_RESET, &dev->state))
 			return -EBUSY;
 
-		skb = mt76_txq_dequeue(dev, mtxq, false);
+		skb = nxt_skb;
 		if (!skb) {
 			*empty = true;
 			break;
 		}
-
 		info = IEEE80211_SKB_CB(skb);
-		cur_ampdu = info->flags & IEEE80211_TX_CTL_AMPDU;
-
-		if (ampdu != cur_ampdu ||
-		    (info->flags & IEEE80211_TX_CTL_RATE_CTRL_PROBE)) {
-			skb_queue_tail(&mtxq->retry_q, skb);
-			break;
-		}
 
 		info->control.rates[0] = tx_rate;
-
-		if (cur_ampdu)
+		if (info->flags & IEEE80211_TX_CTL_AMPDU)
 			mt76_check_agg_ssn(mtxq, skb);
+
+		nxt_skb = mt76_txq_dequeue(dev, mtxq, false);
+		if (!nxt_skb) {
+			last = true;
+		} else {
+			info = IEEE80211_SKB_CB(nxt_skb);
+			cur_ampdu = info->flags & IEEE80211_TX_CTL_AMPDU;
+
+			if (ampdu != cur_ampdu ||
+			    (info->flags & IEEE80211_TX_CTL_RATE_CTRL_PROBE)) {
+				skb_queue_tail(&mtxq->retry_q, nxt_skb);
+				last = true;
+			}
+		}
+
+		if (++n_frames >= limit)
+			last = true;
 
 		idx = mt76_tx_queue_skb(dev, hwq, skb, wcid, txq->sta);
 		if (idx < 0)
 			return idx;
-
-		n_frames++;
-	} while (n_frames < limit);
-
-	if (!probe) {
-		hwq->swq_queued++;
-		hwq->entry[idx].schedule = true;
 	}
 
+	hwq->entry[idx].schedule = true;
+	hwq->swq_queued++;
 	dev->queue_ops->kick(dev, hwq);
 
 	return n_frames;
