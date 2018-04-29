@@ -66,11 +66,15 @@ struct mt76_queue_buf {
 
 struct mt76_usb_buf {
 	struct mt76_dev *dev;
+
 	struct urb *urb;
+	bool done;
+
+	struct sk_buff_head tx_pending;
+
 	dma_addr_t dma;
 	void *buf;
 	size_t len;
-	bool done;
 };
 
 struct mt76_queue_entry {
@@ -102,7 +106,6 @@ struct mt76_queue {
 	struct list_head swq;
 	int swq_queued;
 
-	u16 first;
 	u16 head;
 	u16 tail;
 	int ndesc;
@@ -283,9 +286,9 @@ enum mt76_usb_out_ep {
 	__MT_EP_OUT_MAX,
 };
 
-#define MT_URB_SIZE		(PAGE_SIZE << 3)
-#define MT_NUM_TX_ENTRIES	256
-#define MT_NUM_RX_ENTRIES	32
+#define MT_URB_SIZE		(PAGE_SIZE << 2)
+#define MT_NUM_TX_ENTRIES	64
+#define MT_NUM_RX_ENTRIES	16
 struct mt76_usb {
 	struct mutex usb_ctrl_mtx;
 	u8 data[32];
