@@ -73,21 +73,4 @@ int mt76x2u_tx_prepare_skb(struct mt76_dev *mdev, void *data,
 void mt76x2u_tx_complete_skb(struct mt76_dev *mdev, struct mt76_queue *q,
 			     struct mt76_queue_entry *e, bool flush);
 
-static inline int mt76x2u_dma_skb_info(struct sk_buff *skb,
-				       enum dma_msg_port port,
-				       u32 flags)
-{
-	/* Buffer layout:
-	 *	|   4B   | xfer len |      pad       |  4B  |
-	 *	| TXINFO | pkt/cmd  | zero pad to 4B | zero |
-	 *
-	 * length field of TXINFO should be set to 'xfer len'.
-	 */
-	u32 info = FIELD_PREP(MT_TXD_INFO_LEN, round_up(skb->len, 4)) |
-		   FIELD_PREP(MT_TXD_INFO_DPORT, port) | flags;
-
-	put_unaligned_le32(info, skb_push(skb, sizeof(info)));
-	return skb_put_padto(skb, round_up(skb->len, 4) + 4);
-}
-
 #endif /* __MT76x2U_H */

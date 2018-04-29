@@ -109,10 +109,13 @@ static int mt76x2u_mcu_send_msg(struct mt76x2_dev *dev, struct sk_buff *skb,
 			seq = ++dev->mcu.msg_seq & 0xf;
 	}
 
-	info = FIELD_PREP(MT_MCU_MSG_CMD_SEQ, seq) |
+	info = FIELD_PREP(MT_MCU_MSG_LEN, round_up(skb->len, 4)) |
+	       FIELD_PREP(MT_MCU_MSG_PORT, CPU_TX_PORT) |
+	       FIELD_PREP(MT_MCU_MSG_CMD_SEQ, seq) |
 	       FIELD_PREP(MT_MCU_MSG_CMD_TYPE, cmd) |
 	       MT_MCU_MSG_TYPE_CMD;
-	ret = mt76x2u_dma_skb_info(skb, CPU_TX_PORT, info);
+	put_unaligned_le32(info, skb_push(skb, sizeof(info)));
+	ret = skb_put_padto(skb, round_up(skb->len, 4) + 4);
 	if (ret)
 		goto out;
 

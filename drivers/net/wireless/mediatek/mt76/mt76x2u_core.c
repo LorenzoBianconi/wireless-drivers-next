@@ -63,23 +63,33 @@ mt76x2u_check_skb_rooms(struct mt76x2_dev *dev, struct sk_buff *skb)
 
 static int
 mt76x2u_set_txinfo(struct mt76x2_dev *dev, struct sk_buff *skb,
-		   struct mt76_wcid *wcid, u8 ep)
+		   struct mt76_wcid *wcid, u8 ep, bool last)
 {
-	enum mt76x2_qsel qsel = ep == 5 ? MT_QSEL_MGMT : MT_QSEL_EDCA;
-	u32 flags = FIELD_PREP(MT_TXD_INFO_QSEL, qsel) |
-		    MT_TXD_INFO_80211;
+	enum mt76x2_qsel qsel;
+	u32 info;
+
+	qsel = (ep == 5) ? MT_QSEL_MGMT : MT_QSEL_EDCA;
+	info = FIELD_PREP(MT_TXD_INFO_LEN, round_up(skb->len, 4)) |
+	       FIELD_PREP(MT_TXD_INFO_DPORT, WLAN_PORT) |
+	       FIELD_PREP(MT_TXD_INFO_QSEL, qsel) |
+	       MT_TXD_INFO_80211;
 
 	if (!wcid || wcid->hw_key_idx == 0xff || wcid->sw_iv)
-		flags |= MT_TXD_INFO_WIV;
+		info |= MT_TXD_INFO_WIV;
+	if (!last)
+		info |= MT_TXD_INFO_NEXT_VLD;
 
-	return mt76x2u_dma_skb_info(skb, WLAN_PORT, flags);
+	put_unaligned_le32(info, skb_push(skb, sizeof(info)));
+	return last ? skb_put_padto(skb, round_up(skb->len, 4) + 4) : 0;
 }
 
 static void
 mt76x2u_tx_status(struct mt76x2_dev *dev, struct mt76_queue *q)
 {
 	struct mt76_usb_buf *buf;
-	struct sk_buff *skb;
+	struct sk_buff_head skbs;
+
+	__skb_queue_head_init(&skbs);
 
 	spin_lock_bh(&q->lock);
 	while (true) {
@@ -87,9 +97,8 @@ mt76x2u_tx_status(struct mt76x2_dev *dev, struct mt76_queue *q)
 		if (!buf->done || q->head == q->tail)
 			break;
 
-		skb = q->entry[q->head].skb;
-		mt76x2u_remove_dma_hdr(skb);
-		mt76x2_tx_complete(dev, skb);
+		buf->len = 0;
+		skb_queue_splice_init(&buf->tx_pending, &skbs);
 		if (q->entry[q->head].schedule) {
 			q->entry[q->head].schedule = false;
 			q->swq_queued--;
@@ -97,11 +106,17 @@ mt76x2u_tx_status(struct mt76x2_dev *dev, struct mt76_queue *q)
 
 		q->head = (q->head + 1) % q->ndesc;
 		if (--q->queued == q->ndesc - 8)
-			ieee80211_wake_queue(mt76_hw(dev),
-					     skb_get_queue_mapping(skb));
+			ieee80211_wake_queue(mt76_hw(dev), q2hwq(q->hw_idx));
 	}
 	mt76_txq_schedule(&dev->mt76, q);
 	spin_unlock_bh(&q->lock);
+
+	while (!skb_queue_empty(&skbs)) {
+		struct sk_buff *skb = __skb_dequeue(&skbs);
+
+		mt76x2u_remove_dma_hdr(skb);
+		mt76x2_tx_complete(dev, skb);
+	}
 }
 
 void mt76x2u_tx_status_data(struct work_struct *work)
@@ -147,7 +162,7 @@ int mt76x2u_tx_prepare_skb(struct mt76_dev *mdev, void *data,
 	txwi = skb_push(skb, sizeof(struct mt76x2_txwi));
 	mt76x2_mac_write_txwi(dev, txwi, skb, wcid, sta, len);
 
-	return mt76x2u_set_txinfo(dev, skb, wcid, q2ep(q->hw_idx));
+	return mt76x2u_set_txinfo(dev, skb, wcid, q2ep(q->hw_idx), *tx_info);
 }
 
 void mt76x2u_tx_complete_skb(struct mt76_dev *mdev, struct mt76_queue *q,
