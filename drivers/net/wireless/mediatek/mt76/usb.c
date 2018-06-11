@@ -156,7 +156,7 @@ static void mt76_usb_copy(struct mt76_dev *dev, u32 offset, const void *data,
 			  int len)
 {
 	struct mt76_usb *usb = &dev->usb;
-	const __le32 *val = data;
+	const u32 *val = data;
 	int i, ret;
 
 	mutex_lock(&usb->usb_ctrl_mtx);
