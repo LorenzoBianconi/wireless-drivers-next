@@ -516,7 +516,6 @@ static void mt76_usb_tx_tasklet(unsigned long data)
 {
 	struct mt76_dev *dev = (struct mt76_dev *)data;
 
-	set_bit(MT76_PENDING_STATS, &dev->state);
 	dev->drv->tx_complete_skb(dev, NULL, NULL, false);
 }
 
