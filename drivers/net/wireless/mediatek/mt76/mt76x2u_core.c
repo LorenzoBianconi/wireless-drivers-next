@@ -147,7 +147,7 @@ void mt76x2u_tx_status_data(struct work_struct *work)
 		count++;
 	}
 
-	if (count || test_and_clear_bit(MT76_PENDING_STATS, &dev->mt76.state))
+	if (count)
 		ieee80211_queue_delayed_work(mt76_hw(dev), &dev->stat_work,
 					     msecs_to_jiffies(10));
 	else
