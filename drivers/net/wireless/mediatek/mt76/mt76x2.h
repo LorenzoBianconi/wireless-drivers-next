@@ -140,6 +140,8 @@ struct mt76x2_dev {
 	u8 slottime;
 
 	struct mt76x2_dfs_pattern_detector dfs_pd;
+
+	bool debug;
 };
 
 struct mt76x2_vif {

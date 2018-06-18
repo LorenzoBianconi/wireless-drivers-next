@@ -125,6 +125,7 @@ void mt76x2_init_debugfs(struct mt76x2_dev *dev)
 
 	debugfs_create_u8("temperature", 0400, dir, &dev->cal.temp);
 	debugfs_create_bool("tpc", 0600, dir, &dev->enable_tpc);
+	debugfs_create_bool("debug", 0600, dir, &dev->debug);
 
 	debugfs_create_file("ampdu_stat", 0400, dir, dev, &fops_ampdu_stat);
 	debugfs_create_file("dfs_stats", 0400, dir, dev, &fops_dfs_stat);

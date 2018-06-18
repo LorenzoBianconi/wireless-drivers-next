@@ -166,6 +166,7 @@ mt76x2_mac_fill_tx_status(struct mt76x2_dev *dev,
 	info->status.ampdu_len = n_frames;
 	info->status.ampdu_ack_len = st->success ? n_frames : 0;
 
+	if (dev->debug) printk("%s: --> id=%x (probe=%d)\n", __func__, st->pktid, !!(st->pktid & MT_TXWI_PKTID_PROBE));
 	if (st->pktid & MT_TXWI_PKTID_PROBE)
 		info->flags |= IEEE80211_TX_CTL_RATE_CTRL_PROBE;
 
@@ -438,8 +439,10 @@ void mt76x2_mac_write_txwi(struct mt76x2_dev *dev, struct mt76x2_txwi *txwi,
 		txwi->ack_ctl |= MT_TXWI_ACK_CTL_REQ;
 	if (info->flags & IEEE80211_TX_CTL_ASSIGN_SEQ)
 		txwi->ack_ctl |= MT_TXWI_ACK_CTL_NSEQ;
-	if (info->flags & IEEE80211_TX_CTL_RATE_CTRL_PROBE)
+	if (info->flags & IEEE80211_TX_CTL_RATE_CTRL_PROBE) {
 		txwi->pktid |= MT_TXWI_PKTID_PROBE;
+		if (dev->debug) printk("%s: rate=%x (idx=%d) --> PROBE FRAME id=%x!!!\n", __func__, txwi->rate, rate->idx, txwi->pktid);
+	}
 	if ((info->flags & IEEE80211_TX_CTL_AMPDU) && sta) {
 		u8 ba_size = IEEE80211_MIN_AMPDU_BUF;
 
