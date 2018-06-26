@@ -548,9 +548,40 @@ static void mt76_usb_tx_tasklet(unsigned long data)
 
 		spin_unlock_bh(&q->lock);
 
+		if (!test_and_set_bit(MT76_READING_STATS, &dev->state))
+			ieee80211_queue_delayed_work(dev->hw,
+						     &dev->usb.stat_work,
+						     msecs_to_jiffies(10));
+
 		if (wake)
 			ieee80211_wake_queue(dev->hw, i);
 	}
+}
+
+static void mt76_usb_tx_status_data(struct work_struct *work)
+{
+	struct mt76_usb *usb;
+	struct mt76_dev *dev;
+	u8 update = 1;
+	u16 count = 0;
+
+	usb = container_of(work, struct mt76_usb, stat_work.work);
+	dev = container_of(usb, struct mt76_dev, usb);
+
+	while (true) {
+		if (!test_bit(MT76_REMOVED, &dev->state))
+			break;
+
+		if (!dev->drv->tx_status_data(dev, &update))
+			break;
+		count++;
+	}
+
+	if (count)
+		ieee80211_queue_delayed_work(dev->hw, &usb->stat_work,
+					     msecs_to_jiffies(10));
+	else
+		clear_bit(MT76_READING_STATS, &dev->state);
 }
 
 static void mt76_usb_complete_tx(struct urb *urb)
@@ -722,6 +753,7 @@ int mt76_usb_init(struct mt76_dev *dev,
 
 	tasklet_init(&usb->rx_tasklet, mt76_usb_rx_tasklet, (unsigned long)dev);
 	tasklet_init(&usb->tx_tasklet, mt76_usb_tx_tasklet, (unsigned long)dev);
+	INIT_DELAYED_WORK(&usb->stat_work, mt76_usb_tx_status_data);
 	skb_queue_head_init(&dev->rx_skb[MT_RXQ_MAIN]);
 
 	mutex_init(&usb->usb_ctrl_mtx);

@@ -229,6 +229,8 @@ struct mt76_driver_ops {
 	void (*tx_complete_skb)(struct mt76_dev *dev, struct mt76_queue *q,
 				struct mt76_queue_entry *e, bool flush);
 
+	bool (*tx_status_data)(struct mt76_dev *dev, u8 *update);
+
 	void (*rx_skb)(struct mt76_dev *dev, enum mt76_rxq_id q,
 		       struct sk_buff *skb);
 
@@ -290,6 +292,7 @@ struct mt76_usb {
 
 	struct tasklet_struct rx_tasklet;
 	struct tasklet_struct tx_tasklet;
+	struct delayed_work stat_work;
 
 	u8 out_ep[__MT_EP_OUT_MAX];
 	u16 out_max_packet;
