@@ -53,7 +53,7 @@ void mt76x2u_mcu_complete_urb(struct urb *urb)
 
 static int mt76x2u_mcu_wait_resp(struct mt76x2_dev *dev, u8 seq)
 {
-	struct mt76_usb_buf *buf = &dev->mcu.res_u;
+	struct mt76u_buf *buf = &dev->mcu.res_u;
 	int i, ret;
 	u32 rxfce;
 
@@ -66,11 +66,11 @@ static int mt76x2u_mcu_wait_resp(struct mt76x2_dev *dev, u8 seq)
 			return -EIO;
 
 		rxfce = get_unaligned_le32(sg_virt(&buf->urb->sg[0]));
-		ret = mt76_usb_submit_buf(&dev->mt76, USB_DIR_IN,
-					  MT_EP_IN_CMD_RESP,
-					  buf, GFP_KERNEL,
-					  mt76x2u_mcu_complete_urb,
-					  &dev->mcu.resp_cmpl);
+		ret = mt76u_submit_buf(&dev->mt76, USB_DIR_IN,
+				       MT_EP_IN_CMD_RESP,
+				       buf, GFP_KERNEL,
+				       mt76x2u_mcu_complete_urb,
+				       &dev->mcu.resp_cmpl);
 		if (ret)
 			return ret;
 
@@ -322,33 +322,33 @@ int mt76x2u_mcu_init_rx(struct mt76x2_dev *dev)
 {
 	int err;
 
-	err = mt76_usb_buf_alloc(&dev->mt76, &dev->mcu.res_u, 1,
-				 512, 512, GFP_KERNEL);
+	err = mt76u_buf_alloc(&dev->mt76, &dev->mcu.res_u, 1,
+			      512, 512, GFP_KERNEL);
 	if (err < 0)
 		return err;
 
-	err = mt76_usb_submit_buf(&dev->mt76, USB_DIR_IN, MT_EP_IN_CMD_RESP,
-				  &dev->mcu.res_u, GFP_KERNEL,
-				  mt76x2u_mcu_complete_urb,
-				  &dev->mcu.resp_cmpl);
+	err = mt76u_submit_buf(&dev->mt76, USB_DIR_IN, MT_EP_IN_CMD_RESP,
+			       &dev->mcu.res_u, GFP_KERNEL,
+			       mt76x2u_mcu_complete_urb,
+			       &dev->mcu.resp_cmpl);
 	if (err < 0)
-		mt76_usb_buf_free(&dev->mcu.res_u);
+		mt76u_buf_free(&dev->mcu.res_u);
 
 	return err;
 }
 
 static void mt76x2u_mcu_fw_reset(struct mt76x2_dev *dev)
 {
-	mt76_usb_vendor_request(&dev->mt76, MT_VEND_DEV_MODE,
-				USB_DIR_OUT | USB_TYPE_VENDOR,
-				0x1, 0, NULL, 0);
+	mt76u_vendor_request(&dev->mt76, MT_VEND_DEV_MODE,
+			     USB_DIR_OUT | USB_TYPE_VENDOR,
+			     0x1, 0, NULL, 0);
 }
 
 static void mt76x2u_mcu_load_ivb(struct mt76x2_dev *dev)
 {
-	mt76_usb_vendor_request(&dev->mt76, MT_VEND_DEV_MODE,
-				USB_DIR_OUT | USB_TYPE_VENDOR,
-				0x12, 0, NULL, 0);
+	mt76u_vendor_request(&dev->mt76, MT_VEND_DEV_MODE,
+			     USB_DIR_OUT | USB_TYPE_VENDOR,
+			     0x12, 0, NULL, 0);
 }
 
 static void mt7612u_mcu_enable_patch(struct mt76x2_dev *dev)
@@ -361,9 +361,9 @@ static void mt7612u_mcu_enable_patch(struct mt76x2_dev *dev)
 	};
 
 	memcpy(usb->data, data, sizeof(data));
-	mt76_usb_vendor_request(&dev->mt76, MT_VEND_DEV_MODE,
-				USB_DIR_OUT | USB_TYPE_CLASS,
-				0x12, 0, usb->data, sizeof(data));
+	mt76u_vendor_request(&dev->mt76, MT_VEND_DEV_MODE,
+			     USB_DIR_OUT | USB_TYPE_CLASS,
+			     0x12, 0, usb->data, sizeof(data));
 }
 
 static void mt7612u_mcu_reset_wmt(struct mt76x2_dev *dev)
@@ -375,13 +375,13 @@ static void mt7612u_mcu_reset_wmt(struct mt76x2_dev *dev)
 	};
 
 	memcpy(usb->data, data, sizeof(data));
-	mt76_usb_vendor_request(&dev->mt76, MT_VEND_DEV_MODE,
-				USB_DIR_OUT | USB_TYPE_CLASS,
-				0x12, 0, usb->data, sizeof(data));
+	mt76u_vendor_request(&dev->mt76, MT_VEND_DEV_MODE,
+			     USB_DIR_OUT | USB_TYPE_CLASS,
+			     0x12, 0, usb->data, sizeof(data));
 }
 
 static int
-__mt76x2u_mcu_fw_send_data(struct mt76x2_dev *dev, struct mt76_usb_buf *buf,
+__mt76x2u_mcu_fw_send_data(struct mt76x2_dev *dev, struct mt76u_buf *buf,
 			   const void *fw_data, int len, u32 dst_addr)
 {
 	u8 *data = sg_virt(&buf->urb->sg[0]);
@@ -398,17 +398,17 @@ __mt76x2u_mcu_fw_send_data(struct mt76x2_dev *dev, struct mt76_usb_buf *buf,
 	memcpy(data + sizeof(info), fw_data, len);
 	memset(data + sizeof(info) + len, 0, 4);
 
-	mt76_usb_single_wr(&dev->mt76, MT_VEND_WRITE_FCE,
-			   MT_FCE_DMA_ADDR, dst_addr);
+	mt76u_single_wr(&dev->mt76, MT_VEND_WRITE_FCE,
+			MT_FCE_DMA_ADDR, dst_addr);
 	len = roundup(len, 4);
-	mt76_usb_single_wr(&dev->mt76, MT_VEND_WRITE_FCE,
-			   MT_FCE_DMA_LEN, len << 16);
+	mt76u_single_wr(&dev->mt76, MT_VEND_WRITE_FCE,
+			MT_FCE_DMA_LEN, len << 16);
 
 	buf->len = MT_CMD_HDR_LEN + len + sizeof(info);
-	err = mt76_usb_submit_buf(&dev->mt76, USB_DIR_OUT,
-				  MT_EP_OUT_INBAND_CMD,
-				  buf, GFP_KERNEL,
-				  mt76x2u_mcu_complete_urb, &cmpl);
+	err = mt76u_submit_buf(&dev->mt76, USB_DIR_OUT,
+			       MT_EP_OUT_INBAND_CMD,
+			       buf, GFP_KERNEL,
+			       mt76x2u_mcu_complete_urb, &cmpl);
 	if (err < 0)
 		return err;
 
@@ -419,7 +419,7 @@ __mt76x2u_mcu_fw_send_data(struct mt76x2_dev *dev, struct mt76_usb_buf *buf,
 		return -ETIMEDOUT;
 	}
 
-	if (mt76_usb_urb_error(buf->urb)) {
+	if (mt76u_urb_error(buf->urb)) {
 		dev_err(dev->mt76.dev, "firmware upload failed: %d\n",
 			buf->urb->status);
 		return buf->urb->status;
@@ -437,10 +437,10 @@ mt76x2u_mcu_fw_send_data(struct mt76x2_dev *dev, const void *data,
 			 int data_len, u32 max_payload, u32 offset)
 {
 	int err, len, pos = 0, max_len = max_payload - 8;
-	struct mt76_usb_buf buf;
+	struct mt76u_buf buf;
 
-	err = mt76_usb_buf_alloc(&dev->mt76, &buf, 1, max_payload,
-				 max_payload, GFP_KERNEL);
+	err = mt76u_buf_alloc(&dev->mt76, &buf, 1, max_payload,
+			      max_payload, GFP_KERNEL);
 	if (err < 0)
 		return err;
 
@@ -455,7 +455,7 @@ mt76x2u_mcu_fw_send_data(struct mt76x2_dev *dev, const void *data,
 		pos += len;
 		usleep_range(5000, 10000);
 	}
-	mt76_usb_buf_free(&buf);
+	mt76u_buf_free(&buf);
 
 	return err;
 }
@@ -662,5 +662,5 @@ int mt76x2u_mcu_init(struct mt76x2_dev *dev)
 void mt76x2u_mcu_deinit(struct mt76x2_dev *dev)
 {
 	usb_kill_urb(dev->mcu.res_u.urb);
-	mt76_usb_buf_free(&dev->mcu.res_u);
+	mt76u_buf_free(&dev->mcu.res_u);
 }

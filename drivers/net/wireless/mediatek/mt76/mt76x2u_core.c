@@ -141,27 +141,27 @@ void mt76x2u_stop_queues(struct mt76x2_dev *dev)
 	tasklet_disable(&dev->mt76.usb.rx_tasklet);
 	tasklet_disable(&dev->mt76.usb.tx_tasklet);
 
-	mt76_usb_stop_rx(&dev->mt76);
-	mt76_usb_stop_tx(&dev->mt76);
+	mt76u_stop_rx(&dev->mt76);
+	mt76u_stop_tx(&dev->mt76);
 }
 
 void mt76x2u_queues_deinit(struct mt76x2_dev *dev)
 {
 	mt76x2u_stop_queues(dev);
 
-	mt76_usb_free_rx(&dev->mt76);
-	mt76_usb_free_tx(&dev->mt76);
+	mt76u_free_rx(&dev->mt76);
+	mt76u_free_tx(&dev->mt76);
 }
 
 int mt76x2u_alloc_queues(struct mt76x2_dev *dev)
 {
 	int err;
 
-	err = mt76_usb_alloc_rx(&dev->mt76);
+	err = mt76u_alloc_rx(&dev->mt76);
 	if (err < 0)
 		goto err;
 
-	err = mt76_usb_alloc_tx(&dev->mt76);
+	err = mt76u_alloc_tx(&dev->mt76);
 	if (err < 0)
 		goto err;
 

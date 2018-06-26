@@ -55,7 +55,7 @@ struct mt76x2_mcu {
 
 	struct completion resp_cmpl;
 	struct sk_buff_head res_q;
-	struct mt76_usb_buf res_u;
+	struct mt76u_buf res_u;
 
 	u32 msg_seq;
 };

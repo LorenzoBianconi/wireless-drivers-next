@@ -45,7 +45,7 @@ static int mt76x2u_probe(struct usb_interface *intf,
 	udev = usb_get_dev(udev);
 	usb_reset_device(udev);
 
-	err = mt76_usb_init(&dev->mt76, intf);
+	err = mt76u_init(&dev->mt76, intf);
 	if (err < 0)
 		goto err;
 
@@ -99,15 +99,15 @@ static int __maybe_unused mt76x2u_resume(struct usb_interface *intf)
 	int err;
 
 	reinit_completion(&dev->mcu.resp_cmpl);
-	err = mt76_usb_submit_buf(&dev->mt76, USB_DIR_IN,
-				  MT_EP_IN_CMD_RESP,
-				  &dev->mcu.res_u, GFP_KERNEL,
-				  mt76x2u_mcu_complete_urb,
-				  &dev->mcu.resp_cmpl);
+	err = mt76u_submit_buf(&dev->mt76, USB_DIR_IN,
+			       MT_EP_IN_CMD_RESP,
+			       &dev->mcu.res_u, GFP_KERNEL,
+			       mt76x2u_mcu_complete_urb,
+			       &dev->mcu.resp_cmpl);
 	if (err < 0)
 		return err;
 
-	err = mt76_usb_submit_rx_buffers(&dev->mt76);
+	err = mt76u_submit_rx_buffers(&dev->mt76);
 	if (err < 0)
 		return err;
 
