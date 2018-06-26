@@ -458,7 +458,7 @@ int mt76u_submit_rx_buffers(struct mt76_dev *dev)
 }
 EXPORT_SYMBOL_GPL(mt76u_submit_rx_buffers);
 
-int mt76u_alloc_rx(struct mt76_dev *dev)
+static int mt76u_alloc_rx(struct mt76_dev *dev)
 {
 	struct mt76_queue *q = &dev->q_rx[MT_RXQ_MAIN];
 	int i, err, nsgs;
@@ -490,9 +490,8 @@ int mt76u_alloc_rx(struct mt76_dev *dev)
 
 	return mt76u_submit_rx_buffers(dev);
 }
-EXPORT_SYMBOL_GPL(mt76u_alloc_rx);
 
-void mt76u_free_rx(struct mt76_dev *dev)
+static void mt76u_free_rx(struct mt76_dev *dev)
 {
 	struct mt76_queue *q = &dev->q_rx[MT_RXQ_MAIN];
 	int i;
@@ -500,9 +499,8 @@ void mt76u_free_rx(struct mt76_dev *dev)
 	for (i = 0; i < q->ndesc; i++)
 		mt76u_buf_free(&q->entry[i].ubuf);
 }
-EXPORT_SYMBOL_GPL(mt76u_free_rx);
 
-void mt76u_stop_rx(struct mt76_dev *dev)
+static void mt76u_stop_rx(struct mt76_dev *dev)
 {
 	struct mt76_queue *q = &dev->q_rx[MT_RXQ_MAIN];
 	int i;
@@ -510,7 +508,6 @@ void mt76u_stop_rx(struct mt76_dev *dev)
 	for (i = 0; i < q->ndesc; i++)
 		usb_kill_urb(q->entry[i].ubuf.urb);
 }
-EXPORT_SYMBOL_GPL(mt76u_stop_rx);
 
 static void mt76u_tx_tasklet(unsigned long data)
 {
@@ -672,7 +669,7 @@ static void mt76u_tx_kick(struct mt76_dev *dev, struct mt76_queue *q)
 	}
 }
 
-int mt76u_alloc_tx(struct mt76_dev *dev)
+static int mt76u_alloc_tx(struct mt76_dev *dev)
 {
 	struct mt76u_buf *buf;
 	struct mt76_queue *q;
@@ -708,9 +705,8 @@ int mt76u_alloc_tx(struct mt76_dev *dev)
 	}
 	return 0;
 }
-EXPORT_SYMBOL_GPL(mt76u_alloc_tx);
 
-void mt76u_free_tx(struct mt76_dev *dev)
+static void mt76u_free_tx(struct mt76_dev *dev)
 {
 	struct mt76_queue *q;
 	int i, j;
@@ -721,9 +717,8 @@ void mt76u_free_tx(struct mt76_dev *dev)
 			usb_free_urb(q->entry[j].ubuf.urb);
 	}
 }
-EXPORT_SYMBOL_GPL(mt76u_free_tx);
 
-void mt76u_stop_tx(struct mt76_dev *dev)
+static void mt76u_stop_tx(struct mt76_dev *dev)
 {
 	struct mt76_queue *q;
 	int i, j;
@@ -734,7 +729,44 @@ void mt76u_stop_tx(struct mt76_dev *dev)
 			usb_kill_urb(q->entry[j].ubuf.urb);
 	}
 }
-EXPORT_SYMBOL_GPL(mt76u_stop_tx);
+
+void mt76u_stop_queues(struct mt76_dev *dev)
+{
+	tasklet_disable(&dev->usb.rx_tasklet);
+	tasklet_disable(&dev->usb.tx_tasklet);
+
+	mt76u_stop_rx(dev);
+	mt76u_stop_tx(dev);
+}
+EXPORT_SYMBOL_GPL(mt76u_stop_queues);
+
+void mt76u_queues_deinit(struct mt76_dev *dev)
+{
+	mt76u_stop_queues(dev);
+
+	mt76u_free_rx(dev);
+	mt76u_free_tx(dev);
+}
+EXPORT_SYMBOL_GPL(mt76u_queues_deinit);
+
+int mt76u_alloc_queues(struct mt76_dev *dev)
+{
+	int err;
+
+	err = mt76u_alloc_rx(dev);
+	if (err < 0)
+		goto err;
+
+	err = mt76u_alloc_tx(dev);
+	if (err < 0)
+		goto err;
+
+	return 0;
+err:
+	mt76u_queues_deinit(dev);
+	return err;
+}
+EXPORT_SYMBOL_GPL(mt76u_alloc_queues);
 
 static const struct mt76_queue_ops usb_queue_ops = {
 	.tx_queue_skb = mt76u_tx_queue_skb,

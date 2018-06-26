@@ -571,11 +571,8 @@ int mt76u_submit_buf(struct mt76_dev *dev, int dir, int index,
 		     struct mt76u_buf *buf, gfp_t gfp,
 		     usb_complete_t complete_fn, void *context);
 int mt76u_submit_rx_buffers(struct mt76_dev *dev);
-int mt76u_alloc_rx(struct mt76_dev *dev);
-int mt76u_alloc_tx(struct mt76_dev *dev);
-void mt76u_free_rx(struct mt76_dev *dev);
-void mt76u_free_tx(struct mt76_dev *dev);
-void mt76u_stop_rx(struct mt76_dev *dev);
-void mt76u_stop_tx(struct mt76_dev *dev);
+int mt76u_alloc_queues(struct mt76_dev *dev);
+void mt76u_stop_queues(struct mt76_dev *dev);
+void mt76u_queues_deinit(struct mt76_dev *dev);
 
 #endif
