@@ -32,7 +32,7 @@ static void mt76x2u_remove_dma_hdr(struct sk_buff *skb)
 }
 
 static int
-mt76x2u_check_skb_rooms(struct mt76x2_dev *dev, struct sk_buff *skb)
+mt76x2u_check_skb_rooms(struct sk_buff *skb)
 {
 	int hdr_len = ieee80211_get_hdrlen_from_skb(skb);
 	u32 need_head;
@@ -72,7 +72,7 @@ int mt76x2u_skb_dma_info(struct sk_buff *skb, enum dma_msg_port port,
 }
 
 static int
-mt76x2u_set_txinfo(struct mt76x2_dev *dev, struct sk_buff *skb,
+mt76x2u_set_txinfo(struct sk_buff *skb,
 		   struct mt76_wcid *wcid, u8 ep)
 {
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
@@ -163,7 +163,7 @@ int mt76x2u_tx_prepare_skb(struct mt76_dev *mdev, void *data,
 	struct mt76x2_txwi *txwi;
 	int err, len = skb->len;
 
-	err = mt76x2u_check_skb_rooms(dev, skb);
+	err = mt76x2u_check_skb_rooms(skb);
 	if (err < 0)
 		return -ENOMEM;
 
@@ -172,7 +172,7 @@ int mt76x2u_tx_prepare_skb(struct mt76_dev *mdev, void *data,
 	txwi = skb_push(skb, sizeof(struct mt76x2_txwi));
 	mt76x2_mac_write_txwi(dev, txwi, skb, wcid, sta, len);
 
-	return mt76x2u_set_txinfo(dev, skb, wcid, q2ep(q->hw_idx));
+	return mt76x2u_set_txinfo(skb, wcid, q2ep(q->hw_idx));
 }
 
 void mt76x2u_tx_complete_skb(struct mt76_dev *mdev, struct mt76_queue *q,
