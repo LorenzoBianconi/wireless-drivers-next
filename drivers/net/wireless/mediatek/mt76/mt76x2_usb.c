@@ -86,7 +86,7 @@ static int __maybe_unused mt76x2u_suspend(struct usb_interface *intf,
 {
 	struct mt76x2_dev *dev = usb_get_intfdata(intf);
 
-	mt76x2u_stop_queues(dev);
+	mt76u_stop_queues(&dev->mt76);
 	mt76x2u_stop_hw(dev);
 	usb_kill_urb(dev->mcu.res_u.urb);
 

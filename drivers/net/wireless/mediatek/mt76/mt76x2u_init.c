@@ -271,7 +271,7 @@ int mt76x2u_register_device(struct mt76x2_dev *dev)
 	if (err < 0)
 		return err;
 
-	err = mt76x2u_alloc_queues(dev);
+	err = mt76u_alloc_queues(&dev->mt76);
 	if (err < 0)
 		goto fail;
 
@@ -318,6 +318,6 @@ void mt76x2u_cleanup(struct mt76x2_dev *dev)
 {
 	mt76x2u_mcu_set_radio_state(dev, false);
 	mt76x2u_stop_hw(dev);
-	mt76x2u_queues_deinit(dev);
+	mt76u_queues_deinit(&dev->mt76);
 	mt76x2u_mcu_deinit(dev);
 }
