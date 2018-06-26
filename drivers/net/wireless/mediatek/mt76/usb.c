@@ -515,8 +515,42 @@ EXPORT_SYMBOL_GPL(mt76_usb_stop_rx);
 static void mt76_usb_tx_tasklet(unsigned long data)
 {
 	struct mt76_dev *dev = (struct mt76_dev *)data;
+	struct mt76_usb_buf *buf;
+	struct mt76_queue *q;
+	bool wake;
+	int i;
 
-	dev->drv->tx_complete_skb(dev, NULL, NULL, false);
+	for (i = 0; i < IEEE80211_NUM_ACS; i++) {
+		q = &dev->q_tx[i];
+
+		spin_lock_bh(&q->lock);
+		while (true) {
+			buf = &q->entry[q->head].ubuf;
+			if (!buf->done || !q->queued)
+				break;
+
+			dev->drv->tx_complete_skb(dev, q,
+						  &q->entry[q->head],
+						  false);
+
+			if (q->entry[q->head].schedule) {
+				q->entry[q->head].schedule = false;
+				q->swq_queued--;
+			}
+
+			q->head = (q->head + 1) % q->ndesc;
+			q->queued--;
+		}
+		mt76_txq_schedule(dev, q);
+		wake = i < IEEE80211_NUM_ACS && q->queued < q->ndesc - 8;
+		if (!q->queued)
+			wake_up(&dev->tx_wait);
+
+		spin_unlock_bh(&q->lock);
+
+		if (wake)
+			ieee80211_wake_queue(dev->hw, i);
+	}
 }
 
 static void mt76_usb_complete_tx(struct urb *urb)
