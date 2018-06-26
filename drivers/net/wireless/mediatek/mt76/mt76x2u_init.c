@@ -137,6 +137,7 @@ struct mt76x2_dev *mt76x2u_alloc_device(struct device *pdev)
 	static const struct mt76_driver_ops drv_ops = {
 		.tx_prepare_skb = mt76x2u_tx_prepare_skb,
 		.tx_complete_skb = mt76x2u_tx_complete_skb,
+		.tx_status_data = mt76x2u_tx_status_data,
 		.rx_skb = mt76x2_queue_rx_skb,
 	};
 	struct mt76x2_dev *dev;
@@ -260,7 +261,6 @@ int mt76x2u_register_device(struct mt76x2_dev *dev)
 	int err;
 
 	INIT_DELAYED_WORK(&dev->cal_work, mt76x2u_phy_calibrate);
-	INIT_DELAYED_WORK(&dev->stat_work, mt76x2u_tx_status_data);
 	mt76x2_init_device(dev);
 
 	err = mt76x2u_init_eeprom(dev);
@@ -307,7 +307,9 @@ fail:
 
 void mt76x2u_stop_hw(struct mt76x2_dev *dev)
 {
-	cancel_delayed_work_sync(&dev->stat_work);
+	struct mt76_usb *usb = &dev->mt76.usb;
+
+	cancel_delayed_work_sync(&usb->stat_work);
 	cancel_delayed_work_sync(&dev->cal_work);
 	mt76x2u_mac_stop(dev);
 }

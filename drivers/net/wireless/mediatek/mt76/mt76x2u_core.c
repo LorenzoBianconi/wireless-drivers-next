@@ -93,28 +93,17 @@ mt76x2u_set_txinfo(struct sk_buff *skb,
 	return mt76x2u_skb_dma_info(skb, WLAN_PORT, flags);
 }
 
-void mt76x2u_tx_status_data(struct work_struct *work)
+bool mt76x2u_tx_status_data(struct mt76_dev *mdev, u8 *update)
 {
+	struct mt76x2_dev *dev = container_of(mdev, struct mt76x2_dev, mt76);
 	struct mt76x2_tx_status stat;
-	struct mt76x2_dev *dev;
-	u8 update = 1;
-	u16 count = 0;
 
-	dev = container_of(work, struct mt76x2_dev, stat_work.work);
+	if (!mt76x2_mac_load_tx_status(dev, &stat))
+		return false;
 
-	while (!test_bit(MT76_REMOVED, &dev->mt76.state)) {
-		if (!mt76x2_mac_load_tx_status(dev, &stat))
-			break;
+	mt76x2_send_tx_status(dev, &stat, update);
 
-		mt76x2_send_tx_status(dev, &stat, &update);
-		count++;
-	}
-
-	if (count)
-		ieee80211_queue_delayed_work(mt76_hw(dev), &dev->stat_work,
-					     msecs_to_jiffies(10));
-	else
-		clear_bit(MT76_READING_STATS, &dev->mt76.state);
+	return true;
 }
 
 int mt76x2u_tx_prepare_skb(struct mt76_dev *mdev, void *data,
@@ -145,10 +134,6 @@ void mt76x2u_tx_complete_skb(struct mt76_dev *mdev, struct mt76_queue *q,
 
 	mt76x2u_remove_dma_hdr(e->skb);
 	mt76x2_tx_complete(dev, e->skb);
-
-	if (!test_and_set_bit(MT76_READING_STATS, &dev->mt76.state))
-		ieee80211_queue_delayed_work(mt76_hw(dev), &dev->stat_work,
-					     msecs_to_jiffies(10));
 }
 
 void mt76x2u_stop_queues(struct mt76x2_dev *dev)
