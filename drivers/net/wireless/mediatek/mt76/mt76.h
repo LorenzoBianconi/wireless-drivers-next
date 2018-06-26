@@ -64,7 +64,7 @@ struct mt76_queue_buf {
 	int len;
 };
 
-struct mt76_usb_buf {
+struct mt76u_buf {
 	struct mt76_dev *dev;
 	struct urb *urb;
 	size_t len;
@@ -78,7 +78,7 @@ struct mt76_queue_entry {
 	};
 	union {
 		struct mt76_txwi_cache *txwi;
-		struct mt76_usb_buf ubuf;
+		struct mt76u_buf ubuf;
 	};
 	bool schedule;
 };
@@ -267,13 +267,13 @@ enum mt_vendor_req {
 	MT_VEND_READ_CFG =	0x47,
 };
 
-enum mt76_usb_in_ep {
+enum mt76u_in_ep {
 	MT_EP_IN_PKT_RX,
 	MT_EP_IN_CMD_RESP,
 	__MT_EP_IN_MAX,
 };
 
-enum mt76_usb_out_ep {
+enum mt76u_out_ep {
 	MT_EP_OUT_INBAND_CMD,
 	MT_EP_OUT_AC_BK,
 	MT_EP_OUT_AC_BE,
@@ -532,7 +532,7 @@ void mt76_rx_poll_complete(struct mt76_dev *dev, enum mt76_rxq_id q,
 void mt76_rx_aggr_reorder(struct sk_buff *skb, struct sk_buff_head *frames);
 
 /* usb */
-static inline bool mt76_usb_urb_error(struct urb *urb)
+static inline bool mt76u_urb_error(struct urb *urb)
 {
 	return urb->status &&
 	       urb->status != -ECONNRESET &&
@@ -547,7 +547,7 @@ static inline u8 q2ep(u8 qid)
 	return qid + 1;
 }
 
-static inline bool mt76_usb_check_sg(struct mt76_dev *dev)
+static inline bool mt76u_check_sg(struct mt76_dev *dev)
 {
 	struct usb_interface *intf = to_usb_interface(dev->dev);
 	struct usb_device *udev = interface_to_usbdev(intf);
@@ -557,25 +557,25 @@ static inline bool mt76_usb_check_sg(struct mt76_dev *dev)
 		 udev->speed == USB_SPEED_WIRELESS));
 }
 
-int mt76_usb_vendor_request(struct mt76_dev *dev, u8 req,
-			    u8 req_type, u16 val, u16 offset,
-			    void *buf, size_t len);
-void mt76_usb_single_wr(struct mt76_dev *dev, const u8 req,
-			const u16 offset, const u32 val);
-int mt76_usb_init(struct mt76_dev *dev, struct usb_interface *intf);
-void mt76_usb_deinit(struct mt76_dev *dev);
-int mt76_usb_buf_alloc(struct mt76_dev *dev, struct mt76_usb_buf *buf,
-		       int nsgs, int len, int sglen, gfp_t gfp);
-void mt76_usb_buf_free(struct mt76_usb_buf *buf);
-int mt76_usb_submit_buf(struct mt76_dev *dev, int dir, int index,
-			struct mt76_usb_buf *buf, gfp_t gfp,
-			usb_complete_t complete_fn, void *context);
-int mt76_usb_submit_rx_buffers(struct mt76_dev *dev);
-int mt76_usb_alloc_rx(struct mt76_dev *dev);
-int mt76_usb_alloc_tx(struct mt76_dev *dev);
-void mt76_usb_free_rx(struct mt76_dev *dev);
-void mt76_usb_free_tx(struct mt76_dev *dev);
-void mt76_usb_stop_rx(struct mt76_dev *dev);
-void mt76_usb_stop_tx(struct mt76_dev *dev);
+int mt76u_vendor_request(struct mt76_dev *dev, u8 req,
+			 u8 req_type, u16 val, u16 offset,
+			 void *buf, size_t len);
+void mt76u_single_wr(struct mt76_dev *dev, const u8 req,
+		     const u16 offset, const u32 val);
+int mt76u_init(struct mt76_dev *dev, struct usb_interface *intf);
+void mt76u_deinit(struct mt76_dev *dev);
+int mt76u_buf_alloc(struct mt76_dev *dev, struct mt76u_buf *buf,
+		    int nsgs, int len, int sglen, gfp_t gfp);
+void mt76u_buf_free(struct mt76u_buf *buf);
+int mt76u_submit_buf(struct mt76_dev *dev, int dir, int index,
+		     struct mt76u_buf *buf, gfp_t gfp,
+		     usb_complete_t complete_fn, void *context);
+int mt76u_submit_rx_buffers(struct mt76_dev *dev);
+int mt76u_alloc_rx(struct mt76_dev *dev);
+int mt76u_alloc_tx(struct mt76_dev *dev);
+void mt76u_free_rx(struct mt76_dev *dev);
+void mt76u_free_tx(struct mt76_dev *dev);
+void mt76u_stop_rx(struct mt76_dev *dev);
+void mt76u_stop_tx(struct mt76_dev *dev);
 
 #endif
