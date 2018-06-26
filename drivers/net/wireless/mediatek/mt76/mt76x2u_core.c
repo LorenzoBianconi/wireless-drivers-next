@@ -93,43 +93,6 @@ mt76x2u_set_txinfo(struct sk_buff *skb,
 	return mt76x2u_skb_dma_info(skb, WLAN_PORT, flags);
 }
 
-static void
-mt76x2u_tx_status(struct mt76x2_dev *dev, enum mt76_txq_id qid)
-{
-	struct mt76_queue *q = &dev->mt76.q_tx[qid];
-	struct mt76_usb_buf *buf;
-	struct sk_buff *skb;
-	bool wake = false;
-
-	spin_lock_bh(&q->lock);
-	while (true) {
-		buf = &q->entry[q->head].ubuf;
-		if (!buf->done || !q->queued)
-			break;
-
-		skb = q->entry[q->head].skb;
-		mt76x2u_remove_dma_hdr(skb);
-		mt76x2_tx_complete(dev, skb);
-
-		if (q->entry[q->head].schedule) {
-			q->entry[q->head].schedule = false;
-			q->swq_queued--;
-		}
-
-		q->head = (q->head + 1) % q->ndesc;
-		q->queued--;
-	}
-	mt76_txq_schedule(&dev->mt76, q);
-	wake = qid < IEEE80211_NUM_ACS && q->queued < q->ndesc - 8;
-	if (!q->queued)
-		wake_up(&dev->mt76.tx_wait);
-
-	spin_unlock_bh(&q->lock);
-
-	if (wake)
-		ieee80211_wake_queue(mt76_hw(dev), qid);
-}
-
 void mt76x2u_tx_status_data(struct work_struct *work)
 {
 	struct mt76x2_tx_status stat;
@@ -179,10 +142,9 @@ void mt76x2u_tx_complete_skb(struct mt76_dev *mdev, struct mt76_queue *q,
 			     struct mt76_queue_entry *e, bool flush)
 {
 	struct mt76x2_dev *dev = container_of(mdev, struct mt76x2_dev, mt76);
-	int i;
 
-	for (i = 0; i < IEEE80211_NUM_ACS; i++)
-		mt76x2u_tx_status(dev, i);
+	mt76x2u_remove_dma_hdr(e->skb);
+	mt76x2_tx_complete(dev, e->skb);
 
 	if (!test_and_set_bit(MT76_READING_STATS, &dev->mt76.state))
 		ieee80211_queue_delayed_work(mt76_hw(dev), &dev->stat_work,
