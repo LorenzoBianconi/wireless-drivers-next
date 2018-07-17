@@ -15,8 +15,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#ifndef __MT76XX_H
-#define __MT76XX_H
+#ifndef __MT76XX_MAC_H
+#define __MT76XX_MAC_H
 
 static inline bool mt76xx_wait_for_mac(struct mt76_dev *dev)
 {
