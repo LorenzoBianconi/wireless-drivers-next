@@ -167,7 +167,7 @@ void mt76x0_tx(struct ieee80211_hw *hw, struct ieee80211_tx_control *control,
 		msta = (struct mt76_sta *) sta->drv_priv;
 		wcid = &msta->wcid;
 	} else if (vif && (!info->control.hw_key && wcid->hw_key_idx != -1)) {
-		struct mt76_vif *mvif = (struct mt76_vif *)vif->drv_priv;
+		struct mt76xx_vif *mvif = (struct mt76xx_vif *)vif->drv_priv;
 
 		wcid = &mvif->group_wcid;
 	}
