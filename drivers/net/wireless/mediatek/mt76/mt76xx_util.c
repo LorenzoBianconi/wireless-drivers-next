@@ -51,3 +51,5 @@ void mt76xx_configure_filter(struct ieee80211_hw *hw,
 	mutex_unlock(&dev->mutex);
 }
 EXPORT_SYMBOL_GPL(mt76xx_configure_filter);
+
+MODULE_LICENSE("Dual BSD/GPL");
