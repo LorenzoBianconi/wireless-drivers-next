@@ -268,7 +268,7 @@ mt76x0_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 
 	if (!msta) {
 		if (key || wcid->hw_key_idx == idx) {
-			ret = mt76_mac_wcid_set_key(dev, wcid->idx, key);
+			ret = mt76xx_mac_wcid_set_key(&dev->mt76, wcid->idx, key);
 			if (ret)
 				return ret;
 		}
@@ -276,7 +276,7 @@ mt76x0_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 		return mt76xx_mac_shared_key_setup(&dev->mt76, mvif->idx, idx, key);
 	}
 
-	return mt76_mac_wcid_set_key(dev, msta->wcid.idx, key);
+	return mt76xx_mac_wcid_set_key(&dev->mt76, msta->wcid.idx, key);
 }
 
 static int mt76x0_set_rts_threshold(struct ieee80211_hw *hw, u32 value)
