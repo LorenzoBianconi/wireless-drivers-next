@@ -25,4 +25,7 @@ int mt76xx_sta_add(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 		   struct ieee80211_sta *sta);
 int mt76xx_sta_remove(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 		      struct ieee80211_sta *sta);
+
+void mt76xx_vif_init(struct mt76_dev *dev, struct ieee80211_vif *vif,
+		     unsigned int idx);
 #endif
