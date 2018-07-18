@@ -170,7 +170,7 @@ mt76x0_sta_add(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	       struct ieee80211_sta *sta)
 {
 	struct mt76x0_dev *dev = hw->priv;
-	struct mt76_sta *msta = (struct mt76_sta *) sta->drv_priv;
+	struct mt76xx_sta *msta = (struct mt76xx_sta *) sta->drv_priv;
 	struct mt76xx_vif *mvif = (struct mt76xx_vif *) vif->drv_priv;
 	int ret = 0;
 	int idx = 0;
@@ -205,7 +205,7 @@ mt76x0_sta_remove(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 		   struct ieee80211_sta *sta)
 {
 	struct mt76x0_dev *dev = hw->priv;
-	struct mt76_sta *msta = (struct mt76_sta *) sta->drv_priv;
+	struct mt76xx_sta *msta = (struct mt76xx_sta *) sta->drv_priv;
 	int idx = msta->wcid.idx;
 	int i;
 
@@ -260,7 +260,7 @@ mt76x0_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 {
 	struct mt76x0_dev *dev = hw->priv;
 	struct mt76xx_vif *mvif = (struct mt76xx_vif *) vif->drv_priv;
-	struct mt76_sta *msta = sta ? (struct mt76_sta *) sta->drv_priv : NULL;
+	struct mt76xx_sta *msta = sta ? (struct mt76xx_sta *) sta->drv_priv : NULL;
 	struct mt76_wcid *wcid = msta ? &msta->wcid : &mvif->group_wcid;
 	int idx = key->keyidx;
 	int ret;
@@ -303,12 +303,17 @@ mt76_ampdu_action(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 {
 	struct mt76x0_dev *dev = hw->priv;
 	struct ieee80211_sta *sta = params->sta;
+	struct mt76xx_sta *msta = (struct mt76xx_sta *) sta->drv_priv;
 	enum ieee80211_ampdu_mlme_action action = params->action;
+	struct ieee80211_txq *txq = sta->txq[params->tid];
 	u16 tid = params->tid;
 	u16 *ssn = &params->ssn;
-	struct mt76_sta *msta = (struct mt76_sta *) sta->drv_priv;
+	struct mt76_txq *mtxq;
 
-	WARN_ON(msta->wcid.idx > N_WCIDS);
+	if (!txq)
+		return -EINVAL;
+
+	mtxq = (struct mt76_txq *)txq->drv_priv;
 
 	switch (action) {
 	case IEEE80211_AMPDU_RX_START:
@@ -318,13 +323,13 @@ mt76_ampdu_action(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 		mt76_clear(dev, MT_WCID_ADDR(msta->wcid.idx) + 4, BIT(16 + tid));
 		break;
 	case IEEE80211_AMPDU_TX_OPERATIONAL:
-		ieee80211_send_bar(vif, sta->addr, tid, msta->agg_ssn[tid]);
+		ieee80211_send_bar(vif, sta->addr, tid, mtxq->agg_ssn);
 		break;
 	case IEEE80211_AMPDU_TX_STOP_FLUSH:
 	case IEEE80211_AMPDU_TX_STOP_FLUSH_CONT:
 		break;
 	case IEEE80211_AMPDU_TX_START:
-		msta->agg_ssn[tid] = *ssn << 4;
+		mtxq->agg_ssn = *ssn << 4;
 		ieee80211_start_tx_ba_cb_irqsafe(vif, sta->addr, tid);
 		break;
 	case IEEE80211_AMPDU_TX_STOP_CONT:
@@ -340,7 +345,7 @@ mt76_sta_rate_tbl_update(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 			 struct ieee80211_sta *sta)
 {
 	struct mt76x0_dev *dev = hw->priv;
-	struct mt76_sta *msta = (struct mt76_sta *) sta->drv_priv;
+	struct mt76xx_sta *msta = (struct mt76xx_sta *) sta->drv_priv;
 	struct ieee80211_sta_rates *rates;
 	struct ieee80211_tx_rate rate = {};
 
