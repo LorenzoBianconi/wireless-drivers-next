@@ -31,6 +31,9 @@ struct mt76xx_tx_status {
 	u16 rate;
 } __packed __aligned(2);
 
+#define MT_VIF_WCID(_n)		(254 - ((_n) & 7))
+#define MT_MAX_VIFS		8
+
 struct mt76xx_vif {
 	u8 idx;
 

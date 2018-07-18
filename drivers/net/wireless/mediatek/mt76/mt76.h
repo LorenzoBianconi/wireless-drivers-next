@@ -144,7 +144,6 @@ enum mt76_wcid_flags {
 };
 
 #define MT76_N_WCIDS 128
-
 struct mt76_wcid {
 	struct mt76_rx_tid __rcu *aggr[IEEE80211_NUM_TIDS];
 

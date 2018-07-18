@@ -56,7 +56,6 @@ static int mt76x0_add_interface(struct ieee80211_hw *hw,
 				 struct ieee80211_vif *vif)
 {
 	struct mt76x0_dev *dev = hw->priv;
-	struct mt76xx_vif *mvif = (struct mt76xx_vif *) vif->drv_priv;
 	unsigned int idx;
 
 	idx = ffs(~dev->vif_mask);
@@ -66,11 +65,7 @@ static int mt76x0_add_interface(struct ieee80211_hw *hw,
 	idx--;
 	dev->vif_mask |= BIT(idx);
 
-	mvif->idx = idx;
-	mvif->group_wcid.idx = GROUP_WCID(idx);
-	mvif->group_wcid.hw_key_idx = -1;
-	mt76xx_txq_init(&dev->mt76, vif->txq);
-
+	mt76xx_vif_init(&dev->mt76, vif, idx);
 	return 0;
 }
 
