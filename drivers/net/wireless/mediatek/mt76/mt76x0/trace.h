@@ -250,13 +250,13 @@ TRACE_EVENT(mt_rx,
 
 TRACE_EVENT(mt_tx,
 	TP_PROTO(struct mt76_dev *dev, struct sk_buff *skb,
-		 struct mt76_sta *sta, struct mt76_txwi *h),
+		 struct mt76xx_sta *sta, struct mt76_txwi *h),
 	TP_ARGS(dev, skb, sta, h),
 	TP_STRUCT__entry(
 		DEV_ENTRY
 		__field_struct(struct mt76_txwi, h)
 		__field(struct sk_buff *, skb)
-		__field(struct mt76_sta *, sta)
+		__field(struct mt76xx_sta *, sta)
 	),
 	TP_fast_assign(
 		DEV_ASSIGN;
