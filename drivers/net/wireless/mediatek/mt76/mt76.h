@@ -108,7 +108,6 @@ struct mt76_queue {
 	int buf_size;
 
 	u8 buf_offset;
-	u8 hw_idx;
 
 	dma_addr_t desc_dma;
 	struct sk_buff *rx_head;
