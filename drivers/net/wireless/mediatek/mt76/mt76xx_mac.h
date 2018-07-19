@@ -197,4 +197,6 @@ mt76xx_mac_tx_rate_val(struct mt76_dev *dev,
 		       const struct ieee80211_tx_rate *rate, u8 *nss_val);
 bool mt76xx_mac_load_tx_status(struct mt76_dev *dev,
 			       struct mt76xx_tx_status *stat);
+void mt76xx_send_tx_status(struct mt76_dev *dev,
+			   struct mt76xx_tx_status *stat, u8 *update);
 #endif
