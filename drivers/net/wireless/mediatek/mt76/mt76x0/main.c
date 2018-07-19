@@ -165,29 +165,6 @@ static int mt76x0_set_rts_threshold(struct ieee80211_hw *hw, u32 value)
 	return 0;
 }
 
-static void
-mt76_sta_rate_tbl_update(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
-			 struct ieee80211_sta *sta)
-{
-	struct mt76x0_dev *dev = hw->priv;
-	struct mt76xx_sta *msta = (struct mt76xx_sta *) sta->drv_priv;
-	struct ieee80211_sta_rates *rates;
-	struct ieee80211_tx_rate rate = {};
-
-	rcu_read_lock();
-	rates = rcu_dereference(sta->rates);
-
-	if (!rates)
-		goto out;
-
-	rate.idx = rates->rate[0].idx;
-	rate.flags = rates->rate[0].flags;
-	mt76_mac_wcid_set_rate(dev, &msta->wcid, &rate);
-
-out:
-	rcu_read_unlock();
-}
-
 const struct ieee80211_ops mt76x0_ops = {
 	.tx = mt76x0_tx,
 	.start = mt76x0_start,
@@ -204,6 +181,6 @@ const struct ieee80211_ops mt76x0_ops = {
 	.sw_scan_start = mt76x0_sw_scan,
 	.sw_scan_complete = mt76x0_sw_scan_complete,
 	.ampdu_action = mt76xx_ampdu_action,
-	.sta_rate_tbl_update = mt76_sta_rate_tbl_update,
+	.sta_rate_tbl_update = mt76xx_sta_rate_tbl_update,
 	.set_rts_threshold = mt76x0_set_rts_threshold,
 };
