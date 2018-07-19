@@ -652,7 +652,8 @@ mt76u_tx_queue_skb(struct mt76_dev *dev, struct mt76_queue *q,
 {
 	struct usb_interface *intf = to_usb_interface(dev->dev);
 	struct usb_device *udev = interface_to_usbdev(intf);
-	u8 ep = q2ep(q->hw_idx);
+	int hwq = mt76_ac_to_hwq(skb_get_queue_mapping(skb));
+	u8 ep = q2ep(hwq);
 	struct mt76u_buf *buf;
 	u16 idx = q->tail;
 	unsigned int pipe;
@@ -661,7 +662,7 @@ mt76u_tx_queue_skb(struct mt76_dev *dev, struct mt76_queue *q,
 	if (q->queued == q->ndesc)
 		return -ENOSPC;
 
-	err = dev->drv->tx_prepare_skb(dev, NULL, skb, q, wcid, sta, NULL);
+	err = dev->drv->tx_prepare_skb(dev, &hwq, skb, q, wcid, sta, NULL);
 	if (err < 0)
 		return err;
 
@@ -715,7 +716,6 @@ static int mt76u_alloc_tx(struct mt76_dev *dev)
 		q = &dev->q_tx[i];
 		spin_lock_init(&q->lock);
 		INIT_LIST_HEAD(&q->swq);
-		q->hw_idx = mt76_ac_to_hwq(i);
 
 		q->entry = devm_kzalloc(dev->dev,
 					MT_NUM_TX_ENTRIES * sizeof(*q->entry),

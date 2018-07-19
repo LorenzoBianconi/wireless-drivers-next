@@ -84,6 +84,7 @@ int mt76x2u_tx_prepare_skb(struct mt76_dev *mdev, void *data,
 	struct mt76x2_dev *dev = container_of(mdev, struct mt76x2_dev, mt76);
 	struct mt76x2_txwi *txwi;
 	int err, len = skb->len;
+	int *hwq_ptr = (int *) data;
 
 	err = mt76x2u_check_skb_rooms(skb);
 	if (err < 0)
@@ -94,7 +95,7 @@ int mt76x2u_tx_prepare_skb(struct mt76_dev *mdev, void *data,
 	txwi = skb_push(skb, sizeof(struct mt76x2_txwi));
 	mt76x2_mac_write_txwi(dev, txwi, skb, wcid, sta, len);
 
-	return mt76x2u_set_txinfo(skb, wcid, q2ep(q->hw_idx));
+	return mt76x2u_set_txinfo(skb, wcid, q2ep(*hwq_ptr));
 }
 
 void mt76x2u_tx_complete_skb(struct mt76_dev *mdev, struct mt76_queue *q,
