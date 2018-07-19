@@ -190,41 +190,6 @@ mt76x0_sw_scan_complete(struct ieee80211_hw *hw,
 				     MT_CALIBRATE_INTERVAL);
 }
 
-static int
-mt76x0_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
-		struct ieee80211_vif *vif, struct ieee80211_sta *sta,
-		struct ieee80211_key_conf *key)
-{
-	struct mt76x0_dev *dev = hw->priv;
-	struct mt76xx_vif *mvif = (struct mt76xx_vif *) vif->drv_priv;
-	struct mt76xx_sta *msta = sta ? (struct mt76xx_sta *) sta->drv_priv : NULL;
-	struct mt76_wcid *wcid = msta ? &msta->wcid : &mvif->group_wcid;
-	int idx = key->keyidx;
-	int ret;
-
-	if (cmd == SET_KEY) {
-		key->hw_key_idx = wcid->idx;
-		wcid->hw_key_idx = idx;
-	} else {
-		if (idx == wcid->hw_key_idx)
-			wcid->hw_key_idx = -1;
-
-		key = NULL;
-	}
-
-	if (!msta) {
-		if (key || wcid->hw_key_idx == idx) {
-			ret = mt76xx_mac_wcid_set_key(&dev->mt76, wcid->idx, key);
-			if (ret)
-				return ret;
-		}
-
-		return mt76xx_mac_shared_key_setup(&dev->mt76, mvif->idx, idx, key);
-	}
-
-	return mt76xx_mac_wcid_set_key(&dev->mt76, msta->wcid.idx, key);
-}
-
 static int mt76x0_set_rts_threshold(struct ieee80211_hw *hw, u32 value)
 {
 	struct mt76x0_dev *dev = hw->priv;
@@ -269,7 +234,7 @@ const struct ieee80211_ops mt76x0_ops = {
 	.sta_add = mt76xx_sta_add,
 	.sta_remove = mt76xx_sta_remove,
 	.sta_notify = mt76x0_sta_notify,
-	.set_key = mt76x0_set_key,
+	.set_key = mt76xx_set_key,
 	.conf_tx = mt76x0_conf_tx,
 	.sw_scan_start = mt76x0_sw_scan,
 	.sw_scan_complete = mt76x0_sw_scan_complete,
