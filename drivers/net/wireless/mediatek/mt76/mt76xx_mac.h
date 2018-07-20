@@ -180,7 +180,8 @@ static inline bool mt76xx_wait_for_mac(struct mt76_dev *dev)
 }
 
 void mt76xx_txq_init(struct mt76_dev *dev, struct ieee80211_txq *txq);
-
+void mt76xx_mac_fill_txwi(struct mt76xx_txwi *txwi, struct sk_buff *skb,
+			  struct ieee80211_sta *sta, int len, u8 nss);
 enum mt76xx_cipher_type
 mt76xx_mac_get_key_info(struct ieee80211_key_conf *key, u8 *key_data);
 
