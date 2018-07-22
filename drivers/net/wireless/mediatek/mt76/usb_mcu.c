@@ -218,3 +218,25 @@ int mt76u_mcu_fw_send_data(struct mt76_dev *dev, const void *data,
 	return err;
 }
 EXPORT_SYMBOL_GPL(mt76u_mcu_fw_send_data);
+
+int mt76u_mcu_init_rx(struct mt76_dev *dev)
+{
+	struct mt76_usb *usb = &dev->usb;
+	int err;
+
+	err = mt76u_buf_alloc(dev, &usb->mcu.res, 1,
+			      MCU_RESP_URB_SIZE, MCU_RESP_URB_SIZE,
+			      GFP_KERNEL);
+	if (err < 0)
+		return err;
+
+	err = mt76u_submit_buf(dev, USB_DIR_IN, MT_EP_IN_CMD_RESP,
+			       &usb->mcu.res, GFP_KERNEL,
+			       mt76u_mcu_complete_urb,
+			       &usb->mcu.cmpl);
+	if (err < 0)
+		mt76u_buf_free(&usb->mcu.res);
+
+	return err;
+}
+EXPORT_SYMBOL_GPL(mt76u_mcu_init_rx);

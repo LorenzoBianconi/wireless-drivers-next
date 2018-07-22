@@ -290,6 +290,7 @@ enum mt76u_out_ep {
 #define MT_SG_MAX_SIZE		8
 #define MT_NUM_TX_ENTRIES	256
 #define MT_NUM_RX_ENTRIES	128
+#define MCU_RESP_URB_SIZE	1024
 struct mt76_usb {
 	struct mutex usb_ctrl_mtx;
 	u8 data[32];
@@ -626,5 +627,6 @@ struct sk_buff *mt76u_mcu_msg_alloc(const void *data, int len);
 int mt76u_mcu_send_msg(struct mt76_dev *dev, struct sk_buff *skb,
 		       int cmd, bool wait_resp);
 void mt76u_mcu_fw_reset(struct mt76_dev *dev);
+int mt76u_mcu_init_rx(struct mt76_dev *dev);
 
 #endif

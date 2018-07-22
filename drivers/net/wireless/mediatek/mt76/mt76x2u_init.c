@@ -262,7 +262,7 @@ int mt76x2u_register_device(struct mt76x2_dev *dev)
 	if (err < 0)
 		return err;
 
-	err = mt76x2u_mcu_init_rx(dev);
+	err = mt76u_mcu_init_rx(&dev->mt76);
 	if (err < 0)
 		return err;
 
