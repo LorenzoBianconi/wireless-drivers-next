@@ -625,5 +625,6 @@ void mt76u_mcu_complete_urb(struct urb *urb);
 struct sk_buff *mt76u_mcu_msg_alloc(const void *data, int len);
 int mt76u_mcu_send_msg(struct mt76_dev *dev, struct sk_buff *skb,
 		       int cmd, bool wait_resp);
+void mt76u_mcu_fw_reset(struct mt76_dev *dev);
 
 #endif
