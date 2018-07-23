@@ -49,19 +49,6 @@ struct mt76x0_dma_buf {
 	size_t len;
 };
 
-struct mt76x0_mcu {
-	struct mutex mutex;
-
-	u8 msg_seq;
-
-	struct mt76x0_dma_buf resp;
-
-	struct mt76_reg_pair *reg_pairs;
-	unsigned int reg_pairs_len;
-	u32 reg_base;
-	bool burst_read;
-};
-
 struct mac_stats {
 	u64 rx_stat[6];
 	u64 tx_stat[6];
@@ -152,8 +139,6 @@ struct mt76x0_dev {
 	u16 out_max_packet;
 	u8 in_ep[__MT_EP_IN_MAX];
 	u16 in_max_packet;
-
-	struct mt76x0_mcu mcu;
 
 	struct delayed_work cal_work;
 	struct delayed_work mac_work;
