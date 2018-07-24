@@ -404,4 +404,12 @@ void mt76xx_tx_complete(struct mt76_dev *dev, struct sk_buff *skb)
 }
 EXPORT_SYMBOL_GPL(mt76xx_tx_complete);
 
+void mt76xx_tx_complete_skb(struct mt76_dev *mdev, struct mt76_queue *q,
+			    struct mt76_queue_entry *e, bool flush)
+{
+	mt76xx_remove_dma_hdr(e->skb);
+	mt76xx_tx_complete(mdev, e->skb);
+}
+EXPORT_SYMBOL_GPL(mt76xx_tx_complete_skb);
+
 MODULE_LICENSE("Dual BSD/GPL");
