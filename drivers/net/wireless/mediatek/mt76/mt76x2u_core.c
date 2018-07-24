@@ -19,10 +19,8 @@
 
 static void mt76x2u_remove_dma_hdr(struct sk_buff *skb)
 {
-	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
-	int hdr_len, len;
+	int hdr_len;
 
-	len = (unsigned long)info->status.status_driver_data[0];
 	skb_pull(skb, sizeof(struct mt76x2_txwi) + MT_DMA_HDR_LEN);
 	hdr_len = ieee80211_get_hdrlen_from_skb(skb);
 	if (hdr_len % 4) {
