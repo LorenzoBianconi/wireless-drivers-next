@@ -45,4 +45,5 @@ void mt76xx_sta_rate_tbl_update(struct ieee80211_hw *hw,
 				struct ieee80211_sta *sta);
 int mt76xx_insert_hdr_pad(struct sk_buff *skb);
 void mt76xx_remove_hdr_pad(struct sk_buff *skb, int len);
+void mt76xx_tx_complete(struct mt76_dev *dev, struct sk_buff *skb);
 #endif
