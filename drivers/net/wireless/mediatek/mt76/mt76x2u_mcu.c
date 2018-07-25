@@ -218,26 +218,6 @@ int mt76x2u_mcu_tssi_comp(struct mt76x2_dev *dev,
 	return mt76u_mcu_send_msg(&dev->mt76, skb, CMD_CALIBRATION_OP, true);
 }
 
-int mt76x2u_mcu_init_rx(struct mt76x2_dev *dev)
-{
-	struct mt76_usb *usb = &dev->mt76.usb;
-	int err;
-
-	err = mt76u_buf_alloc(&dev->mt76, &usb->mcu.res, 1,
-			      512, 512, GFP_KERNEL);
-	if (err < 0)
-		return err;
-
-	err = mt76u_submit_buf(&dev->mt76, USB_DIR_IN, MT_EP_IN_CMD_RESP,
-			       &usb->mcu.res, GFP_KERNEL,
-			       mt76u_mcu_complete_urb,
-			       &usb->mcu.cmpl);
-	if (err < 0)
-		mt76u_buf_free(&usb->mcu.res);
-
-	return err;
-}
-
 static void mt76x2u_mcu_load_ivb(struct mt76x2_dev *dev)
 {
 	mt76u_vendor_request(&dev->mt76, MT_VEND_DEV_MODE,
