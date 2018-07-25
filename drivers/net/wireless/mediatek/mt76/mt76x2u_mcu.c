@@ -238,13 +238,6 @@ int mt76x2u_mcu_init_rx(struct mt76x2_dev *dev)
 	return err;
 }
 
-static void mt76x2u_mcu_fw_reset(struct mt76x2_dev *dev)
-{
-	mt76u_vendor_request(&dev->mt76, MT_VEND_DEV_MODE,
-			     USB_DIR_OUT | USB_TYPE_VENDOR,
-			     0x1, 0, NULL, 0);
-}
-
 static void mt76x2u_mcu_load_ivb(struct mt76x2_dev *dev)
 {
 	mt76u_vendor_request(&dev->mt76, MT_VEND_DEV_MODE,
@@ -329,7 +322,7 @@ static int mt76x2u_mcu_load_rom_patch(struct mt76x2_dev *dev)
 	mt76_wr(dev, MT_VEND_ADDR(CFG, MT_USB_U3DMA_CFG), val);
 
 	/* vendor reset */
-	mt76x2u_mcu_fw_reset(dev);
+	mt76u_mcu_fw_reset(&dev->mt76);
 	usleep_range(5000, 10000);
 
 	/* enable FCE to send in-band cmd */
@@ -402,7 +395,7 @@ static int mt76x2u_mcu_load_firmware(struct mt76x2_dev *dev)
 	dev_info(dev->mt76.dev, "Build Time: %.16s\n", hdr->build_time);
 
 	/* vendor reset */
-	mt76x2u_mcu_fw_reset(dev);
+	mt76u_mcu_fw_reset(&dev->mt76);
 	usleep_range(5000, 10000);
 
 	/* enable USB_DMA_CFG */

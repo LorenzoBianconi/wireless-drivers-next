@@ -131,6 +131,14 @@ out:
 }
 EXPORT_SYMBOL_GPL(mt76u_mcu_send_msg);
 
+void mt76u_mcu_fw_reset(struct mt76_dev *dev)
+{
+	mt76u_vendor_request(dev, MT_VEND_DEV_MODE,
+			     USB_DIR_OUT | USB_TYPE_VENDOR,
+			     0x1, 0, NULL, 0);
+}
+EXPORT_SYMBOL_GPL(mt76u_mcu_fw_reset);
+
 static int
 __mt76u_mcu_fw_send_data(struct mt76_dev *dev, struct mt76u_buf *buf,
 			 const void *fw_data, int len, u32 dst_addr)
