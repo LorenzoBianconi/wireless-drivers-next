@@ -209,11 +209,6 @@ struct mt76x0_wcid {
 	u8 tx_rate_nss;
 };
 
-struct mt76_reg_pair {
-	u32 reg;
-	u32 value;
-};
-
 extern const struct ieee80211_ops mt76x0_ops;
 
 static inline bool is_mt7610e(struct mt76x0_dev *dev)
