@@ -131,6 +131,21 @@ int mt76x0_tx_prepare_skb(struct mt76_dev *mdev, void *data,
 	return mt76xx_set_txinfo(skb, wcid, q2ep(*hwq_ptr));
 }
 
+void mt76x0_queue_rx_skb(struct mt76_dev *mdev, enum mt76_rxq_id q,
+			 struct sk_buff *skb)
+{
+	struct mt76x0_dev *dev = container_of(mdev, struct mt76x0_dev, mt76);
+	void *rxwi = skb->data;
+
+	skb_pull(skb, sizeof(struct mt76xx_rxwi));
+	if (!mt76_mac_process_rx(dev, skb, rxwi)) {
+		dev_kfree_skb(skb);
+		return;
+	}
+
+	mt76_rx(&dev->mt76, q, skb);
+}
+
 void mt76x0_tx_stat(struct work_struct *work)
 {
 	struct mt76x0_dev *dev = container_of(work, struct mt76x0_dev,
