@@ -50,4 +50,5 @@ void mt76xx_remove_dma_hdr(struct sk_buff *skb);
 void mt76xx_tx_complete_skb(struct mt76_dev *mdev, struct mt76_queue *q,
 			    struct mt76_queue_entry *e, bool flush);
 int mt76xx_set_txinfo(struct sk_buff *skb, struct mt76_wcid *wcid, u8 ep);
+bool mt76xx_tx_status_data(struct mt76_dev *dev, u8 *update);
 #endif
