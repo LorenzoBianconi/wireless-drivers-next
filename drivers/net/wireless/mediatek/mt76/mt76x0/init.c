@@ -684,6 +684,9 @@ int mt76x0_register_device(struct mt76x0_dev *dev)
 	hw->sta_data_size = sizeof(struct mt76xx_sta);
 	hw->vif_data_size = sizeof(struct mt76xx_vif);
 
+	hw->txq_data_size = sizeof(struct mt76_txq);
+	hw->max_tx_fragments = 16;
+
 	SET_IEEE80211_PERM_ADDR(hw, dev->macaddr);
 
 	wiphy->features |= NL80211_FEATURE_ACTIVE_MONITOR;

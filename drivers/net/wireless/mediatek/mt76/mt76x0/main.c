@@ -189,4 +189,5 @@ const struct ieee80211_ops mt76x0_ops = {
 	.ampdu_action = mt76xx_ampdu_action,
 	.sta_rate_tbl_update = mt76xx_sta_rate_tbl_update,
 	.set_rts_threshold = mt76x0_set_rts_threshold,
+	.wake_tx_queue = mt76_wake_tx_queue,
 };
