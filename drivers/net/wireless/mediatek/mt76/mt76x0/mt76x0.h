@@ -94,7 +94,6 @@ struct mt76x0_dev {
 
 	const u16 *beacon_offsets;
 
-	u8 macaddr[ETH_ALEN];
 	struct mt76x0_eeprom_params *ee;
 
 	struct mutex reg_atomic_mutex;
