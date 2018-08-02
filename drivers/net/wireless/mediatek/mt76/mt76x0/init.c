@@ -408,10 +408,6 @@ int mt76x0_init_hardware(struct mt76x0_dev *dev)
 	if (ret)
 		return ret;
 
-	ret = mt76u_alloc_queues(&dev->mt76);
-	if (ret < 0)
-		return ret;
-
 	mt76x0_init_mac_registers(dev);
 
 	if (!mt76_poll_msec(dev, MT_MAC_STATUS,
@@ -446,10 +442,6 @@ int mt76x0_init_hardware(struct mt76x0_dev *dev)
 	mt76_wr(dev, MT_TXOP_CTRL_CFG,
 		   FIELD_PREP(MT_TXOP_TRUN_EN, 0x3f) |
 		   FIELD_PREP(MT_TXOP_EXT_CCA_DLY, 0x58));
-
-	ret = mt76x0_eeprom_init(dev);
-	if (ret)
-		return ret;
 
 	mt76x0_phy_init(dev);
 
@@ -498,6 +490,18 @@ int mt76x0_register_device(struct mt76x0_dev *dev)
 	struct ieee80211_hw *hw = mdev->hw;
 	struct wiphy *wiphy = hw->wiphy;
 	int ret;
+
+	ret = mt76x0_eeprom_init(dev);
+	if (ret)
+		return ret;
+
+	ret = mt76u_mcu_init_rx(mdev);
+	if (ret < 0)
+		return ret;
+
+	ret = mt76u_alloc_queues(mdev);
+	if (ret < 0)
+		return ret;
 
 	ret = mt76x0_init_hardware(dev);
 	if (ret)
