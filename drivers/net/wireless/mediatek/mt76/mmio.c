@@ -51,6 +51,20 @@ static void mt76_mmio_copy(struct mt76_dev *dev, u32 offset, const void *data,
 	__iowrite32_copy(mmio->regs + offset, data, len >> 2);
 }
 
+void mt76e_set_irq_mask(struct mt76_dev *dev, u32 clear, u32 set)
+{
+	struct mt76_mmio *mmio = &dev->mmio;
+	const int MT_INT_MASK_CSR = 0x0204;
+	unsigned long flags;
+
+	spin_lock_irqsave(&mmio->irq_lock, flags);
+	mmio->irqmask &= ~clear;
+	mmio->irqmask |= set;
+	__mt76_wr(dev, MT_INT_MASK_CSR, mmio->irqmask);
+	spin_unlock_irqrestore(&mmio->irq_lock, flags);
+}
+EXPORT_SYMBOL_GPL(mt76e_set_irq_mask);
+
 void mt76_mmio_init(struct mt76_dev *dev, void __iomem *regs)
 {
 	static const struct mt76_bus_ops mt76_mmio_ops = {
@@ -62,6 +76,7 @@ void mt76_mmio_init(struct mt76_dev *dev, void __iomem *regs)
 
 	dev->bus = &mt76_mmio_ops;
 	dev->mmio.regs = regs;
+	spin_lock_init(&dev->mmio.irq_lock);
 }
 EXPORT_SYMBOL_GPL(mt76_mmio_init);
 

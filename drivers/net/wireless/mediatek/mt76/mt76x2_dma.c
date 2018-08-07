@@ -16,6 +16,7 @@
 
 #include "mt76x2.h"
 #include "dma.h"
+#include "mmio.h"
 
 int
 mt76x2_tx_queue_mcu(struct mt76x2_dev *dev, enum mt76_txq_id qid,
@@ -60,7 +61,7 @@ mt76x2_init_tx_queue(struct mt76x2_dev *dev, struct mt76_queue *q,
 	if (ret)
 		return ret;
 
-	mt76x2_irq_enable(dev, MT_INT_TX_DONE(idx));
+	mt76e_irq_enable(&dev->mt76, MT_INT_TX_DONE(idx));
 
 	return 0;
 }
@@ -79,7 +80,7 @@ mt76x2_init_rx_queue(struct mt76x2_dev *dev, struct mt76_queue *q,
 	if (ret)
 		return ret;
 
-	mt76x2_irq_enable(dev, MT_INT_RX_DONE(idx));
+	mt76e_irq_enable(&dev->mt76, MT_INT_RX_DONE(idx));
 
 	return 0;
 }
@@ -96,7 +97,7 @@ mt76x2_tx_tasklet(unsigned long data)
 		mt76_queue_tx_cleanup(dev, i, false);
 
 	mt76x2_mac_poll_tx_status(dev, false);
-	mt76x2_irq_enable(dev, MT_INT_TX_DONE_ALL);
+	mt76e_irq_enable(&dev->mt76, MT_INT_TX_DONE_ALL);
 }
 
 int mt76x2_dma_init(struct mt76x2_dev *dev)

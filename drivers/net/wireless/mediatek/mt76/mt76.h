@@ -324,6 +324,9 @@ struct mt76_usb {
 
 struct mt76_mmio
 {
+	spinlock_t irq_lock;
+	u32 irqmask;
+
 	void __iomem *regs;
 };
 

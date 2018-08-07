@@ -19,6 +19,7 @@
 #include "mt76x2_eeprom.h"
 #include "mt76x2_mcu.h"
 #include "mt76xx_util.h"
+#include "mmio.h"
 
 static void
 mt76x2_mac_pbf_init(struct mt76x2_dev *dev)
@@ -221,8 +222,8 @@ int mt76x2_mac_start(struct mt76x2_dev *dev)
 		MT_MAC_SYS_CTRL_ENABLE_TX |
 		MT_MAC_SYS_CTRL_ENABLE_RX);
 
-	mt76x2_irq_enable(dev, MT_INT_RX_DONE_ALL | MT_INT_TX_DONE_ALL |
-			       MT_INT_TX_STAT);
+	mt76e_irq_enable(&dev->mt76, MT_INT_RX_DONE_ALL | MT_INT_TX_DONE_ALL |
+				     MT_INT_TX_STAT);
 
 	return 0;
 }
@@ -437,7 +438,6 @@ struct mt76x2_dev *mt76x2_alloc_device(struct device *pdev)
 	dev = container_of(mdev, struct mt76x2_dev, mt76);
 	mdev->dev = pdev;
 	mdev->drv = &drv_ops;
-	spin_lock_init(&dev->irq_lock);
 
 	return dev;
 }
