@@ -356,7 +356,6 @@ void mt76_unregister_device(struct mt76_dev *dev)
 	struct ieee80211_hw *hw = dev->hw;
 
 	ieee80211_unregister_hw(hw);
-	mt76_tx_free(dev);
 }
 EXPORT_SYMBOL_GPL(mt76_unregister_device);
 

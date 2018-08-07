@@ -53,7 +53,7 @@ mt76x2_init_tx_queue(struct mt76x2_dev *dev, struct mt76_queue *q,
 {
 	int ret;
 
-	q->regs = dev->mt76.regs + MT_TX_RING_BASE + idx * MT_RING_SIZE;
+	q->regs = mt76_mmio(dev)->regs + MT_TX_RING_BASE + idx * MT_RING_SIZE;
 	q->ndesc = n_desc;
 
 	ret = mt76_queue_alloc(dev, q);
@@ -71,7 +71,7 @@ mt76x2_init_rx_queue(struct mt76x2_dev *dev, struct mt76_queue *q,
 {
 	int ret;
 
-	q->regs = dev->mt76.regs + MT_RX_RING_BASE + idx * MT_RING_SIZE;
+	q->regs = mt76_mmio(dev)->regs + MT_RX_RING_BASE + idx * MT_RING_SIZE;
 	q->ndesc = n_desc;
 	q->buf_size = bufsize;
 

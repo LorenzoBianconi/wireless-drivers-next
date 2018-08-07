@@ -322,6 +322,11 @@ struct mt76_usb {
 	} mcu;
 };
 
+struct mt76_mmio
+{
+	void __iomem *regs;
+};
+
 struct mt76_dev {
 	struct ieee80211_hw *hw;
 	struct cfg80211_chan_def chandef;
@@ -334,7 +339,6 @@ struct mt76_dev {
 
 	const struct mt76_bus_ops *bus;
 	const struct mt76_driver_ops *drv;
-	void __iomem *regs;
 	struct device *dev;
 
 	struct net_device napi_dev;
@@ -375,8 +379,14 @@ struct mt76_dev {
 
 	u32 rxfilter;
 
-	struct mt76_usb usb;
+	union {
+		struct mt76_usb usb;
+		struct mt76_mmio mmio;
+	};
 };
+
+#define mt76_usb(dev) (&((dev)->mt76.usb))
+#define mt76_mmio(dev) (&((dev)->mt76.mmio))
 
 enum mt76_phy_type {
 	MT_PHY_TYPE_CCK,
@@ -573,9 +583,6 @@ void mt76_wcid_key_setup(struct mt76_dev *dev, struct mt76_wcid *wcid,
 struct ieee80211_sta *mt76_rx_convert(struct sk_buff *skb);
 
 /* internal */
-void mt76_tx_free(struct mt76_dev *dev);
-struct mt76_txwi_cache *mt76_get_txwi(struct mt76_dev *dev);
-void mt76_put_txwi(struct mt76_dev *dev, struct mt76_txwi_cache *t);
 void mt76_rx_complete(struct mt76_dev *dev, struct sk_buff_head *frames,
 		      struct napi_struct *napi);
 void mt76_rx_poll_complete(struct mt76_dev *dev, enum mt76_rxq_id q,

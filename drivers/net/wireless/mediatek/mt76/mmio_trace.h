@@ -14,14 +14,14 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#if !defined(__MT76_TRACE_H) || defined(TRACE_HEADER_MULTI_READ)
-#define __MT76_TRACE_H
+#if !defined(__MT76_MMIO_TRACE_H) || defined(TRACE_HEADER_MULTI_READ)
+#define __MT76_MMIO_TRACE_H
 
 #include <linux/tracepoint.h>
 #include "mt76.h"
 
 #undef TRACE_SYSTEM
-#define TRACE_SYSTEM mt76
+#define TRACE_SYSTEM mt76_mmio
 
 #define MAXNAME		32
 #define DEV_ENTRY   __array(char, wiphy_name, 32)
@@ -66,6 +66,6 @@ DEFINE_EVENT(dev_reg_evt, reg_wr,
 #undef TRACE_INCLUDE_PATH
 #define TRACE_INCLUDE_PATH .
 #undef TRACE_INCLUDE_FILE
-#define TRACE_INCLUDE_FILE trace
+#define TRACE_INCLUDE_FILE mmio_trace
 
 #include <trace/define_trace.h>

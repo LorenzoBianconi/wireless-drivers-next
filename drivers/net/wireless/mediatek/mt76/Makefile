@@ -1,17 +1,17 @@
 obj-$(CONFIG_MT76_CORE) += mt76.o
 obj-$(CONFIG_MT76_USB) += mt76-usb.o
+obj-$(CONFIG_MT76_MMIO) += mt76-mmio.o
 obj-$(CONFIG_MT76x0_COMMON) += mt76x0/
 obj-$(CONFIG_MT76xX_LIB) += mt76xx-lib.o
 obj-$(CONFIG_MT76x2_COMMON) += mt76x2-common.o
 obj-$(CONFIG_MT76x2E) += mt76x2e.o
 obj-$(CONFIG_MT76x2U) += mt76x2u.o
 
-mt76-y := \
-	mmio.o util.o trace.o dma.o mac80211.o debugfs.o eeprom.o tx.o agg-rx.o
-
+mt76-y := util.o mac80211.o debugfs.o eeprom.o tx.o agg-rx.o
+mt76-mmio-y := dma.o mmio_trace.o mmio.o
 mt76-usb-y := usb.o usb_trace.o usb_mcu.o
 
-CFLAGS_trace.o := -I$(src)
+CFLAGS_mmio_trace.o := -I$(src)
 CFLAGS_usb_trace.o := -I$(src)
 
 mt76xx-lib-y := mt76xx_util.o mt76xx_mac.o
