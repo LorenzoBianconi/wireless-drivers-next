@@ -39,6 +39,12 @@ struct mt76_bus_ops {
 	u32 (*rmw)(struct mt76_dev *dev, u32 offset, u32 mask, u32 val);
 	void (*copy)(struct mt76_dev *dev, u32 offset, const void *data,
 		     int len);
+	int (*mcu_fw_init)(struct mt76_dev *dev);
+	int (*mcu_init)(struct mt76_dev *dev);
+	int (*mcu_calibrate)(struct mt76_dev *dev, int type, u32 param);
+	int (*mcu_set_channel)(struct mt76_dev *dev, u8 channel, u8 bw,
+			       u8 bw_index, bool scan);
+	int (*mcu_cleanup)(struct mt76_dev *dev);
 };
 
 enum mt76_txq_id {
@@ -446,6 +452,12 @@ struct mt76_rx_status {
 #define mt76_wr(dev, ...)	(dev)->mt76.bus->wr(&((dev)->mt76), __VA_ARGS__)
 #define mt76_rmw(dev, ...)	(dev)->mt76.bus->rmw(&((dev)->mt76), __VA_ARGS__)
 #define mt76_wr_copy(dev, ...)	(dev)->mt76.bus->copy(&((dev)->mt76), __VA_ARGS__)
+
+#define mt76_mcu_fw_init(dev, ...)	(dev)->mt76.bus->mcu_fw_init(&((dev)->mt76), __VA_ARGS__)
+#define mt76_mcu_init(dev, ...)		(dev)->mt76.bus->mcu_init(&((dev)->mt76), __VA_ARGS__)
+#define mt76_mcu_calibrate(dev, ...)	(dev)->mt76.bus->mcu_calibrate(&((dev)->mt76), __VA_ARGS__)
+#define mt76_mcu_set_channel(dev, ...)	(dev)->mt76.bus->mcu_set_channel(&((dev)->mt76), __VA_ARGS__)
+#define mt76_mcu_cleanup(dev, ...)	(dev)->mt76.bus->mcu_cleanup(&((dev)->mt76), __VA_ARGS__)
 
 #define mt76_set(dev, offset, val)	mt76_rmw(dev, offset, 0, val)
 #define mt76_clear(dev, offset, val)	mt76_rmw(dev, offset, val, 0)
