@@ -31,4 +31,9 @@ static inline void mt76e_irq_disable(struct mt76_dev *dev, u32 mask)
 {
 	mt76e_set_irq_mask(dev, mask, 0);
 }
+
+void mt76e_mcu_init(struct mt76_dev *dev);
+void mt76e_mcu_cleanup(struct mt76_dev *dev);
+int mt76e_mcu_msg_send(struct mt76_dev *dev, struct sk_buff *skb, int cmd);
+struct sk_buff *mt76e_mcu_msg_alloc(const void *data, int len);
 #endif

@@ -18,36 +18,6 @@
 #include "dma.h"
 #include "mmio.h"
 
-int
-mt76x2_tx_queue_mcu(struct mt76x2_dev *dev, enum mt76_txq_id qid,
-		    struct sk_buff *skb, int cmd, int seq)
-{
-	struct mt76_queue *q = &dev->mt76.q_tx[qid];
-	struct mt76_queue_buf buf;
-	dma_addr_t addr;
-	u32 tx_info;
-
-	tx_info = MT_MCU_MSG_TYPE_CMD |
-		  FIELD_PREP(MT_MCU_MSG_CMD_TYPE, cmd) |
-		  FIELD_PREP(MT_MCU_MSG_CMD_SEQ, seq) |
-		  FIELD_PREP(MT_MCU_MSG_PORT, CPU_TX_PORT) |
-		  FIELD_PREP(MT_MCU_MSG_LEN, skb->len);
-
-	addr = dma_map_single(dev->mt76.dev, skb->data, skb->len,
-			      DMA_TO_DEVICE);
-	if (dma_mapping_error(dev->mt76.dev, addr))
-		return -ENOMEM;
-
-	buf.addr = addr;
-	buf.len = skb->len;
-	spin_lock_bh(&q->lock);
-	mt76_queue_add_buf(dev, q, &buf, 1, tx_info, skb, NULL);
-	mt76_queue_kick(dev, q);
-	spin_unlock_bh(&q->lock);
-
-	return 0;
-}
-
 static int
 mt76x2_init_tx_queue(struct mt76x2_dev *dev, struct mt76_queue *q,
 		     int idx, int n_desc)
@@ -111,9 +81,6 @@ int mt76x2_dma_init(struct mt76x2_dev *dev)
 	BUILD_BUG_ON(sizeof(struct mt76xx_rxwi) > MT_RX_HEADROOM);
 
 	mt76_dma_attach(&dev->mt76);
-
-	init_waitqueue_head(&dev->mcu.wait);
-	skb_queue_head_init(&dev->mcu.res_q);
 
 	tasklet_init(&dev->tx_tasklet, mt76x2_tx_tasklet, (unsigned long) dev);
 

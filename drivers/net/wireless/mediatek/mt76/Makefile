@@ -8,7 +8,7 @@ obj-$(CONFIG_MT76x2E) += mt76x2e.o
 obj-$(CONFIG_MT76x2U) += mt76x2u.o
 
 mt76-y := util.o mac80211.o debugfs.o eeprom.o tx.o agg-rx.o
-mt76-mmio-y := dma.o mmio_trace.o mmio.o
+mt76-mmio-y := dma.o mmio_trace.o mmio.o mmio_mcu.o
 mt76-usb-y := usb.o usb_trace.o usb_mcu.o
 
 CFLAGS_mmio_trace.o := -I$(src)

@@ -334,6 +334,15 @@ struct mt76_mmio
 	u32 irqmask;
 
 	void __iomem *regs;
+
+	struct mt76e_mcu {
+		struct mutex mutex;
+
+		wait_queue_head_t wait;
+		struct sk_buff_head res_q;
+
+		u32 msg_seq;
+	} mcu;
 };
 
 struct mt76_dev {
@@ -497,6 +506,9 @@ static inline u16 mt76_rev(struct mt76_dev *dev)
 
 #define mt76xx_chip(dev) mt76_chip(&((dev)->mt76))
 #define mt76xx_rev(dev) mt76_rev(&((dev)->mt76))
+
+#define __mt76_queue_add_buf(dev, ...)	(dev)->queue_ops->add_buf(dev, __VA_ARGS__)
+#define __mt76_queue_kick(dev, ...)	(dev)->queue_ops->kick(dev, __VA_ARGS__)
 
 #define mt76_init_queues(dev)		(dev)->mt76.queue_ops->init(&((dev)->mt76))
 #define mt76_queue_alloc(dev, ...)	(dev)->mt76.queue_ops->alloc(&((dev)->mt76), __VA_ARGS__)

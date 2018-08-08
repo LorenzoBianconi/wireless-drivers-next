@@ -47,16 +47,6 @@
 #include "mt76x2_mac.h"
 #include "mt76x2_dfs.h"
 
-struct mt76x2_mcu {
-	struct mutex mutex;
-
-	wait_queue_head_t wait;
-	struct sk_buff_head res_q;
-	struct mt76u_buf res_u;
-
-	u32 msg_seq;
-};
-
 struct mt76x2_rx_freq_cal {
 	s8 high_gain[MT_MAX_CHAINS];
 	s8 rssi_offset[MT_MAX_CHAINS];
@@ -98,7 +88,6 @@ struct mt76x2_dev {
 	u8 txdone_seq;
 	DECLARE_KFIFO_PTR(txstatus_fifo, struct mt76xx_tx_status);
 
-	struct mt76x2_mcu mcu;
 	struct sk_buff *rx_head;
 
 	struct tasklet_struct tx_tasklet;
@@ -187,7 +176,7 @@ int mt76x2_mcu_set_channel(struct mt76x2_dev *dev, u8 channel, u8 bw,
 int mt76x2_mcu_set_radio_state(struct mt76x2_dev *dev, bool on);
 int mt76x2_mcu_load_cr(struct mt76x2_dev *dev, u8 type, u8 temp_level,
 		       u8 channel);
-int mt76x2_mcu_cleanup(struct mt76x2_dev *dev);
+void mt76x2_mcu_cleanup(struct mt76x2_dev *dev);
 
 int mt76x2_dma_init(struct mt76x2_dev *dev);
 void mt76x2_dma_cleanup(struct mt76x2_dev *dev);
