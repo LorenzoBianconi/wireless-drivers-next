@@ -78,7 +78,8 @@ mt76e_tx_queue_mcu(struct mt76_dev *dev, enum mt76_txq_id qid,
 	return 0;
 }
 
-int mt76e_mcu_msg_send(struct mt76_dev *dev, struct sk_buff *skb, int cmd)
+int mt76e_mcu_msg_send(struct mt76_dev *dev, struct sk_buff *skb, int cmd,
+		       bool wait_resp)
 {
 	struct mt76_mmio *mmio = &dev->mmio;
 	unsigned long expires = jiffies + HZ;

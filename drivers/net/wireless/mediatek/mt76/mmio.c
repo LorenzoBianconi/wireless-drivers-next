@@ -15,6 +15,7 @@
  */
 
 #include "mt76.h"
+#include "mmio.h"
 #include "mmio_trace.h"
 
 static u32 mt76_mmio_rr(struct mt76_dev *dev, u32 offset)
@@ -72,6 +73,8 @@ void mt76_mmio_init(struct mt76_dev *dev, void __iomem *regs)
 		.rmw = mt76_mmio_rmw,
 		.wr = mt76_mmio_wr,
 		.copy = mt76_mmio_copy,
+		.mcu_msg_alloc = mt76e_mcu_msg_alloc,
+		.mcu_send_msg = mt76e_mcu_msg_send,
 	};
 
 	dev->bus = &mt76_mmio_ops;

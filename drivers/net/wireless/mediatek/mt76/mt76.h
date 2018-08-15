@@ -45,6 +45,10 @@ struct mt76_bus_ops {
 	int (*mcu_set_channel)(struct mt76_dev *dev, u8 channel, u8 bw,
 			       u8 bw_index, bool scan);
 	int (*mcu_cleanup)(struct mt76_dev *dev);
+
+	struct sk_buff *(*mcu_msg_alloc)(const void *data, int len);
+	int (*mcu_send_msg)(struct mt76_dev *dev, struct sk_buff *skb,
+			    int cmd, bool wait_resp);
 };
 
 enum mt76_txq_id {
@@ -467,6 +471,9 @@ struct mt76_rx_status {
 #define mt76_mcu_calibrate(dev, ...)	(dev)->mt76.bus->mcu_calibrate(&((dev)->mt76), __VA_ARGS__)
 #define mt76_mcu_set_channel(dev, ...)	(dev)->mt76.bus->mcu_set_channel(&((dev)->mt76), __VA_ARGS__)
 #define mt76_mcu_cleanup(dev, ...)	(dev)->mt76.bus->mcu_cleanup(&((dev)->mt76), __VA_ARGS__)
+
+#define mt76_mcu_msg_alloc(dev, ...)	(dev)->mt76.bus->mcu_msg_alloc(__VA_ARGS__)
+#define mt76_mcu_send_msg(dev, ...)	(dev)->mt76.bus->mcu_mcu_send_msg(&((dev)->mt76), __VA_ARGS__)
 
 #define mt76_set(dev, offset, val)	mt76_rmw(dev, offset, 0, val)
 #define mt76_clear(dev, offset, val)	mt76_rmw(dev, offset, val, 0)
