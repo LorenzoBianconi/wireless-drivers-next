@@ -222,8 +222,8 @@ int mt76x2u_init_hardware(struct mt76x2_dev *dev)
 
 	/* reset wcid table */
 	for (i = 0; i < 254; i++)
-		mt76_wr_copy(dev, MT_WCID_ADDR(i), &addr,
-			     sizeof(struct mt76_wcid_addr));
+		mt76_burst_wr(dev, 0, MT_WCID_ADDR(i), &addr,
+			      sizeof(struct mt76_wcid_addr));
 
 	/* reset shared key table and pairwise key table */
 	for (i = 0; i < 4; i++)

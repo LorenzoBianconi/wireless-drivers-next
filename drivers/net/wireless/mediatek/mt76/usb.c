@@ -152,8 +152,8 @@ static u32 mt76u_rmw(struct mt76_dev *dev, u32 addr,
 	return val;
 }
 
-static void mt76u_copy(struct mt76_dev *dev, u32 offset,
-		       const void *data, int len)
+static void mt76u_burst_wr(struct mt76_dev *dev, u32 base, u32 offset,
+			   const void *data, int len)
 {
 	struct mt76_usb *usb = &dev->usb;
 	const u32 *val = data;
@@ -164,8 +164,8 @@ static void mt76u_copy(struct mt76_dev *dev, u32 offset,
 		put_unaligned_le32(val[i], usb->data);
 		ret = __mt76u_vendor_request(dev, MT_VEND_MULTI_WRITE,
 					     USB_DIR_OUT | USB_TYPE_VENDOR,
-					     0, offset + i * 4, usb->data,
-					     sizeof(__le32));
+					     0, base + offset + i * 4,
+					     usb->data, sizeof(__le32));
 		if (ret < 0)
 			break;
 	}
@@ -821,7 +821,7 @@ int mt76u_init(struct mt76_dev *dev,
 		.rr = mt76u_rr,
 		.wr = mt76u_wr,
 		.rmw = mt76u_rmw,
-		.copy = mt76u_copy,
+		.burst_wr = mt76u_burst_wr,
 		.mcu_msg_alloc = mt76u_mcu_msg_alloc,
 		.mcu_send_msg = mt76u_mcu_send_msg,
 	};
