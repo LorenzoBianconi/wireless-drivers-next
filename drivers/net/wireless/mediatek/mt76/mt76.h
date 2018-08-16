@@ -473,7 +473,7 @@ struct mt76_rx_status {
 #define mt76_mcu_cleanup(dev, ...)	(dev)->mt76.bus->mcu_cleanup(&((dev)->mt76), __VA_ARGS__)
 
 #define mt76_mcu_msg_alloc(dev, ...)	(dev)->mt76.bus->mcu_msg_alloc(__VA_ARGS__)
-#define mt76_mcu_send_msg(dev, ...)	(dev)->mt76.bus->mcu_mcu_send_msg(&((dev)->mt76), __VA_ARGS__)
+#define mt76_mcu_send_msg(dev, ...)	(dev)->mt76.bus->mcu_send_msg(&((dev)->mt76), __VA_ARGS__)
 
 #define mt76_set(dev, offset, val)	mt76_rmw(dev, offset, 0, val)
 #define mt76_clear(dev, offset, val)	mt76_rmw(dev, offset, val, 0)
