@@ -33,12 +33,22 @@
 struct mt76_dev;
 struct mt76_wcid;
 
+struct mt76_reg_pair {
+	u32 reg;
+	u32 value;
+};
+
 struct mt76_bus_ops {
 	u32 (*rr)(struct mt76_dev *dev, u32 offset);
 	void (*wr)(struct mt76_dev *dev, u32 offset, u32 val);
 	u32 (*rmw)(struct mt76_dev *dev, u32 offset, u32 mask, u32 val);
 	void (*copy)(struct mt76_dev *dev, u32 offset, const void *data,
 		     int len);
+	int (*wr_rp)(struct mt76_dev *dev, u32 base,
+		     const struct mt76_reg_pair *rp, int len);
+	int (*rd_rp)(struct mt76_dev *dev, u32 base,
+		     struct mt76_reg_pair *rp, int len);
+
 	int (*mcu_fw_init)(struct mt76_dev *dev);
 	int (*mcu_init)(struct mt76_dev *dev);
 	int (*mcu_calibrate)(struct mt76_dev *dev, int type, u32 param);
@@ -61,11 +71,6 @@ enum mt76_txq_id {
 	MT_TXQ_BEACON,
 	MT_TXQ_CAB,
 	__MT_TXQ_MAX
-};
-
-struct mt76_reg_pair {
-	u32 reg;
-	u32 value;
 };
 
 enum mt76_rxq_id {
@@ -465,6 +470,8 @@ struct mt76_rx_status {
 #define mt76_wr(dev, ...)	(dev)->mt76.bus->wr(&((dev)->mt76), __VA_ARGS__)
 #define mt76_rmw(dev, ...)	(dev)->mt76.bus->rmw(&((dev)->mt76), __VA_ARGS__)
 #define mt76_wr_copy(dev, ...)	(dev)->mt76.bus->copy(&((dev)->mt76), __VA_ARGS__)
+#define mt76_wr_rp(dev, ...)	(dev)->mt76.bus->wr_rp(&((dev)->mt76), __VA_ARGS__)
+#define mt76_rd_rp(dev, ...)	(dev)->mt76.bus->rd_rp(&((dev)->mt76), __VA_ARGS__)
 
 #define mt76_mcu_fw_init(dev, ...)	(dev)->mt76.bus->mcu_fw_init(&((dev)->mt76), __VA_ARGS__)
 #define mt76_mcu_init(dev, ...)		(dev)->mt76.bus->mcu_init(&((dev)->mt76), __VA_ARGS__)
