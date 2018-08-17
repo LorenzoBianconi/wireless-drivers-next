@@ -117,7 +117,7 @@ rf_wr(struct mt76x0_dev *dev, u32 offset, u8 val)
 			.value = val,
 		};
 
-		return mt76x0_write_reg_pairs(dev, MT_MCU_MEMMAP_RF, &pair, 1);
+		return mt76_wr_rp(dev, MT_MCU_MEMMAP_RF, &pair, 1);
 	} else {
 		WARN_ON_ONCE(1);
 		return mt76x0_rf_csr_wr(dev, offset, val);
@@ -135,7 +135,7 @@ rf_rr(struct mt76x0_dev *dev, u32 offset)
 			.reg = offset,
 		};
 
-		ret = mt76x0_read_reg_pairs(dev, MT_MCU_MEMMAP_RF, &pair, 1);
+		ret = mt76_rd_rp(dev, MT_MCU_MEMMAP_RF, &pair, 1);
 		val = pair.value;
 	} else {
 		WARN_ON_ONCE(1);
@@ -176,7 +176,7 @@ rf_clear(struct mt76x0_dev *dev, u32 offset, u8 mask)
 #endif
 
 #define RF_RANDOM_WRITE(dev, tab) \
-	mt76x0_write_reg_pairs(dev, MT_MCU_MEMMAP_RF, tab, ARRAY_SIZE(tab));
+	mt76_wr_rp(dev, MT_MCU_MEMMAP_RF, tab, ARRAY_SIZE(tab));
 
 int mt76x0_wait_bbp_ready(struct mt76x0_dev *dev)
 {
