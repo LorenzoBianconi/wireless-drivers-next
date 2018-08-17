@@ -109,10 +109,10 @@ mt76_write_beacon(struct mt76x2_dev *dev, int offset, struct sk_buff *skb)
 
 	mt76x2_mac_write_txwi(dev, &txwi, skb, NULL, NULL, skb->len);
 
-	mt76_burst_wr(dev, 0, offset, &txwi, sizeof(txwi));
+	mt76_wr_copy(dev, offset, &txwi, sizeof(txwi));
 	offset += sizeof(txwi);
 
-	mt76_burst_wr(dev, 0, offset, skb->data, skb->len);
+	mt76_wr_copy(dev, offset, skb->data, skb->len);
 	return 0;
 }
 

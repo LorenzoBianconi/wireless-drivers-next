@@ -69,7 +69,7 @@ mt76pci_load_rom_patch(struct mt76x2_dev *dev)
 
 	cur = (__le32 *) (fw->data + sizeof(*hdr));
 	len = fw->size - sizeof(*hdr);
-	mt76_burst_wr(dev, 0, MT_MCU_ROM_PATCH_ADDR, cur, len);
+	mt76_wr_copy(dev, MT_MCU_ROM_PATCH_ADDR, cur, len);
 
 	mt76_wr(dev, MT_MCU_PCIE_REMAP_BASE4, 0);
 
@@ -126,7 +126,7 @@ mt76pci_load_firmware(struct mt76x2_dev *dev)
 	len = le32_to_cpu(hdr->ilm_len);
 
 	mt76_wr(dev, MT_MCU_PCIE_REMAP_BASE4, MT_MCU_ILM_OFFSET);
-	mt76_burst_wr(dev, 0, MT_MCU_ILM_ADDR, cur, len);
+	mt76_wr_copy(dev, MT_MCU_ILM_ADDR, cur, len);
 
 	cur += len / sizeof(*cur);
 	len = le32_to_cpu(hdr->dlm_len);
@@ -137,7 +137,7 @@ mt76pci_load_firmware(struct mt76x2_dev *dev)
 		offset = MT_MCU_DLM_ADDR;
 
 	mt76_wr(dev, MT_MCU_PCIE_REMAP_BASE4, MT_MCU_DLM_OFFSET);
-	mt76_burst_wr(dev, 0, offset, cur, len);
+	mt76_wr_copy(dev, offset, cur, len);
 
 	mt76_wr(dev, MT_MCU_PCIE_REMAP_BASE4, 0);
 

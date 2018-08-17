@@ -33,25 +33,12 @@
 struct mt76_dev;
 struct mt76_wcid;
 
-struct mt76_reg_pair {
-	u32 reg;
-	u32 value;
-};
-
 struct mt76_bus_ops {
 	u32 (*rr)(struct mt76_dev *dev, u32 offset);
 	void (*wr)(struct mt76_dev *dev, u32 offset, u32 val);
 	u32 (*rmw)(struct mt76_dev *dev, u32 offset, u32 mask, u32 val);
-
-	void (*burst_wr)(struct mt76_dev *dev, u32 base, u32 offset,
-			const void *data, int len);
-	void (*burst_rd)(struct mt76_dev *dev, u32 base, u32 offset,
-			 const void *data, int len);
-	void (*random_wr)(struct mt76_dev *dev, u32 base,
-			  const struct mt76_reg_pair *rp, int len);
-	void (*random_rd)(struct mt76_dev *dev, u32 base, u32 offset,
-			  const struct mt76_reg_pair *rp, int len);
-
+	void (*copy)(struct mt76_dev *dev, u32 offset, const void *data,
+		     int len);
 	int (*mcu_fw_init)(struct mt76_dev *dev);
 	int (*mcu_init)(struct mt76_dev *dev);
 	int (*mcu_calibrate)(struct mt76_dev *dev, int type, u32 param);
@@ -74,6 +61,11 @@ enum mt76_txq_id {
 	MT_TXQ_BEACON,
 	MT_TXQ_CAB,
 	__MT_TXQ_MAX
+};
+
+struct mt76_reg_pair {
+	u32 reg;
+	u32 value;
 };
 
 enum mt76_rxq_id {
@@ -464,7 +456,7 @@ struct mt76_rx_status {
 #define __mt76_rr(dev, ...)	(dev)->bus->rr((dev), __VA_ARGS__)
 #define __mt76_wr(dev, ...)	(dev)->bus->wr((dev), __VA_ARGS__)
 #define __mt76_rmw(dev, ...)	(dev)->bus->rmw((dev), __VA_ARGS__)
-#define __mt76_burst_wr(dev, ...)	(dev)->bus->burst_wr((dev), __VA_ARGS__)
+#define __mt76_wr_copy(dev, ...)	(dev)->bus->copy((dev), __VA_ARGS__)
 
 #define __mt76_set(dev, offset, val)	__mt76_rmw(dev, offset, 0, val)
 #define __mt76_clear(dev, offset, val)	__mt76_rmw(dev, offset, val, 0)
@@ -472,11 +464,7 @@ struct mt76_rx_status {
 #define mt76_rr(dev, ...)	(dev)->mt76.bus->rr(&((dev)->mt76), __VA_ARGS__)
 #define mt76_wr(dev, ...)	(dev)->mt76.bus->wr(&((dev)->mt76), __VA_ARGS__)
 #define mt76_rmw(dev, ...)	(dev)->mt76.bus->rmw(&((dev)->mt76), __VA_ARGS__)
-
-#define mt76_burst_wr(dev, ...)		(dev)->mt76.bus->burst_wr(&((dev)->mt76), __VA_ARGS__)
-#define mt76_burst_rd(dev, ...)		(dev)->mt76.bus->burst_rd(&((dev)->mt76), __VA_ARGS__)
-#define mt76_random_wr(dev, ...)	(dev)->mt76.bus->random_wr(&((dev)->mt76), __VA_ARGS__)
-#define mt76_random_rd(dev, ...)	(dev)->mt76.bus->random_rd(&((dev)->mt76), __VA_ARGS__)
+#define mt76_wr_copy(dev, ...)	(dev)->mt76.bus->copy(&((dev)->mt76), __VA_ARGS__)
 
 #define mt76_mcu_fw_init(dev, ...)	(dev)->mt76.bus->mcu_fw_init(&((dev)->mt76), __VA_ARGS__)
 #define mt76_mcu_init(dev, ...)		(dev)->mt76.bus->mcu_init(&((dev)->mt76), __VA_ARGS__)

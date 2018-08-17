@@ -62,8 +62,8 @@ int mt76xx_mac_shared_key_setup(struct mt76_dev *dev, u8 vif_idx, u8 key_idx,
 	val |= cipher << MT_SKEY_MODE_SHIFT(vif_idx, key_idx);
 	__mt76_wr(dev, MT_SKEY_MODE(vif_idx), val);
 
-	__mt76_burst_wr(dev, 0, MT_SKEY(vif_idx, key_idx), key_data,
-			sizeof(key_data));
+	__mt76_wr_copy(dev, MT_SKEY(vif_idx, key_idx), key_data,
+		       sizeof(key_data));
 
 	return 0;
 }
@@ -80,7 +80,7 @@ int mt76xx_mac_wcid_set_key(struct mt76_dev *dev, u8 idx,
 	if (cipher == MT_CIPHER_NONE && key)
 		return -EOPNOTSUPP;
 
-	__mt76_burst_wr(dev, 0, MT_WCID_KEY(idx), key_data, sizeof(key_data));
+	__mt76_wr_copy(dev, MT_WCID_KEY(idx), key_data, sizeof(key_data));
 	__mt76_rmw_field(dev, MT_WCID_ATTR(idx), MT_WCID_ATTR_PKEY_MODE, cipher);
 
 	memset(iv_data, 0, sizeof(iv_data));
@@ -92,7 +92,7 @@ int mt76xx_mac_wcid_set_key(struct mt76_dev *dev, u8 idx,
 			iv_data[3] |= 0x20;
 	}
 
-	__mt76_burst_wr(dev, 0, MT_WCID_IV(idx), iv_data, sizeof(iv_data));
+	__mt76_wr_copy(dev, MT_WCID_IV(idx), iv_data, sizeof(iv_data));
 
 	return 0;
 }
@@ -117,7 +117,7 @@ void mt76xx_mac_wcid_setup(struct mt76_dev *dev, u8 idx, u8 vif_idx, u8 *mac)
 	if (mac)
 		memcpy(addr.macaddr, mac, ETH_ALEN);
 
-	__mt76_burst_wr(dev, 0, MT_WCID_ADDR(idx), &addr, sizeof(addr));
+	__mt76_wr_copy(dev, MT_WCID_ADDR(idx), &addr, sizeof(addr));
 }
 EXPORT_SYMBOL_GPL(mt76xx_mac_wcid_setup);
 
