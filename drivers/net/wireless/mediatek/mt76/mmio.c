@@ -52,6 +52,32 @@ static void mt76_mmio_copy(struct mt76_dev *dev, u32 offset, const void *data,
 	__iowrite32_copy(mmio->regs + offset, data, len >> 2);
 }
 
+static int
+mt76_mmio_wr_rp(struct mt76_dev *dev, u32 base,
+		const struct mt76_reg_pair *data, int len)
+{
+	while (len > 0) {
+		mt76_mmio_wr(dev, base + data->reg, data->value);
+		len--;
+		data++;
+	}
+
+	return 0;
+}
+
+static int
+mt76_mmio_rd_rp(struct mt76_dev *dev, u32 base,
+		struct mt76_reg_pair *data, int len)
+{
+	while (len > 0) {
+		data->value = mt76_mmio_rr(dev, base + data->reg);
+		len--;
+		data++;
+	}
+
+	return 0;
+}
+
 void mt76e_set_irq_mask(struct mt76_dev *dev, u32 clear, u32 set)
 {
 	struct mt76_mmio *mmio = &dev->mmio;
@@ -73,6 +99,8 @@ void mt76_mmio_init(struct mt76_dev *dev, void __iomem *regs)
 		.rmw = mt76_mmio_rmw,
 		.wr = mt76_mmio_wr,
 		.copy = mt76_mmio_copy,
+		.wr_rp = mt76_mmio_wr_rp,
+		.rd_rp = mt76_mmio_rd_rp,
 		.mcu_msg_alloc = mt76e_mcu_msg_alloc,
 		.mcu_send_msg = mt76e_mcu_msg_send,
 	};
