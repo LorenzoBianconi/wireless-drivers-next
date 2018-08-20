@@ -32,7 +32,6 @@ struct sk_buff *mt76e_mcu_msg_alloc(const void *data, int len)
 
 	return skb;
 }
-EXPORT_SYMBOL_GPL(mt76e_mcu_msg_alloc);
 
 static struct sk_buff *
 mt76e_mcu_get_response(struct mt76_dev *dev, unsigned long expires)
