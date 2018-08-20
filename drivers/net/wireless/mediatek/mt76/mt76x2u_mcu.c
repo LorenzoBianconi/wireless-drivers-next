@@ -43,7 +43,7 @@ mt76x2u_mcu_function_select(struct mt76x2_dev *dev, enum mcu_function func,
 	};
 	struct sk_buff *skb;
 
-	skb = mt76u_mcu_msg_alloc(&msg, sizeof(msg));
+	skb = mt76_mcu_msg_alloc(dev, &msg, sizeof(msg));
 	if (!skb)
 		return -ENOMEM;
 	return mt76u_mcu_send_msg(&dev->mt76, skb, CMD_FUN_SET_OP,
@@ -61,7 +61,7 @@ int mt76x2u_mcu_set_radio_state(struct mt76x2_dev *dev, bool val)
 	};
 	struct sk_buff *skb;
 
-	skb = mt76u_mcu_msg_alloc(&msg, sizeof(msg));
+	skb = mt76_mcu_msg_alloc(dev, &msg, sizeof(msg));
 	if (!skb)
 		return -ENOMEM;
 	return mt76u_mcu_send_msg(&dev->mt76, skb, CMD_POWER_SAVING_OP,
@@ -91,7 +91,7 @@ int mt76x2u_mcu_load_cr(struct mt76x2_dev *dev, u8 type, u8 temp_level,
 	msg.cfg = cpu_to_le32(val);
 
 	/* first set the channel without the extension channel info */
-	skb = mt76u_mcu_msg_alloc(&msg, sizeof(msg));
+	skb = mt76_mcu_msg_alloc(dev, &msg, sizeof(msg));
 	if (!skb)
 		return -ENOMEM;
 	return mt76u_mcu_send_msg(&dev->mt76, skb, CMD_LOAD_CR, true);
@@ -119,7 +119,7 @@ int mt76x2u_mcu_set_channel(struct mt76x2_dev *dev, u8 channel, u8 bw,
 	struct sk_buff *skb;
 
 	/* first set the channel without the extension channel info */
-	skb = mt76u_mcu_msg_alloc(&msg, sizeof(msg));
+	skb = mt76_mcu_msg_alloc(dev, &msg, sizeof(msg));
 	if (!skb)
 		return -ENOMEM;
 
@@ -128,7 +128,7 @@ int mt76x2u_mcu_set_channel(struct mt76x2_dev *dev, u8 channel, u8 bw,
 	usleep_range(5000, 10000);
 
 	msg.ext_chan = 0xe0 + bw_index;
-	skb = mt76u_mcu_msg_alloc(&msg, sizeof(msg));
+	skb = mt76_mcu_msg_alloc(dev, &msg, sizeof(msg));
 	if (!skb)
 		return -ENOMEM;
 
@@ -147,7 +147,7 @@ int mt76x2u_mcu_calibrate(struct mt76x2_dev *dev, enum mcu_calibration type,
 	};
 	struct sk_buff *skb;
 
-	skb = mt76u_mcu_msg_alloc(&msg, sizeof(msg));
+	skb = mt76_mcu_msg_alloc(dev, &msg, sizeof(msg));
 	if (!skb)
 		return -ENOMEM;
 	return mt76u_mcu_send_msg(&dev->mt76, skb, CMD_CALIBRATION_OP, true);
@@ -168,7 +168,7 @@ int mt76x2u_mcu_init_gain(struct mt76x2_dev *dev, u8 channel, u32 gain,
 	if (force)
 		msg.channel |= cpu_to_le32(BIT(31));
 
-	skb = mt76u_mcu_msg_alloc(&msg, sizeof(msg));
+	skb = mt76_mcu_msg_alloc(dev, &msg, sizeof(msg));
 	if (!skb)
 		return -ENOMEM;
 	return mt76u_mcu_send_msg(&dev->mt76, skb, CMD_INIT_GAIN_OP, true);
@@ -194,7 +194,7 @@ int mt76x2u_mcu_set_dynamic_vga(struct mt76x2_dev *dev, u8 channel, bool ap,
 		val |= BIT(30);
 	msg.channel = cpu_to_le32(val);
 
-	skb = mt76u_mcu_msg_alloc(&msg, sizeof(msg));
+	skb = mt76_mcu_msg_alloc(dev, &msg, sizeof(msg));
 	if (!skb)
 		return -ENOMEM;
 	return mt76u_mcu_send_msg(&dev->mt76, skb, CMD_DYNC_VGA_OP, true);
@@ -212,7 +212,7 @@ int mt76x2u_mcu_tssi_comp(struct mt76x2_dev *dev,
 	};
 	struct sk_buff *skb;
 
-	skb = mt76u_mcu_msg_alloc(&msg, sizeof(msg));
+	skb = mt76_mcu_msg_alloc(dev, &msg, sizeof(msg));
 	if (!skb)
 		return -ENOMEM;
 	return mt76u_mcu_send_msg(&dev->mt76, skb, CMD_CALIBRATION_OP, true);
