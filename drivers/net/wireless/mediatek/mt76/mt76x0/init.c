@@ -155,7 +155,8 @@ static void mt76x0_init_usb_dma(struct mt76x0_dev *dev)
 }
 
 #define RANDOM_WRITE(dev, tab) \
-	mt76_wr_rp(dev, MT_MCU_MEMMAP_WLAN, tab, ARRAY_SIZE(tab));
+	mt76_wr_rp(dev, mt76_is_usb(dev) ? MT_MCU_MEMMAP_WLAN : 0, \
+		   tab, ARRAY_SIZE(tab));
 
 static int mt76x0_init_bbp(struct mt76x0_dev *dev)
 {
