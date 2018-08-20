@@ -179,7 +179,7 @@ mt76x2_mcu_function_select(struct mt76x2_dev *dev, enum mcu_function func,
 	};
 
 	skb = mt76_mcu_msg_alloc(dev, &msg, sizeof(msg));
-	return mt76e_mcu_msg_send(&dev->mt76, skb, CMD_FUN_SET_OP, true);
+	return mt76_mcu_send_msg(dev, skb, CMD_FUN_SET_OP, true);
 }
 
 int mt76x2_mcu_load_cr(struct mt76x2_dev *dev, u8 type, u8 temp_level,
@@ -207,7 +207,7 @@ int mt76x2_mcu_load_cr(struct mt76x2_dev *dev, u8 type, u8 temp_level,
 
 	/* first set the channel without the extension channel info */
 	skb = mt76_mcu_msg_alloc(dev, &msg, sizeof(msg));
-	return mt76e_mcu_msg_send(&dev->mt76, skb, CMD_LOAD_CR, true);
+	return mt76_mcu_send_msg(dev, skb, CMD_LOAD_CR, true);
 }
 
 int mt76x2_mcu_set_channel(struct mt76x2_dev *dev, u8 channel, u8 bw,
@@ -233,13 +233,13 @@ int mt76x2_mcu_set_channel(struct mt76x2_dev *dev, u8 channel, u8 bw,
 
 	/* first set the channel without the extension channel info */
 	skb = mt76_mcu_msg_alloc(dev, &msg, sizeof(msg));
-	mt76e_mcu_msg_send(&dev->mt76, skb, CMD_SWITCH_CHANNEL_OP, true);
+	mt76_mcu_send_msg(dev, skb, CMD_SWITCH_CHANNEL_OP, true);
 
 	usleep_range(5000, 10000);
 
 	msg.ext_chan = 0xe0 + bw_index;
 	skb = mt76_mcu_msg_alloc(dev, &msg, sizeof(msg));
-	return mt76e_mcu_msg_send(&dev->mt76, skb, CMD_SWITCH_CHANNEL_OP, true);
+	return mt76_mcu_send_msg(dev, skb, CMD_SWITCH_CHANNEL_OP, true);
 }
 
 int mt76x2_mcu_set_radio_state(struct mt76x2_dev *dev, bool on)
@@ -254,7 +254,7 @@ int mt76x2_mcu_set_radio_state(struct mt76x2_dev *dev, bool on)
 	};
 
 	skb = mt76_mcu_msg_alloc(dev, &msg, sizeof(msg));
-	return mt76e_mcu_msg_send(&dev->mt76, skb, CMD_POWER_SAVING_OP, true);
+	return mt76_mcu_send_msg(dev, skb, CMD_POWER_SAVING_OP, true);
 }
 
 int mt76x2_mcu_calibrate(struct mt76x2_dev *dev, enum mcu_calibration type,
@@ -273,7 +273,7 @@ int mt76x2_mcu_calibrate(struct mt76x2_dev *dev, enum mcu_calibration type,
 	mt76_clear(dev, MT_MCU_COM_REG0, BIT(31));
 
 	skb = mt76_mcu_msg_alloc(dev, &msg, sizeof(msg));
-	ret = mt76e_mcu_msg_send(&dev->mt76, skb, CMD_CALIBRATION_OP, true);
+	ret = mt76_mcu_send_msg(dev, skb, CMD_CALIBRATION_OP, true);
 	if (ret)
 		return ret;
 
@@ -297,7 +297,7 @@ int mt76x2_mcu_tssi_comp(struct mt76x2_dev *dev,
 	};
 
 	skb = mt76_mcu_msg_alloc(dev, &msg, sizeof(msg));
-	return mt76e_mcu_msg_send(&dev->mt76, skb, CMD_CALIBRATION_OP, true);
+	return mt76_mcu_send_msg(dev, skb, CMD_CALIBRATION_OP, true);
 }
 
 int mt76x2_mcu_init_gain(struct mt76x2_dev *dev, u8 channel, u32 gain,
@@ -316,7 +316,7 @@ int mt76x2_mcu_init_gain(struct mt76x2_dev *dev, u8 channel, u32 gain,
 		msg.channel |= cpu_to_le32(BIT(31));
 
 	skb = mt76_mcu_msg_alloc(dev, &msg, sizeof(msg));
-	return mt76e_mcu_msg_send(&dev->mt76, skb, CMD_INIT_GAIN_OP, true);
+	return mt76_mcu_send_msg(dev, skb, CMD_INIT_GAIN_OP, true);
 }
 
 int mt76x2_mcu_init(struct mt76x2_dev *dev)

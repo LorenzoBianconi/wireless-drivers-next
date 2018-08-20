@@ -126,7 +126,6 @@ out:
 
 	return ret;
 }
-EXPORT_SYMBOL_GPL(mt76e_mcu_msg_send);
 
 void mt76e_mcu_init(struct mt76_dev *dev)
 {
