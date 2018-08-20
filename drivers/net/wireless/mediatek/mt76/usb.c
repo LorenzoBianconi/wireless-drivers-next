@@ -879,6 +879,7 @@ int mt76u_init(struct mt76_dev *dev,
 		.rd_rp = mt76u_rd_rp,
 		.mcu_msg_alloc = mt76u_mcu_msg_alloc,
 		.mcu_send_msg = mt76u_mcu_send_msg,
+		.type = MT76_BUS_USB,
 	};
 	struct mt76_usb *usb = &dev->usb;
 
