@@ -336,7 +336,8 @@ static void mt76x0_mac_stop_hw(struct mt76x0_dev *dev)
 		   MT_BEACON_TIME_CFG_SYNC_MODE | MT_BEACON_TIME_CFG_TBTT_EN |
 		   MT_BEACON_TIME_CFG_BEACON_TX);
 
-	if (!mt76_poll(dev, MT_USB_DMA_CFG, MT_USB_DMA_CFG_TX_BUSY, 0, 1000))
+	if (mt76_is_usb(dev) &&
+	    !mt76_poll(dev, MT_USB_DMA_CFG, MT_USB_DMA_CFG_TX_BUSY, 0, 1000))
 		dev_warn(dev->mt76.dev, "Warning: TX DMA did not stop!\n");
 
 	/* Page count on TxQ */
@@ -369,7 +370,8 @@ static void mt76x0_mac_stop_hw(struct mt76x0_dev *dev)
 	if (!mt76_poll(dev, MT_MAC_STATUS, MT_MAC_STATUS_RX, 0, 1000))
 		dev_warn(dev->mt76.dev, "Warning: MAC RX did not stop!\n");
 
-	if (!mt76_poll(dev, MT_USB_DMA_CFG, MT_USB_DMA_CFG_RX_BUSY, 0, 1000))
+	if (mt76_is_usb(dev) &&
+	    !mt76_poll(dev, MT_USB_DMA_CFG, MT_USB_DMA_CFG_RX_BUSY, 0, 1000))
 		dev_warn(dev->mt76.dev, "Warning: RX DMA did not stop!\n");
 }
 
@@ -405,7 +407,9 @@ int mt76x0_init_hardware(struct mt76x0_dev *dev)
 		return -ETIMEDOUT;
 
 	mt76x0_reset_csr_bbp(dev);
-	mt76x0_init_usb_dma(dev);
+
+	if (mt76_is_usb(dev))
+		mt76x0_init_usb_dma(dev);
 
 	mt76_wr(dev, MT_HEADER_TRANS_CTRL_REG, 0x0);
 	mt76_wr(dev, MT_TSO_CTRL, 0x0);
