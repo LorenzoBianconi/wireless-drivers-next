@@ -41,7 +41,6 @@ struct sk_buff *mt76u_mcu_msg_alloc(const void *data, int len)
 
 	return skb;
 }
-EXPORT_SYMBOL_GPL(mt76u_mcu_msg_alloc);
 
 void mt76u_mcu_complete_urb(struct urb *urb)
 {
