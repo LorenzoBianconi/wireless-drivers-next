@@ -38,6 +38,11 @@ struct mt76_reg_pair {
 	u32 value;
 };
 
+enum mt76_bus_type {
+	MT76_BUS_MMIO,
+	MT76_BUS_USB,
+};
+
 struct mt76_bus_ops {
 	u32 (*rr)(struct mt76_dev *dev, u32 offset);
 	void (*wr)(struct mt76_dev *dev, u32 offset, u32 val);
@@ -59,6 +64,7 @@ struct mt76_bus_ops {
 	struct sk_buff *(*mcu_msg_alloc)(const void *data, int len);
 	int (*mcu_send_msg)(struct mt76_dev *dev, struct sk_buff *skb,
 			    int cmd, bool wait_resp);
+	enum mt76_bus_type type;
 };
 
 enum mt76_txq_id {
@@ -411,6 +417,9 @@ struct mt76_dev {
 		struct mt76_mmio mmio;
 	};
 };
+
+#define mt76_is_usb(dev) ((dev)->mt76.bus->type == MT76_BUS_USB)
+#define mt76_is_mmio(dev) ((dev)->mt76.bus->type == MT76_BUS_MMIO)
 
 #define mt76_usb(dev) (&((dev)->mt76.usb))
 #define mt76_mmio(dev) (&((dev)->mt76.mmio))
