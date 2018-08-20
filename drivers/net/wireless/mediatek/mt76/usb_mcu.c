@@ -177,7 +177,6 @@ int mt76u_mcu_send_msg(struct mt76_dev *dev, struct sk_buff *skb,
 
 	return err;
 }
-EXPORT_SYMBOL_GPL(mt76u_mcu_send_msg);
 
 static inline void skb_put_le32(struct sk_buff *skb, u32 val)
 {
