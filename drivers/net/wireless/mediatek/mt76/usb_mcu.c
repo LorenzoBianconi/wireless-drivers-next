@@ -125,8 +125,9 @@ static int mt76u_mcu_wait_resp(struct mt76_dev *dev, u8 seq)
 	return -ETIMEDOUT;
 }
 
-int __mt76u_mcu_send_msg(struct mt76_dev *dev, struct sk_buff *skb,
-			 int cmd, bool wait_resp)
+static int
+__mt76u_mcu_send_msg(struct mt76_dev *dev, struct sk_buff *skb,
+		     int cmd, bool wait_resp)
 {
 	struct usb_interface *intf = to_usb_interface(dev->dev);
 	struct usb_device *udev = interface_to_usbdev(intf);
@@ -164,7 +165,6 @@ int __mt76u_mcu_send_msg(struct mt76_dev *dev, struct sk_buff *skb,
 
 	return ret;
 }
-EXPORT_SYMBOL_GPL(__mt76u_mcu_send_msg);
 
 int mt76u_mcu_send_msg(struct mt76_dev *dev, struct sk_buff *skb,
 		       int cmd, bool wait_resp)
