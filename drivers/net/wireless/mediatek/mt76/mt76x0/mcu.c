@@ -26,22 +26,6 @@
 #include "trace.h"
 #include "../mt76xx_util.h"
 
-int mt76x0_mcu_function_select(struct mt76x0_dev *dev,
-			       enum mcu_function func, u32 val)
-{
-	struct sk_buff *skb;
-	struct {
-		__le32 id;
-		__le32 value;
-	} __packed __aligned(4) msg = {
-		.id = cpu_to_le32(func),
-		.value = cpu_to_le32(val),
-	};
-
-	skb = mt76_mcu_msg_alloc(dev, &msg, sizeof(msg));
-	return mt76_mcu_send_msg(dev, skb, CMD_FUN_SET_OP, func == 5);
-}
-
 int
 mt76x0_mcu_calibrate(struct mt76x0_dev *dev, enum mcu_calibrate cal, u32 val)
 {
@@ -60,5 +44,5 @@ mt76x0_mcu_calibrate(struct mt76x0_dev *dev, enum mcu_calibrate cal, u32 val)
 
 int mt76x0_mcu_cmd_init(struct mt76x0_dev *dev)
 {
-	return mt76x0_mcu_function_select(dev, Q_SELECT, 1);
+	return mt76xx_mcu_function_select(&dev->mt76, Q_SELECT, 1);
 }
