@@ -18,6 +18,42 @@
 #ifndef __MT76XX_UTIL_H
 #define __MT76XX_UTIL_H
 
+#include <linux/skbuff.h>
+#include <net/mac80211.h>
+
+#include "mt76.h"
+
+#define MT_MCU_RESET_CTL		0x070C
+#define MT_MCU_INT_LEVEL		0x0718
+#define MT_MCU_COM_REG0			0x0730
+#define MT_MCU_COM_REG1			0x0734
+#define MT_MCU_COM_REG2			0x0738
+#define MT_MCU_COM_REG3			0x073C
+
+enum mcu_cmd {
+	CMD_FUN_SET_OP = 1,
+	CMD_LOAD_CR = 2,
+	CMD_INIT_GAIN_OP = 3,
+	CMD_DYNC_VGA_OP = 6,
+	CMD_TDLS_CH_SW = 7,
+	CMD_BURST_WRITE = 8,
+	CMD_READ_MODIFY_WRITE = 9,
+	CMD_RANDOM_READ = 10,
+	CMD_BURST_READ = 11,
+	CMD_RANDOM_WRITE = 12,
+	CMD_LED_MODE_OP = 16,
+	CMD_POWER_SAVING_OP = 20,
+	CMD_WOW_CONFIG = 21,
+	CMD_WOW_QUERY = 22,
+	CMD_WOW_FEATURE = 24,
+	CMD_CARRIER_DETECT_OP = 28,
+	CMD_RADOR_DETECT_OP = 29,
+	CMD_SWITCH_CHANNEL_OP = 30,
+	CMD_CALIBRATION_OP = 31,
+	CMD_BEACON_OP = 32,
+	CMD_ANTENNA_OP = 33,
+};
+
 extern struct ieee80211_rate mt76xx_rates[12];
 
 void mt76xx_configure_filter(struct ieee80211_hw *hw,

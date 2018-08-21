@@ -21,6 +21,7 @@
 #include "mt76x2.h"
 #include "mt76x2_mcu.h"
 #include "mt76x2_eeprom.h"
+#include "mt76xx_util.h"
 
 int mt76x2_mcu_load_cr(struct mt76x2_dev *dev, u8 type, u8 temp_level,
 		       u8 channel)

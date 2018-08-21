@@ -18,6 +18,7 @@
 
 #include "mt76x2u.h"
 #include "mt76x2_eeprom.h"
+#include "mt76xx_util.h"
 
 #define MT_CMD_HDR_LEN			4
 #define MT_INBAND_PACKET_MAX_LEN	192
