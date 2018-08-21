@@ -492,4 +492,32 @@ int mt76xx_mcu_function_select(struct mt76_dev *dev, int func, u32 val)
 }
 EXPORT_SYMBOL_GPL(mt76xx_mcu_function_select);
 
+int mt76xx_mcu_calibrate(struct mt76_dev *dev, int type, u32 val)
+{
+	struct {
+		__le32 id;
+		__le32 value;
+	} __packed __aligned(4) msg = {
+		.id = cpu_to_le32(type),
+		.value = cpu_to_le32(val),
+	};
+	struct sk_buff *skb;
+	int ret;
+
+	if (is_mt76x2e(dev))
+		dev->bus->rmw(dev, MT_MCU_COM_REG0, BIT(31), 0);
+
+	skb = dev->bus->mcu_msg_alloc(&msg, sizeof(msg));
+	ret = dev->bus->mcu_send_msg(dev, skb, CMD_CALIBRATION_OP, true);
+	if (ret)
+		return ret;
+
+	if (is_mt76x2e(dev) &&
+	    WARN_ON(!__mt76_poll_msec(dev, MT_MCU_COM_REG0,
+				      BIT(31), BIT(31), 100)))
+		return -ETIMEDOUT;
+	return 0;
+}
+EXPORT_SYMBOL_GPL(mt76xx_mcu_calibrate);
+
 MODULE_LICENSE("Dual BSD/GPL");

@@ -90,4 +90,6 @@ void mt76xx_tx_complete_skb(struct mt76_dev *mdev, struct mt76_queue *q,
 int mt76xx_set_txinfo(struct sk_buff *skb, struct mt76_wcid *wcid, u8 ep);
 bool mt76xx_tx_status_data(struct mt76_dev *dev, u8 *update);
 int mt76xx_mcu_function_select(struct mt76_dev *dev, int func, u32 val);
+int mt76xx_mcu_calibrate(struct mt76_dev *dev, int type, u32 val);
+
 #endif
