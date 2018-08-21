@@ -136,6 +136,9 @@ __mt76u_mcu_send_msg(struct mt76_dev *dev, struct sk_buff *skb,
 	u8 seq = 0;
 	u32 info;
 
+	if (!skb)
+		return -EINVAL;
+
 	if (test_bit(MT76_REMOVED, &dev->state))
 		return 0;
 
