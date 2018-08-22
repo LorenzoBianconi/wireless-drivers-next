@@ -19,6 +19,7 @@
 #include "dma.h"
 #include "mt76xx_regs.h"
 #include "mt76xx_mac.h"
+#include "mt76xx_util.h"
 
 #define CCK_RATE(_idx, _rate) {					\
 	.bitrate = _rate,					\
@@ -474,5 +475,21 @@ bool mt76xx_tx_status_data(struct mt76_dev *dev, u8 *update)
 	return true;
 }
 EXPORT_SYMBOL_GPL(mt76xx_tx_status_data);
+
+int mt76xx_mcu_function_select(struct mt76_dev *dev, int func, u32 val)
+{
+	struct {
+		__le32 id;
+		__le32 value;
+	} __packed __aligned(4) msg = {
+		.id = cpu_to_le32(func),
+		.value = cpu_to_le32(val),
+	};
+	struct sk_buff *skb;
+
+	skb = dev->bus->mcu_msg_alloc(&msg, sizeof(msg));
+	return dev->bus->mcu_send_msg(dev, skb, CMD_FUN_SET_OP, false);
+}
+EXPORT_SYMBOL_GPL(mt76xx_mcu_function_select);
 
 MODULE_LICENSE("Dual BSD/GPL");
