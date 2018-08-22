@@ -24,6 +24,7 @@
 #include "mcu.h"
 #include "usb.h"
 #include "trace.h"
+#include "../mt76xx_util.h"
 
 int mt76x0_mcu_function_select(struct mt76x0_dev *dev,
 			       enum mcu_function func, u32 val)
