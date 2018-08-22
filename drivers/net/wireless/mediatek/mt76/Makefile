@@ -19,7 +19,7 @@ mt76xx-lib-y := mt76xx_util.o mt76xx_mac.o
 mt76x2-common-y := \
 	mt76x2_eeprom.o mt76x2_tx_common.o mt76x2_mac_common.o \
 	mt76x2_init_common.o mt76x2_common.o mt76x2_phy_common.o \
-	mt76x2_debugfs.o
+	mt76x2_debugfs.o mt76x2_mcu_common.o
 
 mt76x2e-y := \
 	mt76x2_pci.o mt76x2_dma.o \
