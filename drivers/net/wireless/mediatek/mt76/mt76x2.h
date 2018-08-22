@@ -233,5 +233,6 @@ void mt76x2_phy_set_bw(struct mt76x2_dev *dev, int width, u8 ctrl);
 void mt76x2_phy_set_band(struct mt76x2_dev *dev, int band, bool primary_upper);
 int mt76x2_phy_get_min_avg_rssi(struct mt76x2_dev *dev);
 void mt76x2_apply_gain_adj(struct mt76x2_dev *dev);
+void mt76x2_phy_tssi_compensate(struct mt76x2_dev *dev);
 
 #endif
