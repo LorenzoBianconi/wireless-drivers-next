@@ -122,8 +122,7 @@ extern const struct ieee80211_ops mt76x0_ops;
 
 static inline bool is_mt7610e(struct mt76x0_dev *dev)
 {
-	/* TODO */
-	return false;
+	return mt76_is_mmio(dev) && (mt76_chip(&dev->mt76) == 0x7610);
 }
 
 void mt76x0_init_debugfs(struct mt76x0_dev *dev);

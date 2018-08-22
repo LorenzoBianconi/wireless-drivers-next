@@ -15,10 +15,105 @@
  */
 
 #include <linux/kernel.h>
+#include <linux/firmware.h>
 #include <linux/module.h>
 #include <linux/pci.h>
 
 #include "mt76x0.h"
+#include "mcu.h"
+
+#define MT7610E_FIRMWARE "mt7610e.bin"
+
+static int
+mt76x0e_upload_firmware(struct mt76x0_dev *dev, const struct mt76x0_fw *fw)
+{
+	void *ivb;
+	u32 ilm_len, dlm_len;
+	int i, ret;
+
+	return -ENODEV;
+
+	ivb = kmemdup(fw->ivb, sizeof(fw->ivb), GFP_KERNEL);
+	if (!ivb)
+		return -ENOMEM;
+
+	mt76_wr(dev, MT_MCU_PCIE_REMAP_BASE4, 0);
+
+	ilm_len = le32_to_cpu(fw->hdr.ilm_len) - sizeof(fw->ivb);
+	dev_dbg(dev->mt76.dev, "loading FW - ILM %u + IVB %zu\n",
+		ilm_len, sizeof(fw->ivb));
+
+	mt76_wr(dev, MT_MCU_PCIE_REMAP_BASE4, sizeof(fw->ivb));
+	mt76_wr_copy(dev, 0/* MT_MCU_ILM_ADDR */, fw->ilm, ilm_len);
+
+	dlm_len = le32_to_cpu(fw->hdr.dlm_len);
+	dev_dbg(dev->mt76.dev, "loading FW - DLM %u\n", dlm_len);
+
+	mt76_wr(dev, MT_MCU_PCIE_REMAP_BASE4, MT_MCU_DLM_OFFSET);
+	mt76_wr_copy(dev, 0/* MT_MCU_DLM_ADDR */, fw->ilm + ilm_len, dlm_len);
+
+	mt76_wr(dev, MT_MCU_PCIE_REMAP_BASE4, 0);
+
+	/* trigger firmware */
+	mt76_wr(dev, MT_MCU_INT_LEVEL, 2);
+
+	for (i = 100; i && !mt76x0_firmware_running(dev); i--)
+		msleep(10);
+	if (!i) {
+		ret = -ETIMEDOUT;
+		goto error;
+	}
+
+	dev_dbg(dev->mt76.dev, "Firmware running!\n");
+error:
+	kfree(ivb);
+
+	return ret;
+}
+
+static int mt76x0e_load_firmware(struct mt76x0_dev *dev)
+{
+	const struct firmware *fw;
+	const struct mt76xx_fw_header *hdr;
+	int len, ret;
+	u32 val;
+
+	ret = request_firmware(&fw, MT7610E_FIRMWARE, dev->mt76.dev);
+	if (ret)
+		return ret;
+
+	if (!fw || !fw->data || fw->size < sizeof(*hdr))
+		goto error;
+
+	hdr = (const struct mt76xx_fw_header *) fw->data;
+
+	len = sizeof(*hdr);
+	len += le32_to_cpu(hdr->ilm_len);
+	len += le32_to_cpu(hdr->dlm_len);
+
+	if (fw->size != len)
+		goto error;
+
+	val = le16_to_cpu(hdr->fw_ver);
+	dev_info(dev->mt76.dev, "Firmware Version: %d.%d.%02d\n",
+		 (val >> 12) & 0xf, (val >> 8) & 0xf, val & 0xf);
+
+	val = le16_to_cpu(hdr->fw_ver);
+	dev_dbg(dev->mt76.dev,
+		 "Firmware Version: %d.%d.%02d Build: %x Build time: %.16s\n",
+		 (val >> 12) & 0xf, (val >> 8) & 0xf, val & 0xf,
+		 le16_to_cpu(hdr->build_ver), hdr->build_time);
+
+	ret = mt76x0e_upload_firmware(dev, (const struct mt76x0_fw *)fw->data);
+	release_firmware(fw);
+
+	return ret;
+
+error:
+	dev_err(dev->mt76.dev, "Invalid firmware\n");
+	release_firmware(fw);
+	return -ENOENT;
+}
 
 static int
 mt76x0e_probe(struct pci_dev *pdev, const struct pci_device_id *id)
@@ -48,6 +143,9 @@ mt76x0e_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 
 	dev->mt76.rev = mt76_rr(dev, MT_ASIC_VERSION);
 	dev_info(dev->mt76.dev, "ASIC revision: %08x\n", dev->mt76.rev);
+
+
+	mt76x0e_load_firmware(dev);
 
 	ret = -ENXIO;
 	goto error;

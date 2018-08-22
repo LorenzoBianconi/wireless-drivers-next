@@ -49,23 +49,12 @@ static struct usb_device_id mt76x0_device_table[] = {
 	{ 0, }
 };
 
-struct mt76_fw {
-	struct mt76xx_fw_header hdr;
-	u8 ivb[MT_MCU_IVB_SIZE];
-	u8 ilm[];
-};
-
 #define MCU_FW_URB_MAX_PAYLOAD		0x38f8
 #define MCU_FW_URB_SIZE			(MCU_FW_URB_MAX_PAYLOAD + 12)
 #define MCU_RESP_URB_SIZE		1024
 
-static inline int firmware_running(struct mt76x0_dev *dev)
-{
-	return mt76_rr(dev, MT_COM_REG0) == 1;
-}
-
 static int
-mt76x0u_upload_firmware(struct mt76x0_dev *dev, const struct mt76_fw *fw)
+mt76x0u_upload_firmware(struct mt76x0_dev *dev, const struct mt76x0_fw *fw)
 {
 	void *ivb;
 	u32 ilm_len, dlm_len;
@@ -99,7 +88,7 @@ mt76x0u_upload_firmware(struct mt76x0_dev *dev, const struct mt76_fw *fw)
 		goto error;
 	ret = 0;
 
-	for (i = 100; i && !firmware_running(dev); i--)
+	for (i = 100; i && !mt76x0_firmware_running(dev); i--)
 		msleep(10);
 	if (!i) {
 		ret = -ETIMEDOUT;
@@ -123,7 +112,7 @@ static int mt76x0u_load_firmware(struct mt76x0_dev *dev)
 	mt76_wr(dev, MT_USB_DMA_CFG, (MT_USB_DMA_CFG_RX_BULK_EN |
 				      MT_USB_DMA_CFG_TX_BULK_EN));
 
-	if (firmware_running(dev))
+	if (mt76x0_firmware_running(dev))
 		return 0;
 
 	ret = request_firmware(&fw, MT7610_FIRMWARE, dev->mt76.dev);
@@ -150,8 +139,6 @@ static int mt76x0u_load_firmware(struct mt76x0_dev *dev)
 		 "Firmware Version: %d.%d.%02d Build: %x Build time: %.16s\n",
 		 (val >> 12) & 0xf, (val >> 8) & 0xf, val & 0xf,
 		 le16_to_cpu(hdr->build_ver), hdr->build_time);
-
-	len = le32_to_cpu(hdr->ilm_len);
 
 	mt76_wr(dev, 0x1004, 0x2c);
 
@@ -184,7 +171,7 @@ static int mt76x0u_load_firmware(struct mt76x0_dev *dev)
 	val &= ~MT_USB_DMA_CFG_UDMA_TX_WL_DROP;
 	mt76_wr(dev, MT_USB_DMA_CFG, val);
 
-	ret = mt76x0u_upload_firmware(dev, (const struct mt76_fw *)fw->data);
+	ret = mt76x0u_upload_firmware(dev, (const struct mt76x0_fw *)fw->data);
 	release_firmware(fw);
 
 	mt76_wr(dev, MT_FCE_PSE_CTRL, 1);

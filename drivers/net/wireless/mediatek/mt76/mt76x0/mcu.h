@@ -15,10 +15,13 @@
 #ifndef __MT76X0U_MCU_H
 #define __MT76X0U_MCU_H
 
+#include "../mt76xx_util.h"
+
 struct mt76x0_dev;
 
 /* Register definitions */
 #define MT_MCU_IVB_SIZE			0x40
+
 #define MT_MCU_DLM_OFFSET		0x80000
 
 #define MT_MCU_MEMMAP_WLAN		0x00410000
@@ -56,5 +59,16 @@ enum mcu_calibrate {
 	MCU_CAL_RX_GROUP_DELAY,
 	MCU_CAL_TX_GROUP_DELAY,
 };
+
+struct mt76x0_fw {
+	struct mt76xx_fw_header hdr;
+	u8 ivb[MT_MCU_IVB_SIZE];
+	u8 ilm[];
+};
+
+static inline bool mt76x0_firmware_running(struct mt76x0_dev *dev)
+{
+	return mt76_rr(dev, MT_COM_REG0) == 1;
+}
 
 #endif
