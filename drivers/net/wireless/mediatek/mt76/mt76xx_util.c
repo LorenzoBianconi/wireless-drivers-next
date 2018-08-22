@@ -505,7 +505,7 @@ int mt76xx_mcu_calibrate(struct mt76_dev *dev, int type, u32 val)
 	int ret;
 
 	if (is_mt76x2e(dev))
-		dev->bus->rmw(dev, MT_MCU_COM_REG0, BIT(31), 0);
+		dev->bus->rmw(dev, MT_COM_REG0, BIT(31), 0);
 
 	skb = dev->bus->mcu_msg_alloc(&msg, sizeof(msg));
 	ret = dev->bus->mcu_send_msg(dev, skb, CMD_CALIBRATION_OP, true);
@@ -513,8 +513,7 @@ int mt76xx_mcu_calibrate(struct mt76_dev *dev, int type, u32 val)
 		return ret;
 
 	if (is_mt76x2e(dev) &&
-	    WARN_ON(!__mt76_poll_msec(dev, MT_MCU_COM_REG0,
-				      BIT(31), BIT(31), 100)))
+	    WARN_ON(!__mt76_poll_msec(dev, MT_COM_REG0, BIT(31), BIT(31), 100)))
 		return -ETIMEDOUT;
 	return 0;
 }

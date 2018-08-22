@@ -45,7 +45,7 @@ mt76pci_load_rom_patch(struct mt76x2_dev *dev)
 		patch_reg = MT_MCU_CLOCK_CTL;
 	} else {
 		patch_mask = BIT(1);
-		patch_reg = MT_MCU_COM_REG0;
+		patch_reg = MT_COM_REG0;
 	}
 
 	if (rom_protect && (mt76_rr(dev, patch_reg) & patch_mask)) {
@@ -144,11 +144,11 @@ mt76pci_load_firmware(struct mt76x2_dev *dev)
 
 	val = mt76x2_eeprom_get(dev, MT_EE_NIC_CONF_2);
 	if (FIELD_GET(MT_EE_NIC_CONF_2_XTAL_OPTION, val) == 1)
-		mt76_set(dev, MT_MCU_COM_REG0, BIT(30));
+		mt76_set(dev, MT_COM_REG0, BIT(30));
 
 	/* trigger firmware */
 	mt76_wr(dev, MT_MCU_INT_LEVEL, 2);
-	if (!mt76_poll_msec(dev, MT_MCU_COM_REG0, 1, 1, 200)) {
+	if (!mt76_poll_msec(dev, MT_COM_REG0, 1, 1, 200)) {
 		dev_err(dev->mt76.dev, "Firmware failed to start\n");
 		release_firmware(fw);
 		return -ETIMEDOUT;

@@ -111,7 +111,7 @@ static int mt76x2u_mcu_load_rom_patch(struct mt76x2_dev *dev)
 		patch_reg = MT_MCU_CLOCK_CTL;
 	} else {
 		patch_mask = BIT(1);
-		patch_reg = MT_MCU_COM_REG0;
+		patch_reg = MT_COM_REG0;
 	}
 
 	if (rom_protect && (mt76_rr(dev, patch_reg) & patch_mask)) {
@@ -253,13 +253,13 @@ static int mt76x2u_mcu_load_firmware(struct mt76x2_dev *dev)
 	}
 
 	mt76x2u_mcu_load_ivb(dev);
-	if (!mt76_poll_msec(dev, MT_MCU_COM_REG0, 1, 1, 100)) {
+	if (!mt76_poll_msec(dev, MT_COM_REG0, 1, 1, 100)) {
 		dev_err(dev->mt76.dev, "firmware failed to start\n");
 		err = -ETIMEDOUT;
 		goto out;
 	}
 
-	mt76_set(dev, MT_MCU_COM_REG0, BIT(1));
+	mt76_set(dev, MT_COM_REG0, BIT(1));
 	/* enable FCE to send in-band cmd */
 	mt76_wr(dev, MT_FCE_PSE_CTRL, 0x1);
 	dev_dbg(dev->mt76.dev, "firmware running\n");

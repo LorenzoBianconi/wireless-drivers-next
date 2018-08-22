@@ -70,7 +70,7 @@ struct mt76_fw {
 
 static inline int firmware_running(struct mt76x0_dev *dev)
 {
-	return mt76_rr(dev, MT_MCU_COM_REG0) == 1;
+	return mt76_rr(dev, MT_COM_REG0) == 1;
 }
 
 static int

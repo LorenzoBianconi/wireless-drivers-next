@@ -23,13 +23,6 @@
 
 #include "mt76.h"
 
-#define MT_MCU_RESET_CTL		0x070C
-#define MT_MCU_INT_LEVEL		0x0718
-#define MT_MCU_COM_REG0			0x0730
-#define MT_MCU_COM_REG1			0x0734
-#define MT_MCU_COM_REG2			0x0738
-#define MT_MCU_COM_REG3			0x073C
-
 enum mcu_cmd {
 	CMD_FUN_SET_OP = 1,
 	CMD_LOAD_CR = 2,
