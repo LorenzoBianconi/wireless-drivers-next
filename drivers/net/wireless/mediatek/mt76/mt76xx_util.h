@@ -23,6 +23,15 @@
 
 #include "mt76.h"
 
+struct mt76xx_fw_header {
+	__le32 ilm_len;
+	__le32 dlm_len;
+	__le16 build_ver;
+	__le16 fw_ver;
+	u8 pad[4];
+	char build_time[16];
+};
+
 enum mcu_cmd {
 	CMD_FUN_SET_OP = 1,
 	CMD_LOAD_CR = 2,

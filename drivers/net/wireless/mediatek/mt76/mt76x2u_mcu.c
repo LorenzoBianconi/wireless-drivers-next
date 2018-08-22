@@ -181,7 +181,7 @@ out:
 static int mt76x2u_mcu_load_firmware(struct mt76x2_dev *dev)
 {
 	u32 val, dlm_offset = MT76U_MCU_DLM_OFFSET;
-	const struct mt76x2_fw_header *hdr;
+	const struct mt76xx_fw_header *hdr;
 	int err, len, ilm_len, dlm_len;
 	const struct firmware *fw;
 
@@ -194,7 +194,7 @@ static int mt76x2u_mcu_load_firmware(struct mt76x2_dev *dev)
 		goto out;
 	}
 
-	hdr = (const struct mt76x2_fw_header *)fw->data;
+	hdr = (const struct mt76xx_fw_header *)fw->data;
 	ilm_len = le32_to_cpu(hdr->ilm_len);
 	dlm_len = le32_to_cpu(hdr->dlm_len);
 	len = sizeof(*hdr) + ilm_len + dlm_len;

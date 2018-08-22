@@ -94,7 +94,7 @@ static int
 mt76pci_load_firmware(struct mt76x2_dev *dev)
 {
 	const struct firmware *fw;
-	const struct mt76x2_fw_header *hdr;
+	const struct mt76xx_fw_header *hdr;
 	int len, ret;
 	__le32 *cur;
 	u32 offset, val;
@@ -106,7 +106,7 @@ mt76pci_load_firmware(struct mt76x2_dev *dev)
 	if (!fw || !fw->data || fw->size < sizeof(*hdr))
 		goto error;
 
-	hdr = (const struct mt76x2_fw_header *) fw->data;
+	hdr = (const struct mt76xx_fw_header *) fw->data;
 
 	len = sizeof(*hdr);
 	len += le32_to_cpu(hdr->ilm_len);
