@@ -527,6 +527,13 @@ static inline u16 mt76_rev(struct mt76_dev *dev)
 	return dev->rev & 0xffff;
 }
 
+static inline bool is_mt76x2e(struct mt76_dev *dev)
+{
+	return dev->bus->type == MT76_BUS_MMIO &&
+	       (mt76_chip(dev) == 0x7612 ||
+		mt76_chip(dev) == 0x7662);
+}
+
 #define mt76xx_chip(dev) mt76_chip(&((dev)->mt76))
 #define mt76xx_rev(dev) mt76_rev(&((dev)->mt76))
 
