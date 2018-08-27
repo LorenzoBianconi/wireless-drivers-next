@@ -282,10 +282,10 @@ int mt76x2u_register_device(struct mt76x2_dev *dev)
 		goto fail;
 
 	/* check hw sg support in order to enable AMSDU */
-	if (mt76u_check_sg(&dev->mt76))
+	if (mt76u_check_sg(&dev->mt76)) {
 		hw->max_tx_fragments = MT_SG_MAX_SIZE;
-	else
-		hw->max_tx_fragments = 1;
+		ieee80211_hw_set(hw, TX_AMSDU);
+	}
 
 	set_bit(MT76_STATE_INITIALIZED, &dev->mt76.state);
 
