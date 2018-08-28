@@ -14,6 +14,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#define DEBUG 1
+
 #include <linux/kernel.h>
 #include <linux/firmware.h>
 #include <linux/module.h>
@@ -25,37 +27,47 @@
 #define MT7610E_FIRMWARE "mt7610e.bin"
 
 static int
-mt76x0e_upload_firmware(struct mt76x0_dev *dev, const struct mt76x0_fw *fw)
+mt76x0e_upload_firmware(struct mt76x0_dev *dev, const struct mt76x0_fw *fw,
+			bool is_combo_chip)
 {
 	void *ivb;
-	u32 ilm_len, dlm_len;
+	u32 ilm_len, dlm_len, ivb_len, offset;
 	int i, ret;
-
-	return -ENODEV;
 
 	ivb = kmemdup(fw->ivb, sizeof(fw->ivb), GFP_KERNEL);
 	if (!ivb)
 		return -ENOMEM;
 
+	/* Upload ILM. */
 	mt76_wr(dev, MT_MCU_PCIE_REMAP_BASE4, 0);
+	offset = 0;
+	ilm_len = le32_to_cpu(fw->hdr.ilm_len);
+	if (is_combo_chip) {
+		ilm_len -= sizeof(fw->ivb);
+		offset = sizeof(fw->ivb);
+	}
+	dev_dbg(dev->mt76.dev, "loading FW - ILM %u\n", ilm_len);
+	mt76_wr_copy(dev, 0x80000 + offset, fw->ilm, ilm_len);
 
-	ilm_len = le32_to_cpu(fw->hdr.ilm_len) - sizeof(fw->ivb);
-	dev_dbg(dev->mt76.dev, "loading FW - ILM %u + IVB %zu\n",
-		ilm_len, sizeof(fw->ivb));
+	/* Upload IVB. */
+	if (is_combo_chip) {
+		ivb_len = sizeof(fw->ivb);
+		dev_dbg(dev->mt76.dev, "loading FW - IVB %u\n", ivb_len);
+		mt76_wr_copy(dev, 0x80000 + 0x54000 - ivb_len, ivb, ivb_len);
+	}
 
-	mt76_wr(dev, MT_MCU_PCIE_REMAP_BASE4, sizeof(fw->ivb));
-	mt76_wr_copy(dev, 0/* MT_MCU_ILM_ADDR */, fw->ilm, ilm_len);
-
+	/* Upload DLM. */
+	mt76_wr(dev, MT_MCU_PCIE_REMAP_BASE4, MT_MCU_DLM_OFFSET);
 	dlm_len = le32_to_cpu(fw->hdr.dlm_len);
 	dev_dbg(dev->mt76.dev, "loading FW - DLM %u\n", dlm_len);
+	mt76_wr_copy(dev, 0x80000, fw->ilm + le32_to_cpu(fw->hdr.ilm_len), dlm_len);
 
-	mt76_wr(dev, MT_MCU_PCIE_REMAP_BASE4, MT_MCU_DLM_OFFSET);
-	mt76_wr_copy(dev, 0/* MT_MCU_DLM_ADDR */, fw->ilm + ilm_len, dlm_len);
-
+	/* Trigger firmware. */
 	mt76_wr(dev, MT_MCU_PCIE_REMAP_BASE4, 0);
-
-	/* trigger firmware */
-	mt76_wr(dev, MT_MCU_INT_LEVEL, 2);
+	if (is_combo_chip)
+		mt76_wr(dev, MT_MCU_INT_LEVEL, 0x3);
+	else
+		mt76_wr(dev, MT_MCU_RESET_CTL, 0x300);
 
 	for (i = 100; i && !mt76x0_firmware_running(dev); i--)
 		msleep(10);
@@ -75,8 +87,9 @@ static int mt76x0e_load_firmware(struct mt76x0_dev *dev)
 {
 	const struct firmware *fw;
 	const struct mt76xx_fw_header *hdr;
-	int len, ret;
+	int len, ret = 0;
 	u32 val;
+	bool is_combo_chip = !is_mt7610e(dev);
 
 	ret = request_firmware(&fw, MT7610E_FIRMWARE, dev->mt76.dev);
 	if (ret)
@@ -104,9 +117,21 @@ static int mt76x0e_load_firmware(struct mt76x0_dev *dev)
 		 (val >> 12) & 0xf, (val >> 8) & 0xf, val & 0xf,
 		 le16_to_cpu(hdr->build_ver), hdr->build_time);
 
-	ret = mt76x0e_upload_firmware(dev, (const struct mt76x0_fw *)fw->data);
-	release_firmware(fw);
+	if (is_combo_chip && !mt76_poll(dev, MT_MCU_SEMAPHORE_00, 1, 1, 600)) {
+		dev_err(dev->mt76.dev,
+			"Could not get hardware semaphore for loading fw\n");
+		return -ETIMEDOUT;
+	}
 
+	if (mt76x0_firmware_running(dev))
+		goto out;
+
+	ret = mt76x0e_upload_firmware(dev, (const struct mt76x0_fw *)fw->data,
+				      is_combo_chip);
+out:
+	if (is_combo_chip)
+		mt76_wr(dev, MT_MCU_SEMAPHORE_00, 0x1);
+	release_firmware(fw);
 	return ret;
 
 error:
@@ -141,14 +166,26 @@ mt76x0e_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 
 	mt76_mmio_init(&dev->mt76, pcim_iomap_table(pdev)[0]);
 
+	/* Disable the HW, otherwise MCU fail to initialize on hot reboot */
+	mt76x0_chip_onoff(dev, false, false);
+	if (!mt76xx_wait_for_mac(&dev->mt76)) {
+		ret = -ETIMEDOUT;
+		goto error;
+	}
+
 	dev->mt76.rev = mt76_rr(dev, MT_ASIC_VERSION);
 	dev_info(dev->mt76.dev, "ASIC revision: %08x\n", dev->mt76.rev);
 
+	mt76x0_chip_onoff(dev, true, true);
+	if (!mt76xx_wait_for_mac(&dev->mt76)) {
+		ret = -ETIMEDOUT;
+		goto error;
+	}
 
 	mt76x0e_load_firmware(dev);
 
 	ret = -ENXIO;
-	goto error;
+	goto error1;
 #if 0
 	ret = devm_request_irq(dev->mt76.dev, pdev->irq, mt76x0_irq_handler,
 			       IRQF_SHARED, KBUILD_MODNAME, dev);
@@ -173,6 +210,8 @@ mt76x0e_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 
 	return 0;
 
+error1:
+	mt76x0_chip_onoff(dev, false, false);
 error:
 	ieee80211_free_hw(mt76_hw(dev));
 	return ret;

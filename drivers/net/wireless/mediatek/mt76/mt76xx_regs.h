@@ -227,6 +227,7 @@
 
 #define MT_MCU_CPU_CTL			0x0704
 #define MT_MCU_CLOCK_CTL		0x0708
+#define MT_MCU_RESET_CTL		0x070C
 #define MT_MCU_INT_LEVEL		0x0718
 
 #define MT_COM_REG0			0x0730
