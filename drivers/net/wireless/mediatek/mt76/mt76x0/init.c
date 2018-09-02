@@ -18,7 +18,6 @@
 #include "eeprom.h"
 #include "trace.h"
 #include "mcu.h"
-#include "usb.h"
 #include "../mt76xx_util.h"
 
 #include "initvals.h"
