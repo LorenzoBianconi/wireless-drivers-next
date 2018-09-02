@@ -28,7 +28,7 @@
 
 #define MT_INBAND_PACKET_MAX_LEN	192
 
-struct sk_buff *mt76u_mcu_msg_alloc(const void *data, int len)
+static struct sk_buff *mt76u_mcu_msg_alloc(const void *data, int len)
 {
 	struct sk_buff *skb;
 
@@ -168,8 +168,9 @@ __mt76u_mcu_send_msg(struct mt76_dev *dev, struct sk_buff *skb,
 	return ret;
 }
 
-int mt76u_mcu_send_msg(struct mt76_dev *dev, struct sk_buff *skb,
-		       int cmd, bool wait_resp)
+static int
+mt76u_mcu_send_msg(struct mt76_dev *dev, struct sk_buff *skb,
+		   int cmd, bool wait_resp)
 {
 	struct mt76_usb *usb = &dev->usb;
 	int err;
@@ -186,8 +187,9 @@ static inline void skb_put_le32(struct sk_buff *skb, u32 val)
 	put_unaligned_le32(val, skb_put(skb, 4));
 }
 
-int mt76u_mcu_wr_rp(struct mt76_dev *dev, u32 base,
-		    const struct mt76_reg_pair *data, int n)
+static int
+mt76u_mcu_wr_rp(struct mt76_dev *dev, u32 base,
+		const struct mt76_reg_pair *data, int n)
 {
 	const int CMD_RANDOM_WRITE = 12;
 	const int max_vals_per_cmd = MT_INBAND_PACKET_MAX_LEN / 8;
@@ -216,8 +218,9 @@ int mt76u_mcu_wr_rp(struct mt76_dev *dev, u32 base,
 	return mt76u_mcu_wr_rp(dev, base, data + cnt, n - cnt);
 }
 
-int mt76u_mcu_rd_rp(struct mt76_dev *dev, u32 base,
-		    struct mt76_reg_pair *data, int n)
+static int
+mt76u_mcu_rd_rp(struct mt76_dev *dev, u32 base,
+		struct mt76_reg_pair *data, int n)
 {
 	const int CMD_RANDOM_READ = 10;
 	const int max_vals_per_cmd = MT_INBAND_PACKET_MAX_LEN / 8;
@@ -376,3 +379,15 @@ void mt76u_mcu_deinit(struct mt76_dev *dev)
 	mt76u_buf_free(&usb->mcu.res);
 }
 EXPORT_SYMBOL_GPL(mt76u_mcu_deinit);
+
+void mt76u_init_mcu_ops(struct mt76_dev *dev)
+{
+	static const struct mt76_mcu_ops mt76u_mcu_ops = {
+		.mcu_msg_alloc = mt76u_mcu_msg_alloc,
+		.mcu_send_msg = mt76u_mcu_send_msg,
+		.mcu_wr_rp = mt76u_mcu_wr_rp,
+		.mcu_rd_rp = mt76u_mcu_rd_rp,
+	};
+
+	dev->mcu_ops = &mt76u_mcu_ops;
+}

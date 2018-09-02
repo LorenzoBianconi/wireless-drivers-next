@@ -487,8 +487,8 @@ int mt76xx_mcu_function_select(struct mt76_dev *dev, int func, u32 val)
 	};
 	struct sk_buff *skb;
 
-	skb = dev->bus->mcu_msg_alloc(&msg, sizeof(msg));
-	return dev->bus->mcu_send_msg(dev, skb, CMD_FUN_SET_OP, false);
+	skb = dev->mcu_ops->mcu_msg_alloc(&msg, sizeof(msg));
+	return dev->mcu_ops->mcu_send_msg(dev, skb, CMD_FUN_SET_OP, false);
 }
 EXPORT_SYMBOL_GPL(mt76xx_mcu_function_select);
 
@@ -507,8 +507,8 @@ int mt76xx_mcu_calibrate(struct mt76_dev *dev, int type, u32 val)
 	if (is_mt76x2e(dev))
 		dev->bus->rmw(dev, MT_COM_REG0, BIT(31), 0);
 
-	skb = dev->bus->mcu_msg_alloc(&msg, sizeof(msg));
-	ret = dev->bus->mcu_send_msg(dev, skb, CMD_CALIBRATION_OP, true);
+	skb = dev->mcu_ops->mcu_msg_alloc(&msg, sizeof(msg));
+	ret = dev->mcu_ops->mcu_send_msg(dev, skb, CMD_CALIBRATION_OP, true);
 	if (ret)
 		return ret;
 

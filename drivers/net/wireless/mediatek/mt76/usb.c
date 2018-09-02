@@ -208,7 +208,7 @@ mt76u_wr_rp(struct mt76_dev *dev, u32 base,
 	    const struct mt76_reg_pair *data, int n)
 {
 	if (test_bit(MT76_STATE_MCU_RUNNING, &dev->state))
-		return mt76u_mcu_wr_rp(dev, base, data, n);
+		return dev->mcu_ops->mcu_wr_rp(dev, base, data, n);
 	else
 		return mt76u_req_wr_rp(dev, base, data, n);
 }
@@ -234,7 +234,7 @@ static int
 mt76u_rd_rp(struct mt76_dev *dev, u32 base, struct mt76_reg_pair *data, int n)
 {
 	if (test_bit(MT76_STATE_MCU_RUNNING, &dev->state))
-		return mt76u_mcu_rd_rp(dev, base, data, n);
+		return dev->mcu_ops->mcu_rd_rp(dev, base, data, n);
 	else
 		return mt76u_req_rd_rp(dev, base, data, n);
 }
@@ -877,8 +877,6 @@ int mt76u_init(struct mt76_dev *dev,
 		.copy = mt76u_copy,
 		.wr_rp = mt76u_wr_rp,
 		.rd_rp = mt76u_rd_rp,
-		.mcu_msg_alloc = mt76u_mcu_msg_alloc,
-		.mcu_send_msg = mt76u_mcu_send_msg,
 		.type = MT76_BUS_USB,
 	};
 	struct mt76_usb *usb = &dev->usb;
@@ -894,6 +892,7 @@ int mt76u_init(struct mt76_dev *dev,
 	mutex_init(&usb->usb_ctrl_mtx);
 	dev->bus = &mt76u_ops;
 	dev->queue_ops = &usb_queue_ops;
+	mt76u_init_mcu_ops(dev);
 
 	return mt76u_set_endpoints(intf, usb);
 }

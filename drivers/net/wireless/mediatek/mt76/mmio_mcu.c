@@ -21,7 +21,7 @@
 #include "mt76.h"
 #include "dma.h"
 
-struct sk_buff *mt76e_mcu_msg_alloc(const void *data, int len)
+static struct sk_buff *mt76e_mcu_msg_alloc(const void *data, int len)
 {
 	struct sk_buff *skb;
 
@@ -77,8 +77,9 @@ mt76e_tx_queue_mcu(struct mt76_dev *dev, enum mt76_txq_id qid,
 	return 0;
 }
 
-int mt76e_mcu_msg_send(struct mt76_dev *dev, struct sk_buff *skb, int cmd,
-		       bool wait_resp)
+static int
+mt76e_mcu_msg_send(struct mt76_dev *dev, struct sk_buff *skb,
+		   int cmd, bool wait_resp)
 {
 	struct mt76_mmio *mmio = &dev->mmio;
 	unsigned long expires = jiffies + HZ;
@@ -129,11 +130,16 @@ out:
 
 void mt76e_mcu_init(struct mt76_dev *dev)
 {
+	static const struct mt76_mcu_ops mt76_mmio_mcu_ops = {
+		.mcu_msg_alloc = mt76e_mcu_msg_alloc,
+		.mcu_send_msg = mt76e_mcu_msg_send,
+	};
 	struct mt76_mmio *mmio = &dev->mmio;
 
 	mutex_init(&mmio->mcu.mutex);
 	init_waitqueue_head(&mmio->mcu.wait);
 	skb_queue_head_init(&mmio->mcu.res_q);
+	dev->mcu_ops = &mt76_mmio_mcu_ops;
 }
 EXPORT_SYMBOL_GPL(mt76e_mcu_init);
 

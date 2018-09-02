@@ -43,6 +43,23 @@ enum mt76_bus_type {
 	MT76_BUS_USB,
 };
 
+struct mt76_mcu_ops {
+	struct sk_buff *(*mcu_msg_alloc)(const void *data, int len);
+	int (*mcu_send_msg)(struct mt76_dev *dev, struct sk_buff *skb,
+			    int cmd, bool wait_resp);
+	int (*mcu_fw_init)(struct mt76_dev *dev);
+	int (*mcu_init)(struct mt76_dev *dev);
+	int (*mcu_calibrate)(struct mt76_dev *dev, int type, u32 param);
+	int (*mcu_set_channel)(struct mt76_dev *dev, u8 channel, u8 bw,
+			       u8 bw_index, bool scan);
+	int (*mcu_cleanup)(struct mt76_dev *dev);
+	/* usb */
+	int (*mcu_wr_rp)(struct mt76_dev *dev, u32 base,
+			 const struct mt76_reg_pair *rp, int len);
+	int (*mcu_rd_rp)(struct mt76_dev *dev, u32 base,
+			 struct mt76_reg_pair *rp, int len);
+};
+
 struct mt76_bus_ops {
 	u32 (*rr)(struct mt76_dev *dev, u32 offset);
 	void (*wr)(struct mt76_dev *dev, u32 offset, u32 val);
@@ -54,16 +71,6 @@ struct mt76_bus_ops {
 	int (*rd_rp)(struct mt76_dev *dev, u32 base,
 		     struct mt76_reg_pair *rp, int len);
 
-	int (*mcu_fw_init)(struct mt76_dev *dev);
-	int (*mcu_init)(struct mt76_dev *dev);
-	int (*mcu_calibrate)(struct mt76_dev *dev, int type, u32 param);
-	int (*mcu_set_channel)(struct mt76_dev *dev, u8 channel, u8 bw,
-			       u8 bw_index, bool scan);
-	int (*mcu_cleanup)(struct mt76_dev *dev);
-
-	struct sk_buff *(*mcu_msg_alloc)(const void *data, int len);
-	int (*mcu_send_msg)(struct mt76_dev *dev, struct sk_buff *skb,
-			    int cmd, bool wait_resp);
 	enum mt76_bus_type type;
 };
 
@@ -372,6 +379,7 @@ struct mt76_dev {
 
 	const struct mt76_bus_ops *bus;
 	const struct mt76_driver_ops *drv;
+	const struct mt76_mcu_ops *mcu_ops;
 	struct device *dev;
 
 	struct net_device napi_dev;
@@ -482,14 +490,13 @@ struct mt76_rx_status {
 #define mt76_wr_rp(dev, ...)	(dev)->mt76.bus->wr_rp(&((dev)->mt76), __VA_ARGS__)
 #define mt76_rd_rp(dev, ...)	(dev)->mt76.bus->rd_rp(&((dev)->mt76), __VA_ARGS__)
 
-#define mt76_mcu_fw_init(dev, ...)	(dev)->mt76.bus->mcu_fw_init(&((dev)->mt76), __VA_ARGS__)
-#define mt76_mcu_init(dev, ...)		(dev)->mt76.bus->mcu_init(&((dev)->mt76), __VA_ARGS__)
-#define mt76_mcu_calibrate(dev, ...)	(dev)->mt76.bus->mcu_calibrate(&((dev)->mt76), __VA_ARGS__)
-#define mt76_mcu_set_channel(dev, ...)	(dev)->mt76.bus->mcu_set_channel(&((dev)->mt76), __VA_ARGS__)
-#define mt76_mcu_cleanup(dev, ...)	(dev)->mt76.bus->mcu_cleanup(&((dev)->mt76), __VA_ARGS__)
-
-#define mt76_mcu_msg_alloc(dev, ...)	(dev)->mt76.bus->mcu_msg_alloc(__VA_ARGS__)
-#define mt76_mcu_send_msg(dev, ...)	(dev)->mt76.bus->mcu_send_msg(&((dev)->mt76), __VA_ARGS__)
+#define mt76_mcu_fw_init(dev, ...)	(dev)->mt76.mcu_ops->mcu_fw_init(&((dev)->mt76), __VA_ARGS__)
+#define mt76_mcu_init(dev, ...)		(dev)->mt76.mcu_ops->mcu_init(&((dev)->mt76), __VA_ARGS__)
+#define mt76_mcu_calibrate(dev, ...)	(dev)->mt76.mcu_ops->mcu_calibrate(&((dev)->mt76), __VA_ARGS__)
+#define mt76_mcu_set_channel(dev, ...)	(dev)->mt76.mcu_ops->mcu_set_channel(&((dev)->mt76), __VA_ARGS__)
+#define mt76_mcu_cleanup(dev, ...)	(dev)->mt76.mcu_ops->mcu_cleanup(&((dev)->mt76), __VA_ARGS__)
+#define mt76_mcu_msg_alloc(dev, ...)	(dev)->mt76.mcu_ops->mcu_msg_alloc(__VA_ARGS__)
+#define mt76_mcu_send_msg(dev, ...)	(dev)->mt76.mcu_ops->mcu_send_msg(&((dev)->mt76), __VA_ARGS__)
 
 #define mt76_set(dev, offset, val)	mt76_rmw(dev, offset, 0, val)
 #define mt76_clear(dev, offset, val)	mt76_rmw(dev, offset, val, 0)
@@ -697,15 +704,9 @@ int mt76u_skb_dma_info(struct sk_buff *skb, int port, u32 flags);
 int mt76u_mcu_fw_send_data(struct mt76_dev *dev, const void *data,
 			   int data_len, u32 max_payload, u32 offset);
 void mt76u_mcu_complete_urb(struct urb *urb);
-struct sk_buff *mt76u_mcu_msg_alloc(const void *data, int len);
-int mt76u_mcu_send_msg(struct mt76_dev *dev, struct sk_buff *skb,
-		       int cmd, bool wait_resp);
-int mt76u_mcu_wr_rp(struct mt76_dev *dev, u32 base,
-		    const struct mt76_reg_pair *data, int n);
-int mt76u_mcu_rd_rp(struct mt76_dev *dev, u32 base,
-		    struct mt76_reg_pair *data, int n);
 void mt76u_mcu_fw_reset(struct mt76_dev *dev);
 int mt76u_mcu_init_rx(struct mt76_dev *dev);
 void mt76u_mcu_deinit(struct mt76_dev *dev);
+void mt76u_init_mcu_ops(struct mt76_dev *dev);
 
 #endif
