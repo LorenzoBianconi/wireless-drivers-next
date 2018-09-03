@@ -20,6 +20,7 @@
 #include "mt76xx_regs.h"
 #include "mt76xx_mac.h"
 #include "mt76xx_util.h"
+#include "mt76x02_dma.h"
 
 #define CCK_RATE(_idx, _rate) {					\
 	.bitrate = _rate,					\

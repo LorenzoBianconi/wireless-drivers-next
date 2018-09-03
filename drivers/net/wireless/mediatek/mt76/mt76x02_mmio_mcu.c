@@ -20,7 +20,7 @@
 #include <linux/delay.h>
 
 #include "mt76.h"
-#include "dma.h"
+#include "mt76x02_dma.h"
 
 static struct sk_buff *mt76x02e_mcu_msg_alloc(const void *data, int len)
 {

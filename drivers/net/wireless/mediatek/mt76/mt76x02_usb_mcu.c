@@ -19,6 +19,7 @@
 #include "mt76.h"
 #include "dma.h"
 #include "mt76xx_util.h"
+#include "mt76x02_dma.h"
 
 #define MT_CMD_HDR_LEN			4
 
