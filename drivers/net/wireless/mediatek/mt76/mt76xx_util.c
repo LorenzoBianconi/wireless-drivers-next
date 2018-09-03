@@ -442,6 +442,39 @@ void mt76xx_tx_complete_skb(struct mt76_dev *mdev, struct mt76_queue *q,
 }
 EXPORT_SYMBOL_GPL(mt76xx_tx_complete_skb);
 
+int mt76x02u_skb_dma_info(struct sk_buff *skb, int port, u32 flags)
+{
+	struct sk_buff *iter, *last = skb;
+	u32 info, pad;
+
+	/* Buffer layout:
+	 *	|   4B   | xfer len |      pad       |  4B  |
+	 *	| TXINFO | pkt/cmd  | zero pad to 4B | zero |
+	 *
+	 * length field of TXINFO should be set to 'xfer len'.
+	 */
+	info = FIELD_PREP(MT_TXD_INFO_LEN, round_up(skb->len, 4)) |
+	       FIELD_PREP(MT_TXD_INFO_DPORT, port) | flags;
+	put_unaligned_le32(info, skb_push(skb, sizeof(info)));
+
+	pad = round_up(skb->len, 4) + 4 - skb->len;
+	skb_walk_frags(skb, iter) {
+		last = iter;
+		if (!iter->next) {
+			skb->data_len += pad;
+			skb->len += pad;
+			break;
+		}
+	}
+
+	if (unlikely(pad)) {
+		if (__skb_pad(last, pad, true))
+			return -ENOMEM;
+		__skb_put(last, pad);
+	}
+	return 0;
+}
+
 int mt76xx_set_txinfo(struct sk_buff *skb, struct mt76_wcid *wcid, u8 ep)
 {
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
@@ -459,7 +492,7 @@ int mt76xx_set_txinfo(struct sk_buff *skb, struct mt76_wcid *wcid, u8 ep)
 	if (!wcid || wcid->hw_key_idx == 0xff || wcid->sw_iv)
 		flags |= MT_TXD_INFO_WIV;
 
-	return mt76u_skb_dma_info(skb, WLAN_PORT, flags);
+	return mt76x02u_skb_dma_info(skb, WLAN_PORT, flags);
 }
 EXPORT_SYMBOL_GPL(mt76xx_set_txinfo);
 
