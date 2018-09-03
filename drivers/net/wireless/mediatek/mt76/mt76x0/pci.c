@@ -23,6 +23,7 @@
 
 #include "mt76x0.h"
 #include "mcu.h"
+#include "../mt76x02_mmio_mcu.h"
 
 #define MT7610E_FIRMWARE "mt7610e.bin"
 
@@ -165,6 +166,7 @@ mt76x0e_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 		return -ENOMEM;
 
 	mt76_mmio_init(&dev->mt76, pcim_iomap_table(pdev)[0]);
+	mt76x02e_init_mcu(&dev->mt76);
 
 	/* Disable the HW, otherwise MCU fail to initialize on hot reboot */
 	mt76x0_chip_onoff(dev, false, false);

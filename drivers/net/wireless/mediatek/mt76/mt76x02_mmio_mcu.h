@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2016 Felix Fietkau <nbd@nbd.name>
- * Copyright (C) 2018 Stanislaw Gruszka <stf_xl@wp.pl>
+ * Copyright (C) 2018 Lorenzo Bianconi <lorenzo.bianconi83@gmail.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -15,28 +14,11 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <linux/kernel.h>
-#include <linux/delay.h>
+#ifndef __MT76x02_MMIO_MCU_H
+#define __MT76x02_MMIO_MCU_H
 
 #include "mt76.h"
-#include "dma.h"
 
-void mt76e_mcu_init(struct mt76_dev *dev)
-{
-	struct mt76_mmio *mmio = &dev->mmio;
+void mt76x02e_init_mcu(struct mt76_dev *dev);
 
-	mutex_init(&mmio->mcu.mutex);
-	init_waitqueue_head(&mmio->mcu.wait);
-	skb_queue_head_init(&mmio->mcu.res_q);
-}
-EXPORT_SYMBOL_GPL(mt76e_mcu_init);
-
-void mt76e_mcu_cleanup(struct mt76_dev *dev)
-{
-	struct mt76_mmio *mmio = &dev->mmio;
-	struct sk_buff *skb;
-
-	while ((skb = skb_dequeue(&mmio->mcu.res_q)) != NULL)
-		dev_kfree_skb(skb);
-}
-EXPORT_SYMBOL_GPL(mt76e_mcu_cleanup);
+#endif /* __MT76x02_MMIO_MCU_H */

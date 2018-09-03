@@ -20,6 +20,7 @@
 
 #include "mt76x2.h"
 #include "mt76x2_trace.h"
+#include "mt76x02_mmio_mcu.h"
 
 static const struct pci_device_id mt76pci_device_table[] = {
 	{ PCI_DEVICE(0x14c3, 0x7662) },
@@ -53,6 +54,7 @@ mt76pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 		return -ENOMEM;
 
 	mt76_mmio_init(&dev->mt76, pcim_iomap_table(pdev)[0]);
+	mt76x02e_init_mcu(&dev->mt76);
 
 	dev->mt76.rev = mt76_rr(dev, MT_ASIC_VERSION);
 	dev_info(dev->mt76.dev, "ASIC revision: %08x\n", dev->mt76.rev);
