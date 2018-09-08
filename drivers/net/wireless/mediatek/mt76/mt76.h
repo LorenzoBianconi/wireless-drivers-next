@@ -346,6 +346,7 @@ struct mt76_mmio {
 
 		u32 msg_seq;
 	} mcu;
+	void __iomem *regs;
 };
 
 struct mt76_dev {
@@ -361,7 +362,6 @@ struct mt76_dev {
 	const struct mt76_bus_ops *bus;
 	const struct mt76_driver_ops *drv;
 	const struct mt76_mcu_ops *mcu_ops;
-	void __iomem *regs;
 	struct device *dev;
 
 	struct net_device napi_dev;
