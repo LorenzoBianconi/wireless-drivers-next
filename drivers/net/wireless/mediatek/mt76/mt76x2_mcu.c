@@ -52,7 +52,7 @@ mt76x2_mcu_get_response(struct mt76_dev *dev, unsigned long expires)
 
 static int
 mt76x2_mcu_msg_send(struct mt76_dev *dev, struct sk_buff *skb,
-		    enum mcu_cmd cmd, bool wait_resp)
+		    int cmd, bool wait_resp)
 {
 	unsigned long expires = jiffies + HZ;
 	int ret;
