@@ -60,11 +60,6 @@ struct mt76_fw {
 #define MCU_FW_URB_MAX_PAYLOAD		0x38f8
 #define MCU_FW_URB_SIZE			(MCU_FW_URB_MAX_PAYLOAD + 12)
 
-static inline int mt76x0_firmware_running(struct mt76x0_dev *dev)
-{
-	return mt76_rr(dev, MT_MCU_COM_REG0) == 1;
-}
-
 static int
 mt76x0u_upload_firmware(struct mt76x0_dev *dev, const struct mt76_fw *fw)
 {
