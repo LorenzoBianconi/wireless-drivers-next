@@ -566,21 +566,16 @@ mt76x0_extra_power_over_mac(struct mt76x0_dev *dev)
 }
 
 static void
-mt76x0_phy_set_tx_power(struct mt76x0_dev *dev, u8 channel, u8 rf_bw_band)
+mt76x0_phy_set_tx_power(struct mt76x0_dev *dev, u8 rf_bw_band)
 {
+	struct mt76x0_caldata *caldata = &dev->caldata;
+	int i, bw = (rf_bw_band & RF_BW_20) ? 0 : 1;
 	u32 val;
-	int i;
-	int bw = (rf_bw_band & RF_BW_20) ? 0 : 1;
 
 	for (i = 0; i < 4; i++) {
-		if (channel <= 14)
-			val = dev->ee->tx_pwr_cfg_2g[i][bw];
-		else
-			val = dev->ee->tx_pwr_cfg_5g[i][bw];
-
-		mt76_wr(dev, MT_TX_PWR_CFG_0 + 4*i, val);
+		val = caldata->tx_pwr_cfg[i][bw];
+		mt76_wr(dev, MT_TX_PWR_CFG_0 + 4 * i, val);
 	}
-
 	mt76x0_extra_power_over_mac(dev);
 }
 #endif
@@ -716,6 +711,7 @@ __mt76x0_phy_set_channel(struct mt76x0_dev *dev,
 
 	mt76x0_phy_set_band(dev, chandef->chan->band);
 	mt76x0_phy_set_chan_rf_params(dev, channel, rf_bw_band);
+	mt76x0_set_tx_power_per_rate(dev, chandef);
 	mt76x0_read_rx_gain(dev);
 
 	/* set Japan Tx filter at channel 14 */
