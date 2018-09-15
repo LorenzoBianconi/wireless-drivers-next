@@ -633,7 +633,7 @@ mt76x0_phy_set_chan_pwr(struct mt76x0_dev *dev, u8 channel)
 
 	val = mt76_rr(dev, MT_TX_ALC_CFG_0);
 	val &= ~0x3f3f;
-	val |= dev->ee->tx_pwr_per_chan[i];
+	val |= dev->caldata.tx_pwr_per_chan[i];
 	val |= 0x2f2f << 16;
 	mt76_wr(dev, MT_TX_ALC_CFG_0, val);
 }

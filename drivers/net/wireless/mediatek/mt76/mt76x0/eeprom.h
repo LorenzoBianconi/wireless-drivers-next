@@ -28,6 +28,7 @@ struct reg_channel_bounds {
 	u8 num;
 };
 
+#define MT76X0_NUM_CHANS	58
 struct mt76x0_caldata {
 	s8 rssi_offset[2];
 	s8 lna_gain;
@@ -35,12 +36,8 @@ struct mt76x0_caldata {
 	s16 temp_offset;
 	u8 freq_offset;
 
+	u8 tx_pwr_per_chan[MT76X0_NUM_CHANS];
 	struct mt76_rate_power rate_power;
-};
-
-struct mt76x0_eeprom_params {
-
-	u8 tx_pwr_per_chan[58];
 };
 
 int mt76x0_eeprom_init(struct mt76x0_dev *dev);

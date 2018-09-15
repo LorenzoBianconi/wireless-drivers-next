@@ -115,9 +115,9 @@ mt76x0_eeprom_param_read(struct seq_file *file, void *data)
 		   val & MT_EE_NIC_CONF_0_PA_TYPE);
 
 	seq_puts(file, "Per channel power:\n");
-	for (i = 0; i < 58; i++)
+	for (i = 0; i < MT76X0_NUM_CHANS; i++)
 		seq_printf(file, "\t%d chan:%d pwr:%d\n", i, i,
-			   dev->ee->tx_pwr_per_chan[i]);
+			   dev->caldata.tx_pwr_per_chan[i]);
 	return 0;
 }
 

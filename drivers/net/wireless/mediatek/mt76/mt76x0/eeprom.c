@@ -224,38 +224,57 @@ void mt76x0_set_tx_power_per_rate(struct mt76x0_dev *dev,
 	t->vht[8] = mt76x0_get_power_rate(val >> 8, delta);
 }
 
-static void
-mt76x0_set_tx_power_per_chan(struct mt76x0_dev *dev, u8 *eeprom)
+static void mt76x0_set_tx_power_per_chan(struct mt76x0_dev *dev)
 {
+	struct mt76x0_caldata *caldata = &dev->caldata;
+	u8 val, addr;
+	u16 data;
 	int i;
-	u8 tx_pwr;
 
-	for (i = 0; i < 14; i++) {
-		tx_pwr = eeprom[MT_EE_TX_POWER_DELTA_BW80 + i];
-		if (tx_pwr <= 0x3f && tx_pwr > 0)
-			dev->ee->tx_pwr_per_chan[i] = tx_pwr;
+	for (i = 0; i < 14; i += 2) {
+		addr = MT_EE_TX_POWER_DELTA_BW80 + i;
+		data = mt76x02_eeprom_get(&dev->mt76, addr);
+
+		val = data;
+		if (val <= 0x3f && val > 0)
+			caldata->tx_pwr_per_chan[i] = val;
 		else
-			dev->ee->tx_pwr_per_chan[i] = 5;
+			caldata->tx_pwr_per_chan[i] = 5;
+
+		val = data >> 8;
+		if (val <= 0x3f && val > 0)
+			caldata->tx_pwr_per_chan[i + 1] = val;
+		else
+			caldata->tx_pwr_per_chan[i + 1] = 5;
 	}
 
-	for (i = 0; i < 40; i++) {
-		tx_pwr = eeprom[MT_EE_TX_POWER_0_GRP4_TSSI_SLOPE + 2 + i];
-		if (tx_pwr <= 0x3f && tx_pwr > 0)
-			dev->ee->tx_pwr_per_chan[14 + i] = tx_pwr;
+	for (i = 0; i < 40; i += 2) {
+		addr = MT_EE_TX_POWER_0_GRP4_TSSI_SLOPE + 2 + i;
+		data = mt76x02_eeprom_get(&dev->mt76, addr);
+
+		val = data;
+		if (val <= 0x3f && val > 0)
+			caldata->tx_pwr_per_chan[14 + i] = val;
 		else
-			dev->ee->tx_pwr_per_chan[14 + i] = 5;
+			caldata->tx_pwr_per_chan[14 + i] = 5;
+
+		val = data >> 8;
+		if (val <= 0x3f && val > 0)
+			caldata->tx_pwr_per_chan[15 + i] = val;
+		else
+			caldata->tx_pwr_per_chan[15 + i] = 5;
 	}
 
-	dev->ee->tx_pwr_per_chan[54] = dev->ee->tx_pwr_per_chan[22];
-	dev->ee->tx_pwr_per_chan[55] = dev->ee->tx_pwr_per_chan[28];
-	dev->ee->tx_pwr_per_chan[56] = dev->ee->tx_pwr_per_chan[34];
-	dev->ee->tx_pwr_per_chan[57] = dev->ee->tx_pwr_per_chan[44];
+	caldata->tx_pwr_per_chan[54] = caldata->tx_pwr_per_chan[22];
+	caldata->tx_pwr_per_chan[55] = caldata->tx_pwr_per_chan[28];
+	caldata->tx_pwr_per_chan[56] = caldata->tx_pwr_per_chan[34];
+	caldata->tx_pwr_per_chan[57] = caldata->tx_pwr_per_chan[44];
 }
 
-int
-mt76x0_eeprom_init(struct mt76x0_dev *dev)
+int mt76x0_eeprom_init(struct mt76x0_dev *dev)
 {
-	u8 *eeprom;
+	u8 version, fae;
+	u16 data;
 	int ret;
 
 	ret = mt76x0_efuse_physical_size_check(dev);
@@ -266,37 +285,32 @@ mt76x0_eeprom_init(struct mt76x0_dev *dev)
 	if (ret < 0)
 		return ret;
 
-	dev->ee = devm_kzalloc(dev->mt76.dev, sizeof(*dev->ee), GFP_KERNEL);
-	if (!dev->ee)
-		return -ENOMEM;
-
-	eeprom = kmalloc(MT76X0_EEPROM_SIZE, GFP_KERNEL);
-	if (!eeprom)
-		return -ENOMEM;
-
-	ret = mt76x02_get_efuse_data(&dev->mt76, 0, eeprom,
+	ret = mt76x02_get_efuse_data(&dev->mt76, 0, dev->mt76.eeprom.data,
 				     MT76X0_EEPROM_SIZE, MT_EE_READ);
 	if (ret)
-		goto out;
+		return ret;
 
-	if (eeprom[MT_EE_VERSION + 1] > MT76X0U_EE_MAX_VER)
+	data = mt76x02_eeprom_get(&dev->mt76, MT_EE_VERSION);
+	version = data >> 8;
+	fae = data;
+
+	if (version > MT76X0U_EE_MAX_VER)
 		dev_warn(dev->mt76.dev,
 			 "Warning: unsupported EEPROM version %02hhx\n",
-			 eeprom[MT_EE_VERSION + 1]);
+			 version);
 	dev_info(dev->mt76.dev, "EEPROM ver:%02hhx fae:%02hhx\n",
-		 eeprom[MT_EE_VERSION + 1], eeprom[MT_EE_VERSION]);
+		 version, fae);
 
-	mt76x02_mac_setaddr(&dev->mt76, eeprom + MT_EE_MAC_ADDR);
+	mt76x02_mac_setaddr(&dev->mt76,
+			    dev->mt76.eeprom.data + MT_EE_MAC_ADDR);
 	mt76x0_set_chip_cap(dev);
 	mt76x0_set_freq_offset(dev);
 	mt76x0_set_temp_offset(dev);
+	mt76x0_set_tx_power_per_chan(dev);
+
 	dev->chainmask = 0x0101;
 
-	mt76x0_set_tx_power_per_chan(dev, eeprom);
-
-out:
-	kfree(eeprom);
-	return ret;
+	return 0;
 }
 
 MODULE_LICENSE("Dual BSD/GPL");
