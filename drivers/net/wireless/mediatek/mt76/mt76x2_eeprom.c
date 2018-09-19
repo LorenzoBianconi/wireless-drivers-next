@@ -461,6 +461,7 @@ void mt76x2_get_rate_power(struct mt76x2_dev *dev, struct mt76_rate_power *t,
 	val = mt76x2_eeprom_get(dev, MT_EE_TX_POWER_HT_MCS4);
 	t->ht[4] = t->ht[5] = mt76x2_rate_power_val(val);
 	t->ht[6] = t->ht[7] = mt76x2_rate_power_val(val >> 8);
+	memcpy(t->stbc, t->ht, sizeof(t->stbc));
 
 	val = mt76x2_eeprom_get(dev, MT_EE_TX_POWER_HT_MCS8);
 	t->ht[8] = t->ht[9] = mt76x2_rate_power_val(val);
