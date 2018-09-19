@@ -127,11 +127,11 @@ static int mt76x0u_register_device(struct mt76x0_dev *dev)
 	struct ieee80211_hw *hw = dev->mt76.hw;
 	int err;
 
-	err = mt76u_mcu_init_rx(&dev->mt76);
+	err = mt76u_alloc_queues(&dev->mt76);
 	if (err < 0)
 		return err;
 
-	err = mt76u_alloc_queues(&dev->mt76);
+	err = mt76u_mcu_init_rx(&dev->mt76);
 	if (err < 0)
 		return err;
 
