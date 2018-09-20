@@ -19,6 +19,7 @@
 #include "trace.h"
 #include "mcu.h"
 #include "../mt76x02_util.h"
+#include "../mt76x02_dma.h"
 
 #include "initvals.h"
 
@@ -369,6 +370,25 @@ void mt76x0_mac_stop(struct mt76x0_dev *dev)
 	mt76x0_mac_stop_hw(dev);
 }
 EXPORT_SYMBOL_GPL(mt76x0_mac_stop);
+
+int mt76x0e_init_hardware(struct mt76x0_dev *dev)
+{
+	mt76x0_chip_onoff(dev, true, false);
+	mt76x02_dma_disable(&dev->mt76);
+
+	if (!mt76x02_wait_for_mac(&dev->mt76))
+		return -ETIMEDOUT;
+
+	mt76_wr(dev, MT_MAC_SYS_CTRL,
+		MT_MAC_SYS_CTRL_RESET_CSR |
+		MT_MAC_SYS_CTRL_RESET_BBP);
+
+	mt76_clear(dev, MT_MAC_SYS_CTRL,
+		   MT_MAC_SYS_CTRL_RESET_CSR |
+		   MT_MAC_SYS_CTRL_RESET_BBP);
+
+	return 0;
+}
 
 int mt76x0_init_hardware(struct mt76x0_dev *dev)
 {
