@@ -130,6 +130,12 @@ int mt76x0_init_hardware(struct mt76x0_dev *dev);
 int mt76x0_register_device(struct mt76x0_dev *dev);
 void mt76x0_cleanup(struct mt76x0_dev *dev);
 void mt76x0_chip_onoff(struct mt76x0_dev *dev, bool enable, bool reset);
+void mt76x0_init_mac_registers(struct mt76x0_dev *dev);
+int mt76x0_init_bbp(struct mt76x0_dev *dev);
+void mt76x0_reset_counters(struct mt76x0_dev *dev);
+void mt76x0_init_key_mem(struct mt76x0_dev *dev);
+int mt76x0_init_wcid_attr_mem(struct mt76x0_dev *dev);
+int mt76x0_init_wcid_mem(struct mt76x0_dev *dev);
 
 int mt76x0_mac_start(struct mt76x0_dev *dev);
 void mt76x0_mac_stop(struct mt76x0_dev *dev);
@@ -167,4 +173,6 @@ int mt76x0_tx_prepare_skb(struct mt76_dev *mdev, void *data,
 			  struct mt76_wcid *wcid, struct ieee80211_sta *sta,
 			  u32 *tx_info);
 
+int mt76x0e_mcu_init(struct mt76x0_dev *dev);
+int mt76x0e_register_device(struct mt76x0_dev *dev);
 #endif

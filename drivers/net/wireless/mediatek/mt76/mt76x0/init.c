@@ -19,6 +19,7 @@
 #include "trace.h"
 #include "mcu.h"
 #include "../mt76x02_util.h"
+#include "../mt76x02_dma.h"
 
 #include "initvals.h"
 
@@ -145,7 +146,7 @@ static void mt76x0_init_usb_dma(struct mt76x0_dev *dev)
 	mt76_wr_rp(dev, MT_MCU_MEMMAP_WLAN,	\
 		   tab, ARRAY_SIZE(tab))
 
-static int mt76x0_init_bbp(struct mt76x0_dev *dev)
+int mt76x0_init_bbp(struct mt76x0_dev *dev)
 {
 	int ret, i;
 
@@ -167,8 +168,9 @@ static int mt76x0_init_bbp(struct mt76x0_dev *dev)
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(mt76x0_init_bbp);
 
-static void mt76x0_init_mac_registers(struct mt76x0_dev *dev)
+void mt76x0_init_mac_registers(struct mt76x0_dev *dev)
 {
 	u32 reg;
 
@@ -183,13 +185,6 @@ static void mt76x0_init_mac_registers(struct mt76x0_dev *dev)
 	reg = mt76_rr(dev, MT_MAC_SYS_CTRL);
 	reg &= ~0x3;
 	mt76_wr(dev, MT_MAC_SYS_CTRL, reg);
-
-	if (is_mt7610e(dev)) {
-		/* Disable COEX_EN */
-		reg = mt76_rr(dev, MT_COEXCFG0);
-		reg &= 0xFFFFFFFE;
-		mt76_wr(dev, MT_COEXCFG0, reg);
-	}
 
 	/* Set 0x141C[15:12]=0xF */
 	reg = mt76_rr(dev, MT_EXT_CCA_CFG);
@@ -215,8 +210,9 @@ static void mt76x0_init_mac_registers(struct mt76x0_dev *dev)
 	mt76_wr(dev, 0x7024, 0);
 	msleep(10);
 }
+EXPORT_SYMBOL_GPL(mt76x0_init_mac_registers);
 
-static int mt76x0_init_wcid_mem(struct mt76x0_dev *dev)
+int mt76x0_init_wcid_mem(struct mt76x0_dev *dev)
 {
 	u32 *vals;
 	int i;
@@ -234,15 +230,17 @@ static int mt76x0_init_wcid_mem(struct mt76x0_dev *dev)
 	kfree(vals);
 	return 0;
 }
+EXPORT_SYMBOL_GPL(mt76x0_init_wcid_mem);
 
-static void mt76x0_init_key_mem(struct mt76x0_dev *dev)
+void mt76x0_init_key_mem(struct mt76x0_dev *dev)
 {
 	u32 vals[4] = {};
 
 	mt76_wr_copy(dev, MT_SKEY_MODE_BASE_0, vals, ARRAY_SIZE(vals));
 }
+EXPORT_SYMBOL_GPL(mt76x0_init_key_mem);
 
-static int mt76x0_init_wcid_attr_mem(struct mt76x0_dev *dev)
+int mt76x0_init_wcid_attr_mem(struct mt76x0_dev *dev)
 {
 	u32 *vals;
 	int i;
@@ -258,8 +256,9 @@ static int mt76x0_init_wcid_attr_mem(struct mt76x0_dev *dev)
 	kfree(vals);
 	return 0;
 }
+EXPORT_SYMBOL_GPL(mt76x0_init_wcid_attr_mem);
 
-static void mt76x0_reset_counters(struct mt76x0_dev *dev)
+void mt76x0_reset_counters(struct mt76x0_dev *dev)
 {
 	mt76_rr(dev, MT_RX_STAT_0);
 	mt76_rr(dev, MT_RX_STAT_1);
@@ -268,6 +267,7 @@ static void mt76x0_reset_counters(struct mt76x0_dev *dev)
 	mt76_rr(dev, MT_TX_STA_1);
 	mt76_rr(dev, MT_TX_STA_2);
 }
+EXPORT_SYMBOL_GPL(mt76x0_reset_counters);
 
 int mt76x0_mac_start(struct mt76x0_dev *dev)
 {
