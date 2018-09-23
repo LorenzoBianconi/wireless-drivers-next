@@ -109,7 +109,8 @@ struct mt76x0_dev {
 	struct mac_stats stats;
 };
 
-extern const struct ieee80211_ops mt76x0_ops;
+extern const struct ieee80211_ops mt76x0u_ops;
+extern const struct ieee80211_ops mt76x0e_ops;
 
 static inline bool is_mt7610e(struct mt76x0_dev *dev)
 {
@@ -125,7 +126,9 @@ void mt76x0_init_debugfs(struct mt76x0_dev *dev);
 
 /* Init */
 struct mt76x0_dev *
-mt76x0_alloc_device(struct device *pdev, const struct mt76_driver_ops *drv_ops);
+mt76x0_alloc_device(struct device *pdev,
+		    const struct mt76_driver_ops *drv_ops,
+		    const struct ieee80211_ops *ops);
 int mt76x0_register_device(struct mt76x0_dev *dev);
 void mt76x0_chip_onoff(struct mt76x0_dev *dev, bool enable, bool reset);
 void mt76x0_init_mac_registers(struct mt76x0_dev *dev);
@@ -137,6 +140,17 @@ int mt76x0_init_wcid_mem(struct mt76x0_dev *dev);
 
 int mt76x0_mac_start(struct mt76x0_dev *dev);
 void mt76x0_mac_stop(struct mt76x0_dev *dev);
+
+int mt76x0_start(struct ieee80211_hw *hw);
+int mt76x0_config(struct ieee80211_hw *hw, u32 changed);
+void mt76x0_bss_info_changed(struct ieee80211_hw *hw,
+			     struct ieee80211_vif *vif,
+			     struct ieee80211_bss_conf *info, u32 changed);
+void mt76x0_sw_scan(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
+		    const u8 *mac_addr);
+void mt76x0_sw_scan_complete(struct ieee80211_hw *hw,
+			     struct ieee80211_vif *vif);
+int mt76x0_set_rts_threshold(struct ieee80211_hw *hw, u32 value);
 
 /* PHY */
 void mt76x0_phy_init(struct mt76x0_dev *dev);
@@ -177,4 +191,5 @@ int mt76x0e_register_device(struct mt76x0_dev *dev);
 int mt76x0u_register_device(struct mt76x0_dev *dev);
 int mt76x0u_init_hardware(struct mt76x0_dev *dev);
 void mt76x0u_cleanup(struct mt76x0_dev *dev);
+void mt76x0u_mac_stop(struct mt76x0_dev *dev);
 #endif

@@ -21,6 +21,10 @@
 #include "../mt76x02_mac.h"
 #include "../mt76x02_util.h"
 
+static void mt76x0e_stop(struct ieee80211_hw *hw)
+{
+}
+
 static int mt76x0e_init_hardware(struct mt76x0_dev *dev)
 {
 	int i, j, beacon_len, err;
@@ -96,3 +100,13 @@ int mt76x0e_register_device(struct mt76x0_dev *dev)
 
 	return 0;
 }
+
+const struct ieee80211_ops mt76x0e_ops = {
+	.tx = mt76x0_tx,
+	.start = mt76x0_start,
+	.stop = mt76x0e_stop,
+	.config = mt76x0_config,
+	.add_interface = mt76x02_add_interface,
+	.remove_interface = mt76x02_remove_interface,
+	.configure_filter = mt76x02_configure_filter,
+};
