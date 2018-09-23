@@ -935,3 +935,4 @@ void mt76x0_phy_init(struct mt76x0_dev *dev)
 	mt76x0_set_rx_chains(dev);
 	mt76x0_set_tx_dac(dev);
 }
+EXPORT_SYMBOL_GPL(mt76x0_phy_init);

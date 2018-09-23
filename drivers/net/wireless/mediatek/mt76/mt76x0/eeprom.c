@@ -311,5 +311,6 @@ int mt76x0_eeprom_init(struct mt76x0_dev *dev)
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(mt76x0_eeprom_init);
 
 MODULE_LICENSE("Dual BSD/GPL");
