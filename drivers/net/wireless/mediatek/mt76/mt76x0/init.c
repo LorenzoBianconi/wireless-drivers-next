@@ -107,6 +107,9 @@ static void mt76x0_reset_csr_bbp(struct mt76x0_dev *dev)
 		MT_MAC_SYS_CTRL_RESET_CSR |
 		MT_MAC_SYS_CTRL_RESET_BBP);
 	msleep(200);
+	mt76_clear(dev, MT_MAC_SYS_CTRL,
+		   MT_MAC_SYS_CTRL_RESET_CSR |
+		   MT_MAC_SYS_CTRL_RESET_BBP);
 }
 
 #define RANDOM_WRITE(dev, tab)			\
