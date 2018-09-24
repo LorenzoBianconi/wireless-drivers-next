@@ -48,6 +48,45 @@ static struct usb_device_id mt76x0_device_table[] = {
 	{ 0, }
 };
 
+static void mt76x0u_mac_stop(struct mt76x0_dev *dev)
+{
+	mt76u_stop_stat_wk(&dev->mt76);
+	mt76x0_mac_stop(dev);
+}
+
+static int mt76x0u_start(struct ieee80211_hw *hw)
+{
+	struct mt76x0_dev *dev = hw->priv;
+	int ret;
+
+	mutex_lock(&dev->mt76.mutex);
+
+	ret = mt76x0_mac_start(dev);
+	if (ret)
+		goto out;
+
+	ieee80211_queue_delayed_work(dev->mt76.hw, &dev->mac_work,
+				     MT_CALIBRATE_INTERVAL);
+	ieee80211_queue_delayed_work(dev->mt76.hw, &dev->cal_work,
+				     MT_CALIBRATE_INTERVAL);
+
+	set_bit(MT76_STATE_RUNNING, &dev->mt76.state);
+
+out:
+	mutex_unlock(&dev->mt76.mutex);
+	return ret;
+}
+
+static void mt76x0u_stop(struct ieee80211_hw *hw)
+{
+	struct mt76x0_dev *dev = hw->priv;
+
+	mutex_lock(&dev->mt76.mutex);
+	clear_bit(MT76_STATE_RUNNING, &dev->mt76.state);
+	mt76x0u_mac_stop(dev);
+	mutex_unlock(&dev->mt76.mutex);
+}
+
 static void mt76x0_init_usb_dma(struct mt76x0_dev *dev)
 {
 	u32 val;
@@ -135,6 +174,27 @@ err:
 	return err;
 }
 
+static const struct ieee80211_ops mt76x0u_ops = {
+	.tx = mt76x0_tx,
+	.start = mt76x0u_start,
+	.stop = mt76x0u_stop,
+	.add_interface = mt76x02_add_interface,
+	.remove_interface = mt76x02_remove_interface,
+	.config = mt76x0_config,
+	.configure_filter = mt76x02_configure_filter,
+	.bss_info_changed = mt76x0_bss_info_changed,
+	.sta_add = mt76x02_sta_add,
+	.sta_remove = mt76x02_sta_remove,
+	.set_key = mt76x02_set_key,
+	.conf_tx = mt76x02_conf_tx,
+	.sw_scan_start = mt76x0_sw_scan,
+	.sw_scan_complete = mt76x0_sw_scan_complete,
+	.ampdu_action = mt76x02_ampdu_action,
+	.sta_rate_tbl_update = mt76x02_sta_rate_tbl_update,
+	.set_rts_threshold = mt76x0_set_rts_threshold,
+	.wake_tx_queue = mt76_wake_tx_queue,
+};
+
 static int mt76x0u_probe(struct usb_interface *usb_intf,
 			 const struct usb_device_id *id)
 {
@@ -149,7 +209,7 @@ static int mt76x0u_probe(struct usb_interface *usb_intf,
 	u32 asic_rev, mac_rev;
 	int ret;
 
-	dev = mt76x0_alloc_device(&usb_intf->dev, &drv_ops);
+	dev = mt76x0_alloc_device(&usb_intf->dev, &drv_ops, &mt76x0u_ops);
 	if (!dev)
 		return -ENOMEM;
 
@@ -218,7 +278,7 @@ static int __maybe_unused mt76x0_suspend(struct usb_interface *usb_intf,
 	struct mt76_usb *usb = &dev->mt76.usb;
 
 	mt76u_stop_queues(&dev->mt76);
-	mt76x0_mac_stop(dev);
+	mt76x0u_mac_stop(dev);
 	usb_kill_urb(usb->mcu.res.urb);
 
 	return 0;

@@ -253,6 +253,7 @@ int mt76x0_mac_start(struct mt76x0_dev *dev)
 
 	return !mt76x02_wait_for_wpdma(&dev->mt76, 50) ? -ETIMEDOUT : 0;
 }
+EXPORT_SYMBOL_GPL(mt76x0_mac_start);
 
 static void mt76x0_mac_stop_hw(struct mt76x0_dev *dev)
 {
@@ -306,7 +307,6 @@ void mt76x0_mac_stop(struct mt76x0_dev *dev)
 {
 	cancel_delayed_work_sync(&dev->cal_work);
 	cancel_delayed_work_sync(&dev->mac_work);
-	mt76u_stop_stat_wk(&dev->mt76);
 	mt76x0_mac_stop_hw(dev);
 }
 EXPORT_SYMBOL_GPL(mt76x0_mac_stop);
@@ -371,12 +371,14 @@ int mt76x0_init_hardware(struct mt76x0_dev *dev)
 EXPORT_SYMBOL_GPL(mt76x0_init_hardware);
 
 struct mt76x0_dev *
-mt76x0_alloc_device(struct device *pdev, const struct mt76_driver_ops *drv_ops)
+mt76x0_alloc_device(struct device *pdev,
+		    const struct mt76_driver_ops *drv_ops,
+		    const struct ieee80211_ops *ops)
 {
 	struct mt76x0_dev *dev;
 	struct mt76_dev *mdev;
 
-	mdev = mt76_alloc_device(sizeof(*dev), &mt76x0_ops);
+	mdev = mt76_alloc_device(sizeof(*dev), ops);
 	if (!mdev)
 		return NULL;
 
