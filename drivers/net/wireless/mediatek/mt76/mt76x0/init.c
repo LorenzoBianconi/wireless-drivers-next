@@ -345,7 +345,7 @@ EXPORT_SYMBOL_GPL(mt76x0_mac_stop);
 
 int mt76x0_init_hardware(struct mt76x0_dev *dev)
 {
-	int ret;
+	int ret, i, j, beacon_len;
 
 	if (!mt76x02_wait_for_wpdma(&dev->mt76, 1000))
 		return -EIO;
@@ -384,6 +384,12 @@ int mt76x0_init_hardware(struct mt76x0_dev *dev)
 					     MT_BEACON_TIME_CFG_SYNC_MODE |
 					     MT_BEACON_TIME_CFG_TBTT_EN |
 					     MT_BEACON_TIME_CFG_BEACON_TX));
+
+	beacon_len = mt76x02_beacon_offsets[1] - mt76x02_beacon_offsets[0];
+	for (i = 0; i < 8; i++) {
+		for (j = 0; j < beacon_len; j += 4)
+			mt76_wr(dev, mt76x02_beacon_offsets[i] + j, 0);
+	}
 
 	mt76x0_reset_counters(dev);
 
