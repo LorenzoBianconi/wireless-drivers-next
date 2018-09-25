@@ -101,20 +101,6 @@ void mt76x0_chip_onoff(struct mt76x0_dev *dev, bool enable, bool reset)
 }
 EXPORT_SYMBOL_GPL(mt76x0_chip_onoff);
 
-static void mt76x0_reset_csr_bbp(struct mt76x0_dev *dev)
-{
-	u32 val;
-
-	val = mt76_rr(dev, MT_PBF_SYS_CTRL);
-	val &= ~0x2000;
-	mt76_wr(dev, MT_PBF_SYS_CTRL, val);
-
-	mt76_wr(dev, MT_MAC_SYS_CTRL, MT_MAC_SYS_CTRL_RESET_CSR |
-					 MT_MAC_SYS_CTRL_RESET_BBP);
-
-	msleep(200);
-}
-
 static void mt76x0_init_usb_dma(struct mt76x0_dev *dev)
 {
 	u32 val;
@@ -360,7 +346,10 @@ int mt76x0_init_hardware(struct mt76x0_dev *dev)
 	if (!mt76x02_wait_for_mac(&dev->mt76))
 		return -ETIMEDOUT;
 
-	mt76x0_reset_csr_bbp(dev);
+	mt76_wr(dev, MT_MAC_SYS_CTRL,
+		MT_MAC_SYS_CTRL_RESET_CSR |
+		MT_MAC_SYS_CTRL_RESET_BBP);
+	msleep(200);
 	mt76x0_init_usb_dma(dev);
 
 	ret = mt76x02_mcu_function_select(&dev->mt76, Q_SELECT, 1, false);
