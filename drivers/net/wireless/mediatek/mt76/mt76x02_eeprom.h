@@ -207,5 +207,6 @@ u8 mt76x02_get_lna_gain(struct mt76_dev *dev,
 			s8 *lna_2g, s8 *lna_5g,
 			struct ieee80211_channel *chan);
 void mt76x02_eeprom_parse_hw_cap(struct mt76_dev *dev);
+int mt76x02_eeprom_load(struct mt76_dev *dev, int eeprom_size);
 
 #endif /* __MT76x02_EEPROM_H */

@@ -154,3 +154,155 @@ u8 mt76x02_get_lna_gain(struct mt76_dev *dev,
 	return lna != 0xff ? lna : 0;
 }
 EXPORT_SYMBOL_GPL(mt76x02_get_lna_gain);
+
+static bool mt76x02_has_cal_free_data(u8 *efuse)
+{
+	u16 *efuse_w = (u16 *) efuse;
+
+	if (efuse_w[MT_EE_NIC_CONF_0] != 0)
+		return false;
+
+	if (efuse_w[MT_EE_XTAL_TRIM_1] == 0xffff)
+		return false;
+
+	if (efuse_w[MT_EE_TX_POWER_DELTA_BW40] != 0)
+		return false;
+
+	if (efuse_w[MT_EE_TX_POWER_0_START_2G] == 0xffff)
+		return false;
+
+	if (efuse_w[MT_EE_TX_POWER_0_GRP3_TX_POWER_DELTA] != 0)
+		return false;
+
+	if (efuse_w[MT_EE_TX_POWER_0_GRP4_TSSI_SLOPE] == 0xffff)
+		return false;
+
+	return true;
+}
+
+static void mt76x02_apply_cal_free_data(struct mt76_dev *dev, u8 *efuse)
+{
+#define GROUP_5G(_id)							   \
+	MT_EE_TX_POWER_0_START_5G + MT_TX_POWER_GROUP_SIZE_5G * (_id),	   \
+	MT_EE_TX_POWER_0_START_5G + MT_TX_POWER_GROUP_SIZE_5G * (_id) + 1, \
+	MT_EE_TX_POWER_1_START_5G + MT_TX_POWER_GROUP_SIZE_5G * (_id),	   \
+	MT_EE_TX_POWER_1_START_5G + MT_TX_POWER_GROUP_SIZE_5G * (_id) + 1
+
+	static const u8 cal_free_bytes[] = {
+		MT_EE_XTAL_TRIM_1,
+		MT_EE_TX_POWER_EXT_PA_5G + 1,
+		MT_EE_TX_POWER_0_START_2G,
+		MT_EE_TX_POWER_0_START_2G + 1,
+		MT_EE_TX_POWER_1_START_2G,
+		MT_EE_TX_POWER_1_START_2G + 1,
+		GROUP_5G(0),
+		GROUP_5G(1),
+		GROUP_5G(2),
+		GROUP_5G(3),
+		GROUP_5G(4),
+		GROUP_5G(5),
+		MT_EE_RF_2G_TSSI_OFF_TXPOWER,
+		MT_EE_RF_2G_RX_HIGH_GAIN + 1,
+		MT_EE_RF_5G_GRP0_1_RX_HIGH_GAIN,
+		MT_EE_RF_5G_GRP0_1_RX_HIGH_GAIN + 1,
+		MT_EE_RF_5G_GRP2_3_RX_HIGH_GAIN,
+		MT_EE_RF_5G_GRP2_3_RX_HIGH_GAIN + 1,
+		MT_EE_RF_5G_GRP4_5_RX_HIGH_GAIN,
+		MT_EE_RF_5G_GRP4_5_RX_HIGH_GAIN + 1,
+	};
+	u8 *eeprom = dev->eeprom.data;
+	u8 prev_grp0[4] = {
+		eeprom[MT_EE_TX_POWER_0_START_5G],
+		eeprom[MT_EE_TX_POWER_0_START_5G + 1],
+		eeprom[MT_EE_TX_POWER_1_START_5G],
+		eeprom[MT_EE_TX_POWER_1_START_5G + 1]
+	};
+	u16 val;
+	int i;
+
+	if (!mt76x02_has_cal_free_data(efuse))
+		return;
+
+	for (i = 0; i < ARRAY_SIZE(cal_free_bytes); i++) {
+		int offset = cal_free_bytes[i];
+
+		eeprom[offset] = efuse[offset];
+	}
+
+	if (!(efuse[MT_EE_TX_POWER_0_START_5G] |
+	      efuse[MT_EE_TX_POWER_0_START_5G + 1]))
+		memcpy(eeprom + MT_EE_TX_POWER_0_START_5G, prev_grp0, 2);
+	if (!(efuse[MT_EE_TX_POWER_1_START_5G] |
+	      efuse[MT_EE_TX_POWER_1_START_5G + 1]))
+		memcpy(eeprom + MT_EE_TX_POWER_1_START_5G, prev_grp0 + 2, 2);
+
+	val = get_unaligned_le16(efuse + MT_EE_BT_RCAL_RESULT);
+	if (val != 0xffff)
+		eeprom[MT_EE_BT_RCAL_RESULT] = val & 0xff;
+
+	val = get_unaligned_le16(efuse + MT_EE_BT_VCDL_CALIBRATION);
+	if (val != 0xffff)
+		eeprom[MT_EE_BT_VCDL_CALIBRATION + 1] = val >> 8;
+
+	val = get_unaligned_le16(efuse + MT_EE_BT_PMUCFG);
+	if (val != 0xffff)
+		eeprom[MT_EE_BT_PMUCFG] = val & 0xff;
+}
+
+static int mt76x02_check_eeprom(struct mt76_dev *dev)
+{
+	u16 val = get_unaligned_le16(dev->eeprom.data);
+
+	if (!val)
+		val = get_unaligned_le16(dev->eeprom.data + MT_EE_PCI_ID);
+
+	switch (val) {
+	case 0x7662:
+	case 0x7612:
+		return 0;
+	default:
+		dev_err(dev->dev, "EEPROM data check failed: %04x\n", val);
+		return -EINVAL;
+	}
+}
+
+int mt76x02_eeprom_load(struct mt76_dev *dev, int eeprom_size)
+{
+	void *efuse;
+	bool found;
+	int ret;
+
+	ret = mt76_eeprom_init(dev, eeprom_size);
+	if (ret < 0)
+		return ret;
+
+	found = ret;
+	if (found)
+		found = !mt76x02_check_eeprom(dev);
+
+	dev->otp.data = devm_kzalloc(dev->dev, eeprom_size, GFP_KERNEL);
+	dev->otp.size = eeprom_size;
+	if (!dev->otp.data)
+		return -ENOMEM;
+
+	efuse = dev->otp.data;
+
+	if (mt76x02_get_efuse_data(dev, 0, efuse, eeprom_size,
+				   MT_EE_READ))
+		goto out;
+
+	if (found) {
+		mt76x02_apply_cal_free_data(dev, efuse);
+	} else {
+		/* FIXME: check if efuse data is complete */
+		found = true;
+		memcpy(dev->eeprom.data, efuse, eeprom_size);
+	}
+
+out:
+	if (!found)
+		return -ENOENT;
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(mt76x02_eeprom_load);
