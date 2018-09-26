@@ -203,4 +203,5 @@ void mt76x02_send_tx_status(struct mt76_dev *dev,
 int
 mt76x02_mac_process_rate(struct mt76_rx_status *status, u16 rate);
 void mt76x02_mac_setaddr(struct mt76_dev *dev, u8 *addr);
+void mt76x02_mac_start(struct mt76_dev *dev);
 #endif

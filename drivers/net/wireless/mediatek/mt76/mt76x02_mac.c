@@ -18,6 +18,8 @@
 #include "mt76.h"
 #include "mt76x02_regs.h"
 #include "mt76x02_mac.h"
+#include "mt76x02_dma.h"
+#include "mt76x02_util.h"
 
 enum mt76x02_cipher_type
 mt76x02_mac_get_key_info(struct ieee80211_key_conf *key, u8 *key_data)
@@ -520,3 +522,16 @@ void mt76x02_mac_setaddr(struct mt76_dev *dev, u8 *addr)
 		  FIELD_PREP(MT_MAC_ADDR_DW1_U2ME_MASK, 0xff));
 }
 EXPORT_SYMBOL_GPL(mt76x02_mac_setaddr);
+
+void mt76x02_mac_start(struct mt76_dev *dev)
+{
+	mt76x02_dma_enable(dev);
+	__mt76_wr(dev, MT_RX_FILTR_CFG, dev->rxfilter);
+	__mt76_wr(dev, MT_MAC_SYS_CTRL,
+		  MT_MAC_SYS_CTRL_ENABLE_TX |
+		  MT_MAC_SYS_CTRL_ENABLE_RX);
+	mt76x02_irq_enable(dev,
+			   MT_INT_RX_DONE_ALL | MT_INT_TX_DONE_ALL |
+			   MT_INT_TX_STAT);
+}
+EXPORT_SYMBOL_GPL(mt76x02_mac_start);
