@@ -62,7 +62,8 @@ static int mt76x0u_probe(struct usb_interface *usb_intf,
 	u32 asic_rev, mac_rev;
 	int ret;
 
-	dev = mt76x0_alloc_device(&usb_intf->dev, &drv_ops);
+	dev = mt76x0_alloc_device(&usb_intf->dev, &drv_ops,
+				  &mt76x0u_ops);
 	if (!dev)
 		return -ENOMEM;
 
@@ -131,7 +132,7 @@ static int __maybe_unused mt76x0_suspend(struct usb_interface *usb_intf,
 	struct mt76_usb *usb = &dev->mt76.usb;
 
 	mt76u_stop_queues(&dev->mt76);
-	mt76x0_mac_stop(dev);
+	mt76x0u_mac_stop(dev);
 	usb_kill_urb(usb->mcu.res.urb);
 
 	return 0;
