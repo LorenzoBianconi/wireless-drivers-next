@@ -23,6 +23,15 @@
 
 static int mt76x0e_start(struct ieee80211_hw *hw)
 {
+	struct mt76x0_dev *dev = hw->priv;
+
+	mutex_lock(&dev->mt76.mutex);
+
+	mt76x02_mac_start(&dev->mt76);
+	mt76x0_start(dev);
+
+	mutex_unlock(&dev->mt76.mutex);
+
 	return 0;
 }
 
