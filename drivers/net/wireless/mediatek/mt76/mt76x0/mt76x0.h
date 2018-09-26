@@ -136,6 +136,8 @@ void mt76x0_mac_stop(struct mt76x0_dev *dev);
 void mt76x0u_cleanup(struct mt76x0_dev *dev);
 int mt76x0u_register_device(struct mt76x0_dev *dev);
 
+int mt76x0e_register_device(struct mt76x0_dev *dev);
+
 /* PHY */
 void mt76x0_phy_init(struct mt76x0_dev *dev);
 int mt76x0_wait_bbp_ready(struct mt76x0_dev *dev);
