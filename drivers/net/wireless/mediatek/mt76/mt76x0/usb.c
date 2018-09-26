@@ -93,32 +93,12 @@ static int mt76x0u_probe(struct usb_interface *usb_intf,
 	if (!(mt76_rr(dev, MT_EFUSE_CTRL) & MT_EFUSE_CTRL_SEL))
 		dev_warn(dev->mt76.dev, "Warning: eFUSE not present\n");
 
-	ret = mt76u_alloc_queues(&dev->mt76);
+	ret = mt76x0u_register_device(dev);
 	if (ret < 0)
 		goto err;
-
-	ret = mt76u_mcu_init_rx(&dev->mt76);
-	if (ret < 0)
-		goto err;
-
-	mt76x0_chip_onoff(dev, true, true);
-
-	if (!mt76x02_wait_for_mac(&dev->mt76))
-		return -ETIMEDOUT;
-
-	ret = mt76x0u_mcu_init(dev);
-	if (ret)
-		goto err_hw;
-
-	ret = mt76x0_register_device(dev);
-	if (ret)
-		goto err_hw;
-
-	set_bit(MT76_STATE_INITIALIZED, &dev->mt76.state);
 
 	return 0;
-err_hw:
-	mt76x0_cleanup(dev);
+
 err:
 	usb_set_intfdata(usb_intf, NULL);
 	usb_put_dev(interface_to_usbdev(usb_intf));
@@ -136,7 +116,7 @@ static void mt76x0_disconnect(struct usb_interface *usb_intf)
 		return;
 
 	ieee80211_unregister_hw(dev->mt76.hw);
-	mt76x0_cleanup(dev);
+	mt76x0u_cleanup(dev);
 
 	usb_set_intfdata(usb_intf, NULL);
 	usb_put_dev(interface_to_usbdev(usb_intf));
@@ -185,7 +165,7 @@ static int __maybe_unused mt76x0_resume(struct usb_interface *usb_intf)
 
 	return 0;
 err:
-	mt76x0_cleanup(dev);
+	mt76x0u_cleanup(dev);
 	return ret;
 }
 
