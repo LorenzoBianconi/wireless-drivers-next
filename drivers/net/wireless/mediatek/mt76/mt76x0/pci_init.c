@@ -37,6 +37,23 @@ static int mt76x0e_start(struct ieee80211_hw *hw)
 
 static void mt76x0e_stop(struct ieee80211_hw *hw)
 {
+	struct mt76x0_dev *dev = hw->priv;
+
+	mutex_lock(&dev->mt76.mutex);
+
+	if (!mt76_poll(dev, MT_WPDMA_GLO_CFG, MT_WPDMA_GLO_CFG_TX_DMA_BUSY,
+		       0, 1000))
+		dev_warn(dev->mt76.dev, "TX DMA did not stop\n");
+	mt76_clear(dev, MT_WPDMA_GLO_CFG, MT_WPDMA_GLO_CFG_TX_DMA_EN);
+
+	mt76x0_stop(dev);
+
+	if (!mt76_poll(dev, MT_WPDMA_GLO_CFG, MT_WPDMA_GLO_CFG_RX_DMA_BUSY,
+		       0, 1000))
+		dev_warn(dev->mt76.dev, "TX DMA did not stop\n");
+	mt76_clear(dev, MT_WPDMA_GLO_CFG, MT_WPDMA_GLO_CFG_RX_DMA_EN);
+
+	mutex_unlock(&dev->mt76.mutex);
 }
 
 const struct ieee80211_ops mt76x0e_ops = {
