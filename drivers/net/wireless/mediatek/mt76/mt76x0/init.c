@@ -329,11 +329,6 @@ int mt76x0_init_hardware(struct mt76x0_dev *dev)
 	}
 
 	mt76x0_reset_counters(dev);
-
-	ret = mt76x0_eeprom_init(dev);
-	if (ret)
-		return ret;
-
 	mt76x0_phy_init(dev);
 
 	return 0;

@@ -24,8 +24,7 @@
 #include "../mt76x02_phy.h"
 
 #define MT_MAP_READS	DIV_ROUND_UP(MT_EFUSE_USAGE_MAP_SIZE, 16)
-static int
-mt76x0_efuse_physical_size_check(struct mt76x0_dev *dev)
+int mt76x0_efuse_physical_size_check(struct mt76x0_dev *dev)
 {
 	u8 data[MT_MAP_READS * 16];
 	int ret, i;
@@ -52,6 +51,7 @@ mt76x0_efuse_physical_size_check(struct mt76x0_dev *dev)
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(mt76x0_efuse_physical_size_check);
 
 static void mt76x0_set_chip_cap(struct mt76x0_dev *dev)
 {
@@ -276,20 +276,6 @@ int mt76x0_eeprom_init(struct mt76x0_dev *dev)
 {
 	u8 version, fae;
 	u16 data;
-	int ret;
-
-	ret = mt76x0_efuse_physical_size_check(dev);
-	if (ret)
-		return ret;
-
-	ret = mt76_eeprom_init(&dev->mt76, MT76X0_EEPROM_SIZE);
-	if (ret < 0)
-		return ret;
-
-	ret = mt76x02_get_efuse_data(&dev->mt76, 0, dev->mt76.eeprom.data,
-				     MT76X0_EEPROM_SIZE, MT_EE_READ);
-	if (ret)
-		return ret;
 
 	data = mt76x02_eeprom_get(&dev->mt76, MT_EE_VERSION);
 	version = data >> 8;
@@ -312,5 +298,6 @@ int mt76x0_eeprom_init(struct mt76x0_dev *dev)
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(mt76x0_eeprom_init);
 
 MODULE_LICENSE("Dual BSD/GPL");

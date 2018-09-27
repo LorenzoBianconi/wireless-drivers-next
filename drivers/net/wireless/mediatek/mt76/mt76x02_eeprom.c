@@ -259,6 +259,8 @@ static int mt76x02_check_eeprom(struct mt76_dev *dev)
 	switch (val) {
 	case 0x7662:
 	case 0x7612:
+	case 0x7650:
+	case 0x7610:
 		return 0;
 	default:
 		dev_err(dev->dev, "EEPROM data check failed: %04x\n", val);

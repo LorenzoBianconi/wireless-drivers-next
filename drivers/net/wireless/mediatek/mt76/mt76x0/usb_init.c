@@ -120,6 +120,26 @@ void mt76x0u_cleanup(struct mt76x0_dev *dev)
 	mt76u_mcu_deinit(&dev->mt76);
 }
 
+static int mt76x0u_eeprom_init(struct mt76x0_dev *dev)
+{
+	int err;
+
+	err = mt76x0_efuse_physical_size_check(dev);
+	if (err < 0)
+		return err;
+
+	err = mt76_eeprom_init(&dev->mt76, MT76X0_EEPROM_SIZE);
+	if (err < 0)
+		return err;
+
+	err = mt76x02_get_efuse_data(&dev->mt76, 0, dev->mt76.eeprom.data,
+				     MT76X0_EEPROM_SIZE, MT_EE_READ);
+	if (err < 0)
+		return err;
+
+	return mt76x0_eeprom_init(dev);
+}
+
 int mt76x0u_register_device(struct mt76x0_dev *dev)
 {
 	struct ieee80211_hw *hw = dev->mt76.hw;
@@ -138,6 +158,10 @@ int mt76x0u_register_device(struct mt76x0_dev *dev)
 		err = -ETIMEDOUT;
 		goto err;
 	}
+
+	err = mt76x0u_eeprom_init(dev);
+	if (err < 0)
+		return err;
 
 	err = mt76x0u_mcu_init(dev);
 	if (err < 0)

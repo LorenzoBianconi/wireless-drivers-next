@@ -66,6 +66,17 @@ const struct ieee80211_ops mt76x0e_ops = {
 	.configure_filter = mt76x02_configure_filter,
 };
 
+static int mt76x0e_eeprom_init(struct mt76x0_dev *dev)
+{
+	int err;
+
+	err = mt76x02_eeprom_load(&dev->mt76, MT76X0_EEPROM_SIZE);
+	if (err < 0)
+		return err;
+
+	return mt76x0_eeprom_init(dev);
+}
+
 int mt76x0e_register_device(struct mt76x0_dev *dev)
 {
 	int err;
@@ -76,6 +87,10 @@ int mt76x0e_register_device(struct mt76x0_dev *dev)
 
 	mt76x02_dma_disable(&dev->mt76);
 	err = mt76x0e_mcu_init(dev);
+	if (err < 0)
+		return err;
+
+	err = mt76x0e_eeprom_init(dev);
 	if (err < 0)
 		return err;
 
