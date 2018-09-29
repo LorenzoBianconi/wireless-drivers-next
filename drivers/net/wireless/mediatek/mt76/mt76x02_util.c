@@ -531,4 +531,33 @@ void mt76x02_set_beacon_offsets(struct mt76_dev *dev)
 }
 EXPORT_SYMBOL_GPL(mt76x02_set_beacon_offsets);
 
+struct mt76x02_sta *
+mt76x02_rx_get_sta(struct mt76_dev *dev, u8 idx)
+{
+	struct mt76_wcid *wcid;
+
+	if (idx >= ARRAY_SIZE(dev->wcid))
+		return NULL;
+
+	wcid = rcu_dereference(dev->wcid[idx]);
+	if (!wcid)
+		return NULL;
+
+	return container_of(wcid, struct mt76x02_sta, wcid);
+}
+EXPORT_SYMBOL_GPL(mt76x02_rx_get_sta);
+
+struct mt76_wcid *
+mt76x02_rx_get_sta_wcid(struct mt76x02_sta *sta, bool unicast)
+{
+	if (!sta)
+		return NULL;
+
+	if (unicast)
+		return &sta->wcid;
+	else
+		return &sta->vif->group_wcid;
+}
+EXPORT_SYMBOL_GPL(mt76x02_rx_get_sta_wcid);
+
 MODULE_LICENSE("Dual BSD/GPL");
