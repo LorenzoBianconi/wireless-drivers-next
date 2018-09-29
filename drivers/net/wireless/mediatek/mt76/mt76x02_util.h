@@ -144,6 +144,8 @@ bool mt76x02_tx_status_data(struct mt76_dev *dev, u8 *update);
 struct mt76x02_sta *mt76x02_rx_get_sta(struct mt76_dev *dev, u8 idx);
 struct mt76_wcid *
 mt76x02_rx_get_sta_wcid(struct mt76x02_sta *sta, bool unicast);
+void mt76x02_queue_rx_skb(struct mt76_dev *mdev, enum mt76_rxq_id q,
+			  struct sk_buff *skb);
 
 extern const u16 mt76x02_beacon_offsets[16];
 void mt76x02_set_beacon_offsets(struct mt76_dev *dev);

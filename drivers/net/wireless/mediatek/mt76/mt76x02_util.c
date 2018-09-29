@@ -20,6 +20,7 @@
 #include "mt76x02_dma.h"
 #include "mt76x02_regs.h"
 #include "mt76x02_mac.h"
+#include "mt76x02_util.h"
 
 #define CCK_RATE(_idx, _rate) {					\
 	.bitrate = _rate,					\
@@ -545,7 +546,6 @@ mt76x02_rx_get_sta(struct mt76_dev *dev, u8 idx)
 
 	return container_of(wcid, struct mt76x02_sta, wcid);
 }
-EXPORT_SYMBOL_GPL(mt76x02_rx_get_sta);
 
 struct mt76_wcid *
 mt76x02_rx_get_sta_wcid(struct mt76x02_sta *sta, bool unicast)
@@ -558,6 +558,28 @@ mt76x02_rx_get_sta_wcid(struct mt76x02_sta *sta, bool unicast)
 	else
 		return &sta->vif->group_wcid;
 }
-EXPORT_SYMBOL_GPL(mt76x02_rx_get_sta_wcid);
+
+void mt76x02_queue_rx_skb(struct mt76_dev *mdev, enum mt76_rxq_id q,
+			  struct sk_buff *skb)
+{
+	struct mt76x02_dev *dev = container_of(mdev, struct mt76x02_dev, mt76);
+	void *rxwi = skb->data;
+
+	if (q == MT_RXQ_MCU) {
+		/* this is used just by mmio code */
+		skb_queue_tail(&mdev->mmio.mcu.res_q, skb);
+		wake_up(&mdev->mmio.mcu.wait);
+		return;
+	}
+
+	skb_pull(skb, sizeof(struct mt76x02_rxwi));
+	if (mt76x02_mac_process_rx(dev, skb, rxwi)) {
+		dev_kfree_skb(skb);
+		return;
+	}
+
+	mt76_rx(mdev, q, skb);
+}
+EXPORT_SYMBOL_GPL(mt76x02_queue_rx_skb);
 
 MODULE_LICENSE("Dual BSD/GPL");
