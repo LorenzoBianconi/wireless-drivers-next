@@ -76,7 +76,15 @@ static const struct ieee80211_ops mt76x0e_ops = {
 	.config = mt76x0_config,
 	.add_interface = mt76x02_add_interface,
 	.remove_interface = mt76x02_remove_interface,
+	.sta_add = mt76x02_sta_add,
+	.sta_remove = mt76x02_sta_remove,
 	.configure_filter = mt76x02_configure_filter,
+	.conf_tx = mt76x02_conf_tx,
+	.set_key = mt76x02_set_key,
+	.sw_scan_start = mt76x0_sw_scan,
+	.sw_scan_complete = mt76x0_sw_scan_complete,
+	.ampdu_action = mt76x02_ampdu_action,
+	.sta_rate_tbl_update = mt76x02_sta_rate_tbl_update,
 };
 
 static int mt76x0e_register_device(struct mt76x02_dev *dev)
