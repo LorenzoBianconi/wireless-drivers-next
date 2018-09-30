@@ -153,6 +153,8 @@ extern const u16 mt76x02_beacon_offsets[16];
 void mt76x02_set_beacon_offsets(struct mt76_dev *dev);
 void mt76x02_set_irq_mask(struct mt76_dev *dev, u32 clear, u32 set);
 void mt76x02_mac_start(struct mt76_dev *dev);
+void mt76x02_rx_poll_complete(struct mt76_dev *mdev, enum mt76_rxq_id q);
+irqreturn_t mt76x02_irq_handler(int irq, void *dev_instance);
 
 static inline void mt76x02_irq_enable(struct mt76_dev *dev, u32 mask)
 {
