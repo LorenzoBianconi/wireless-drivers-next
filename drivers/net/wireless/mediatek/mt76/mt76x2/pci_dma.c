@@ -28,7 +28,7 @@ void mt76x2_tx_tasklet(unsigned long data)
 	for (i = MT_TXQ_MCU; i >= 0; i--)
 		mt76_queue_tx_cleanup(dev, i, false);
 
-	mt76x2_mac_poll_tx_status(dev, false);
+	mt76x02_mac_poll_tx_status(dev, false);
 	mt76x02_irq_enable(&dev->mt76, MT_INT_TX_DONE_ALL);
 }
 
