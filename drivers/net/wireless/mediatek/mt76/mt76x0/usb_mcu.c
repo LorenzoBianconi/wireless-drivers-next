@@ -22,7 +22,7 @@
 
 #define MCU_FW_URB_MAX_PAYLOAD		0x38f8
 #define MCU_FW_URB_SIZE			(MCU_FW_URB_MAX_PAYLOAD + 12)
-#define MT7610U_FIRMWARE		"mediatek/mt7610u.bin"
+#define MT7610U_FIRMWARE		"mediatek/mt7610e.bin"
 
 static int
 mt76x0u_upload_firmware(struct mt76x02_dev *dev,
