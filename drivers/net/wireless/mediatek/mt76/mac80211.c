@@ -707,3 +707,21 @@ int mt76_sta_state(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	return 0;
 }
 EXPORT_SYMBOL_GPL(mt76_sta_state);
+
+int mt76_xdp(struct ieee80211_hw *hw, struct netdev_bpf *xdp)
+{
+	struct mt76_dev *dev = hw->priv;
+
+	switch (xdp->command) {
+	case XDP_SETUP_PROG:
+		if (!dev->drv->xdp_setup)
+			return -ENOTSUPP;
+		return dev->drv->xdp_setup(dev, xdp->prog);
+	case XDP_QUERY_PROG:
+		xdp->prog_id = dev->xdp_prog ? dev->xdp_prog->aux->id : 0;
+		return 0;
+	default:
+		return -EINVAL;
+	}
+}
+EXPORT_SYMBOL_GPL(mt76_xdp);

@@ -325,6 +325,8 @@ struct mt76x02_dev *mt76x2_alloc_device(struct device *pdev)
 		.sta_ps = mt76x02_sta_ps,
 		.sta_add = mt76x02_sta_add,
 		.sta_remove = mt76x02_sta_remove,
+		.xdp_setup = mt76x02_xdp_setup,
+		.xdp_rxq_info_lookup = mt76x02_xdp_rxq_info_lookup,
 	};
 	struct mt76x02_dev *dev;
 	struct mt76_dev *mdev;

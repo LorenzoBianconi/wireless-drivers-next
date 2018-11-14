@@ -38,6 +38,7 @@ struct mt76x02_tx_status {
 
 struct mt76x02_vif {
 	struct mt76_wcid group_wcid; /* must be first */
+	struct xdp_rxq_info xdp_rxq;
 	u8 idx;
 };
 

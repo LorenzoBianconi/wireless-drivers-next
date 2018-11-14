@@ -105,6 +105,7 @@ static const struct ieee80211_ops mt76x0e_ops = {
 	.release_buffered_frames = mt76_release_buffered_frames,
 	.set_coverage_class = mt76x02_set_coverage_class,
 	.set_rts_threshold = mt76x02_set_rts_threshold,
+	.xdp = mt76_xdp,
 };
 
 static int mt76x0e_register_device(struct mt76x02_dev *dev)
@@ -163,6 +164,8 @@ mt76x0e_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 		.sta_ps = mt76x02_sta_ps,
 		.sta_add = mt76x02_sta_add,
 		.sta_remove = mt76x02_sta_remove,
+		.xdp_setup = mt76x02_xdp_setup,
+		.xdp_rxq_info_lookup = mt76x02_xdp_rxq_info_lookup,
 	};
 	struct mt76x02_dev *dev;
 	int ret;

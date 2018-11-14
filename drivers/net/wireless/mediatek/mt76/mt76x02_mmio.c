@@ -27,6 +27,12 @@ struct beacon_bc_data {
 	struct sk_buff *tail[8];
 };
 
+struct xdp_iter_data {
+	struct ieee80211_hdr *hdr;
+	struct mt76x02_dev *dev;
+	struct xdp_rxq_info **rxq_info;
+};
+
 static void
 mt76x02_update_beacon_iter(void *priv, u8 *mac, struct ieee80211_vif *vif)
 {
@@ -385,3 +391,87 @@ void mt76x02_mac_start(struct mt76x02_dev *dev)
 			   MT_INT_TX_STAT);
 }
 EXPORT_SYMBOL_GPL(mt76x02_mac_start);
+
+int mt76x02_xdp_setup(struct mt76_dev *mdev, struct bpf_prog *prog)
+{
+	struct bpf_prog *old_prog;
+	struct mt76x02_dev *dev;
+	bool reset;
+
+	if (prog) {
+		prog = bpf_prog_add(prog, 1);
+		if (IS_ERR(prog))
+			return -EINVAL;
+	}
+
+	mutex_lock(&mdev->mutex);
+
+	reset = (!!mdev->xdp_prog ^ !!prog);
+	dev = container_of(mdev, struct mt76x02_dev, mt76);
+
+	if (reset) {
+		mt76_clear(dev, MT_MAC_SYS_CTRL, MT_MAC_SYS_CTRL_ENABLE_RX);
+		napi_disable(&mdev->napi[MT_RXQ_MAIN]);
+		mt76_queue_init_rx_reset(dev, MT_RXQ_MAIN);
+	}
+
+	/* attach BPF program */
+	old_prog = xchg(&mdev->xdp_prog, prog);
+	if (old_prog)
+		bpf_prog_put(old_prog);
+
+	if (reset) {
+		struct mt76_queue *q = &mdev->q_rx[MT_RXQ_MAIN];
+
+		if (mdev->xdp_prog)
+			q->buf_size = PAGE_SIZE + XDP_PACKET_HEADROOM +
+				SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
+		else
+			q->buf_size = MT_RX_BUF_SIZE;
+
+		mt76_queue_complete_rx_reset(dev, MT_RXQ_MAIN);
+		napi_enable(&mdev->napi[MT_RXQ_MAIN]);
+		mt76_set(dev, MT_MAC_SYS_CTRL, MT_MAC_SYS_CTRL_ENABLE_RX);
+	}
+
+	mutex_unlock(&mdev->mutex);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(mt76x02_xdp_setup);
+
+static void
+mt76x02_xdp_iter(void *priv, u8 *mac, struct ieee80211_vif *vif)
+{
+	struct xdp_iter_data *data = (struct xdp_iter_data *)priv;
+
+	if (ether_addr_equal(mac, data->hdr->addr1) ||
+	    (!data->rxq_info && is_multicast_ether_addr(data->hdr->addr1))) {
+		struct mt76x02_vif *mvif;
+
+		mvif = (struct mt76x02_vif *)vif->drv_priv;
+		*data->rxq_info = &mvif->xdp_rxq;
+	}
+}
+
+int mt76x02_xdp_rxq_info_lookup(struct mt76_dev *mdev, unsigned char *data,
+				struct xdp_buff *xdp)
+{
+	struct xdp_iter_data xdp_data = {};
+	struct ieee80211_hdr *hdr;
+	struct mt76x02_dev *dev;
+
+	hdr = (struct ieee80211_hdr *)(data + sizeof(struct mt76x02_rxwi));
+	dev = container_of(mdev, struct mt76x02_dev, mt76);
+
+	xdp_data.rxq_info = &xdp->rxq;
+	xdp_data.dev = dev;
+	xdp_data.hdr = hdr;
+
+	ieee80211_iterate_active_interfaces_atomic(mt76_hw(dev),
+			IEEE80211_IFACE_ITER_RESUME_ALL,
+			mt76x02_xdp_iter, &xdp_data);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(mt76x02_xdp_rxq_info_lookup);

@@ -199,5 +199,6 @@ const struct ieee80211_ops mt76x2_ops = {
 	.set_antenna = mt76x2_set_antenna,
 	.get_antenna = mt76x2_get_antenna,
 	.set_rts_threshold = mt76x02_set_rts_threshold,
+	.xdp = mt76_xdp,
 };
 

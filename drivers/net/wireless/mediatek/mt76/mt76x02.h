@@ -170,6 +170,9 @@ extern const u16 mt76x02_beacon_offsets[16];
 void mt76x02_init_beacon_config(struct mt76x02_dev *dev);
 void mt76x02_set_irq_mask(struct mt76x02_dev *dev, u32 clear, u32 set);
 void mt76x02_mac_start(struct mt76x02_dev *dev);
+int mt76x02_xdp_setup(struct mt76_dev *mdev, struct bpf_prog *prog);
+int mt76x02_xdp_rxq_info_lookup(struct mt76_dev *mdev, unsigned char *data,
+				struct xdp_buff *xdp);
 
 void mt76x02_init_debugfs(struct mt76x02_dev *dev);
 

@@ -15,6 +15,7 @@
  */
 
 #include <linux/dma-mapping.h>
+#include <linux/bpf_trace.h>
 #include "mt76.h"
 #include "dma.h"
 
@@ -475,6 +476,42 @@ mt76_add_fragment(struct mt76_dev *dev, struct mt76_queue *q, void *data,
 	dev->drv->rx_skb(dev, q - dev->q_rx, skb);
 }
 
+static bool
+mt76_dma_rx_xdp(struct mt76_dev *dev, unsigned char *data,
+		int *len)
+{
+	struct page *page = virt_to_head_page(data);
+	struct xdp_buff xdp;
+	u32 action;
+
+	if (!dev->drv->xdp_rxq_info_lookup ||
+	    dev->drv->xdp_rxq_info_lookup(dev, data, &xdp) < 0)
+		return false;
+
+	xdp.data_hard_start = page_address(page);
+	xdp.data = (void *)data;
+	xdp_set_data_meta_invalid(&xdp);
+	xdp.data_end = xdp.data + *len;
+
+	action = bpf_prog_run_xdp(dev->xdp_prog, &xdp);
+	/* bpf program chan modify the original frame */
+	*len = xdp.data_end - xdp.data;
+	data = xdp.data;
+
+	switch (action) {
+	case XDP_PASS:
+		return false;
+	default:
+		bpf_warn_invalid_xdp_action(action);
+		/* fall through */
+	case XDP_ABORTED:
+		trace_xdp_exception(xdp.rxq->dev, dev->xdp_prog, action);
+		/* fall through */
+	case XDP_DROP:
+		return true;
+	}
+}
+
 static int
 mt76_dma_rx_process(struct mt76_dev *dev, struct mt76_queue *q, int budget)
 {
@@ -490,6 +527,14 @@ mt76_dma_rx_process(struct mt76_dev *dev, struct mt76_queue *q, int budget)
 		if (!data)
 			break;
 
+		/* xdp does not support fragmentes frames */
+		if (dev->xdp_prog && !more &&
+		    mt76_dma_rx_xdp(dev, data, &len)) {
+			mt76_dma_set_recycle_buf(q, data);
+			done++;
+			continue;
+		}
+
 		if (q->rx_head)
 			data_len = q->buf_size;
 		else
@@ -500,7 +545,6 @@ mt76_dma_rx_process(struct mt76_dev *dev, struct mt76_queue *q, int budget)
 			q->rx_head = NULL;
 
 			mt76_dma_set_recycle_buf(q, data);
-			continue;
 		}
 
 		if (q->rx_head) {

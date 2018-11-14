@@ -298,6 +298,9 @@ struct mt76_driver_ops {
 
 	void (*sta_remove)(struct mt76_dev *dev, struct ieee80211_vif *vif,
 			   struct ieee80211_sta *sta);
+	int (*xdp_setup)(struct mt76_dev *dev, struct bpf_prog *prog);
+	int (*xdp_rxq_info_lookup)(struct mt76_dev *dev, unsigned char *data,
+				   struct xdp_buff *xdp);
 };
 
 struct mt76_channel_state {
@@ -464,6 +467,8 @@ struct mt76_dev {
 		struct mt76_mmio mmio;
 		struct mt76_usb usb;
 	};
+
+	struct bpf_prog *xdp_prog;
 };
 
 enum mt76_phy_type {
@@ -740,5 +745,6 @@ void mt76u_queues_deinit(struct mt76_dev *dev);
 void mt76u_mcu_complete_urb(struct urb *urb);
 int mt76u_mcu_init_rx(struct mt76_dev *dev);
 void mt76u_mcu_deinit(struct mt76_dev *dev);
+int mt76_xdp(struct ieee80211_hw *hw, struct netdev_bpf *xdp);
 
 #endif
