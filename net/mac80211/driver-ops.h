@@ -1278,4 +1278,14 @@ static inline void drv_del_nan_func(struct ieee80211_local *local,
 	trace_drv_return_void(local);
 }
 
+static inline int drv_xdp(struct ieee80211_local *local,
+			  struct netdev_bpf *xdp)
+{
+	const struct ieee80211_ops *ops = local->ops;
+
+	might_sleep();
+
+	return ops->xdp ? ops->xdp(&local->hw, xdp) : 0;
+}
+
 #endif /* __MAC80211_DRIVER_OPS */

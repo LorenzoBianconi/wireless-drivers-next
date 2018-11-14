@@ -1163,6 +1163,19 @@ ieee80211_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *stats)
 	}
 }
 
+static int ieee80211_xdp(struct net_device *dev, struct netdev_bpf *xdp)
+{
+	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
+
+	switch (xdp->command) {
+	case XDP_QUERY_PROG:
+	case XDP_SETUP_PROG:
+		return drv_xdp(sdata->local, xdp);
+	default:
+		return -EINVAL;
+	}
+}
+
 static const struct net_device_ops ieee80211_dataif_ops = {
 	.ndo_open		= ieee80211_open,
 	.ndo_stop		= ieee80211_stop,
@@ -1172,6 +1185,7 @@ static const struct net_device_ops ieee80211_dataif_ops = {
 	.ndo_set_mac_address 	= ieee80211_change_mac,
 	.ndo_select_queue	= ieee80211_netdev_select_queue,
 	.ndo_get_stats64	= ieee80211_get_stats64,
+	.ndo_bpf		= ieee80211_xdp,
 };
 
 static u16 ieee80211_monitor_select_queue(struct net_device *dev,
