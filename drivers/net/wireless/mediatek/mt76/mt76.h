@@ -162,7 +162,8 @@ struct mt76_queue_ops {
 	void *(*dequeue)(struct mt76_dev *dev, struct mt76_queue *q, bool flush,
 			 int *len, u32 *info, bool *more);
 
-	void (*rx_reset)(struct mt76_dev *dev, enum mt76_rxq_id qid);
+	void (*init_rx_reset)(struct mt76_dev *dev, enum mt76_rxq_id qid);
+	void (*complete_rx_reset)(struct mt76_dev *dev, enum mt76_rxq_id qid);
 
 	void (*tx_cleanup)(struct mt76_dev *dev, enum mt76_txq_id qid,
 			   bool flush);
@@ -555,9 +556,10 @@ static inline u16 mt76_rev(struct mt76_dev *dev)
 #define mt76_init_queues(dev)		(dev)->mt76.queue_ops->init(&((dev)->mt76))
 #define mt76_queue_alloc(dev, ...)	(dev)->mt76.queue_ops->alloc(&((dev)->mt76), __VA_ARGS__)
 #define mt76_queue_add_buf(dev, ...)	(dev)->mt76.queue_ops->add_buf(&((dev)->mt76), __VA_ARGS__)
-#define mt76_queue_rx_reset(dev, ...)	(dev)->mt76.queue_ops->rx_reset(&((dev)->mt76), __VA_ARGS__)
 #define mt76_queue_tx_cleanup(dev, ...)	(dev)->mt76.queue_ops->tx_cleanup(&((dev)->mt76), __VA_ARGS__)
 #define mt76_queue_kick(dev, ...)	(dev)->mt76.queue_ops->kick(&((dev)->mt76), __VA_ARGS__)
+#define mt76_queue_init_rx_reset(dev, ...)	(dev)->mt76.queue_ops->init_rx_reset(&((dev)->mt76), __VA_ARGS__)
+#define mt76_queue_complete_rx_reset(dev, ...)	(dev)->mt76.queue_ops->complete_rx_reset(&((dev)->mt76), __VA_ARGS__)
 
 static inline struct mt76_channel_state *
 mt76_channel_state(struct mt76_dev *dev, struct ieee80211_channel *c)

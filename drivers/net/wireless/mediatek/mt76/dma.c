@@ -436,7 +436,7 @@ mt76_dma_rx_cleanup(struct mt76_dev *dev, struct mt76_queue *q)
 }
 
 static void
-mt76_dma_rx_reset(struct mt76_dev *dev, enum mt76_rxq_id qid)
+mt76_dma_init_rx_reset(struct mt76_dev *dev, enum mt76_rxq_id qid)
 {
 	struct mt76_queue *q = &dev->q_rx[qid];
 	int i;
@@ -446,6 +446,13 @@ mt76_dma_rx_reset(struct mt76_dev *dev, enum mt76_rxq_id qid)
 
 	mt76_dma_rx_cleanup(dev, q);
 	mt76_dma_sync_idx(dev, q);
+}
+
+static void
+mt76_dma_complete_rx_reset(struct mt76_dev *dev, enum mt76_rxq_id qid)
+{
+	struct mt76_queue *q = &dev->q_rx[qid];
+
 	mt76_dma_rx_fill(dev, q);
 }
 
@@ -579,7 +586,8 @@ static const struct mt76_queue_ops mt76_dma_ops = {
 	.add_buf = mt76_dma_add_buf,
 	.tx_queue_skb = mt76_dma_tx_queue_skb,
 	.tx_cleanup = mt76_dma_tx_cleanup,
-	.rx_reset = mt76_dma_rx_reset,
+	.init_rx_reset = mt76_dma_init_rx_reset,
+	.complete_rx_reset = mt76_dma_complete_rx_reset,
 	.kick = mt76_dma_kick_queue,
 };
 
