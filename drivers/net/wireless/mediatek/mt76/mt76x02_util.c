@@ -207,8 +207,8 @@ void mt76x02_sta_remove(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 }
 EXPORT_SYMBOL_GPL(mt76x02_sta_remove);
 
-void mt76x02_vif_init(struct mt76x02_dev *dev, struct ieee80211_vif *vif,
-		      unsigned int idx)
+int mt76x02_vif_init(struct mt76x02_dev *dev, struct ieee80211_vif *vif,
+		     unsigned int idx)
 {
 	struct mt76x02_vif *mvif = (struct mt76x02_vif *)vif->drv_priv;
 	struct mt76_txq *mtxq;
@@ -220,6 +220,8 @@ void mt76x02_vif_init(struct mt76x02_dev *dev, struct ieee80211_vif *vif,
 	mtxq->wcid = &mvif->group_wcid;
 
 	mt76_txq_init(&dev->mt76, vif->txq);
+
+	return 0;
 }
 EXPORT_SYMBOL_GPL(mt76x02_vif_init);
 
@@ -248,8 +250,7 @@ mt76x02_add_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 	if (vif->type == NL80211_IFTYPE_STATION)
 		idx += 8;
 
-	mt76x02_vif_init(dev, vif, idx);
-	return 0;
+	return mt76x02_vif_init(dev, vif, idx);
 }
 EXPORT_SYMBOL_GPL(mt76x02_add_interface);
 
