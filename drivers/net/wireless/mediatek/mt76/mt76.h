@@ -741,10 +741,13 @@ int mt76u_alloc_queues(struct mt76_dev *dev);
 void mt76u_stop_queues(struct mt76_dev *dev);
 void mt76u_stop_stat_wk(struct mt76_dev *dev);
 void mt76u_queues_deinit(struct mt76_dev *dev);
+void mt76u_free_rx(struct mt76_dev *dev);
+void mt76u_stop_rx(struct mt76_dev *dev);
 
 void mt76u_mcu_complete_urb(struct urb *urb);
 int mt76u_mcu_init_rx(struct mt76_dev *dev);
 void mt76u_mcu_deinit(struct mt76_dev *dev);
 int mt76_xdp(struct ieee80211_hw *hw, struct netdev_bpf *xdp);
+bool mt76_dma_rx_xdp(struct mt76_dev *dev, unsigned char *data, int *len);
 
 #endif

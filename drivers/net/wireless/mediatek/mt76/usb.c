@@ -407,6 +407,9 @@ mt76u_process_rx_entry(struct mt76_dev *dev, struct urb *urb)
 	if (len < 0)
 		return 0;
 
+	if (dev->xdp_prog && mt76_dma_rx_xdp(dev, data, &len))
+		return 0;
+
 	data_len = min_t(int, len, urb->sg[0].length - MT_DMA_HDR_LEN);
 	if (MT_DMA_HDR_LEN + data_len > SKB_WITH_OVERHEAD(q->buf_size))
 		return 0;
@@ -551,7 +554,7 @@ static int mt76u_alloc_rx(struct mt76_dev *dev)
 	return mt76u_submit_rx_buffers(dev);
 }
 
-static void mt76u_free_rx(struct mt76_dev *dev)
+void mt76u_free_rx(struct mt76_dev *dev)
 {
 	struct mt76_queue *q = &dev->q_rx[MT_RXQ_MAIN];
 	struct page *page;
@@ -570,8 +573,9 @@ static void mt76u_free_rx(struct mt76_dev *dev)
 out:
 	spin_unlock_bh(&q->rx_page_lock);
 }
+EXPORT_SYMBOL_GPL(mt76u_free_rx);
 
-static void mt76u_stop_rx(struct mt76_dev *dev)
+void mt76u_stop_rx(struct mt76_dev *dev)
 {
 	struct mt76_queue *q = &dev->q_rx[MT_RXQ_MAIN];
 	int i;
@@ -579,6 +583,7 @@ static void mt76u_stop_rx(struct mt76_dev *dev)
 	for (i = 0; i < q->ndesc; i++)
 		usb_kill_urb(q->entry[i].ubuf.urb);
 }
+EXPORT_SYMBOL_GPL(mt76u_stop_rx);
 
 static void mt76u_tx_tasklet(unsigned long data)
 {

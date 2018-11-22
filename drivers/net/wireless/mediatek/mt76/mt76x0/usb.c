@@ -156,6 +156,7 @@ static const struct ieee80211_ops mt76x0u_ops = {
 	.set_rts_threshold = mt76x02_set_rts_threshold,
 	.wake_tx_queue = mt76_wake_tx_queue,
 	.get_txpower = mt76x02_get_txpower,
+	.xdp = mt76_xdp,
 };
 
 static int mt76x0u_register_device(struct mt76x02_dev *dev)
@@ -220,6 +221,8 @@ static int mt76x0u_probe(struct usb_interface *usb_intf,
 		.rx_skb = mt76x02_queue_rx_skb,
 		.sta_add = mt76x02_sta_add,
 		.sta_remove = mt76x02_sta_remove,
+		.xdp_setup = mt76x02u_xdp_setup,
+		.xdp_rxq_info_lookup = mt76x02_xdp_rxq_info_lookup,
 	};
 	struct usb_device *usb_dev = interface_to_usbdev(usb_intf);
 	struct mt76x02_dev *dev;

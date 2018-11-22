@@ -476,9 +476,7 @@ mt76_add_fragment(struct mt76_dev *dev, struct mt76_queue *q, void *data,
 	dev->drv->rx_skb(dev, q - dev->q_rx, skb);
 }
 
-static bool
-mt76_dma_rx_xdp(struct mt76_dev *dev, unsigned char *data,
-		int *len)
+bool mt76_dma_rx_xdp(struct mt76_dev *dev, unsigned char *data, int *len)
 {
 	struct page *page = virt_to_head_page(data);
 	struct xdp_buff xdp;
@@ -511,6 +509,7 @@ mt76_dma_rx_xdp(struct mt76_dev *dev, unsigned char *data,
 		return true;
 	}
 }
+EXPORT_SYMBOL_GPL(mt76_dma_rx_xdp);
 
 static int
 mt76_dma_rx_process(struct mt76_dev *dev, struct mt76_queue *q, int budget)

@@ -101,3 +101,69 @@ int mt76x02u_tx_prepare_skb(struct mt76_dev *mdev, void *data,
 	return mt76x02u_skb_dma_info(skb, WLAN_PORT, flags);
 }
 EXPORT_SYMBOL_GPL(mt76x02u_tx_prepare_skb);
+
+int mt76x02u_xdp_setup(struct mt76_dev *mdev, struct bpf_prog *prog)
+{
+	struct bpf_prog *old_prog;
+	struct mt76x02_dev *dev;
+	bool reset;
+
+	if (prog) {
+		prog = bpf_prog_add(prog, 1);
+		if (IS_ERR(prog))
+			return -EINVAL;
+	}
+
+	mutex_lock(&mdev->mutex);
+
+	reset = (!!mdev->xdp_prog ^ !!prog);
+	dev = container_of(mdev, struct mt76x02_dev, mt76);
+
+	if (reset) {
+		mt76_clear(dev, MT_MAC_SYS_CTRL, MT_MAC_SYS_CTRL_ENABLE_RX);
+		tasklet_disable(&mdev->usb.rx_tasklet);
+		mt76u_stop_rx(mdev);
+		mt76u_free_rx(mdev);
+	}
+
+	/* attach BPF program */
+	old_prog = xchg(&mdev->xdp_prog, prog);
+	if (old_prog)
+		bpf_prog_put(old_prog);
+
+	if (reset) {
+		struct mt76_queue *q = &mdev->q_rx[MT_RXQ_MAIN];
+		int i, err, nsgs = 1;
+
+		if (mdev->xdp_prog) {
+			q->buf_size = PAGE_SIZE + XDP_PACKET_HEADROOM +
+				SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
+		} else {
+			q->buf_size = MT_RX_BUF_SIZE;
+			if (mt76u_check_sg(mdev))
+				nsgs = MT_SG_MAX_SIZE;
+		}
+
+		for (i = 0; i < MT_NUM_RX_ENTRIES; i++) {
+			err = mt76u_buf_alloc(mdev, &q->entry[i].ubuf,
+					      nsgs, q->buf_size,
+					      SKB_WITH_OVERHEAD(q->buf_size),
+					      GFP_KERNEL);
+			if (err < 0)
+				return err;
+		}
+		q->ndesc = MT_NUM_RX_ENTRIES;
+
+		err = mt76u_submit_rx_buffers(mdev);
+		if (err < 0)
+			return err;
+
+		tasklet_enable(&mdev->usb.rx_tasklet);
+		mt76_set(dev, MT_MAC_SYS_CTRL, MT_MAC_SYS_CTRL_ENABLE_RX);
+	}
+
+	mutex_unlock(&mdev->mutex);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(mt76x02u_xdp_setup);
