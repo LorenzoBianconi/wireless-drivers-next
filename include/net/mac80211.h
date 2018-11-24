@@ -1603,6 +1603,8 @@ struct ieee80211_vif *wdev_to_ieee80211_vif(struct wireless_dev *wdev);
  */
 struct wireless_dev *ieee80211_vif_to_wdev(struct ieee80211_vif *vif);
 
+struct net_device *ieee80211_vif_to_netdev(struct ieee80211_vif *vif);
+
 /**
  * enum ieee80211_key_flags - key flags
  *
