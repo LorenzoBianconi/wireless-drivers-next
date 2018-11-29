@@ -7866,11 +7866,12 @@ static void dev_xdp_uninstall(struct net_device *dev)
  *	@extack: netlink extended ack
  *	@fd: new program fd or negative value to clear
  *	@flags: xdp-related flags
+ *	@frame_type: xdp frame type
  *
  *	Set or clear a bpf program for a device
  */
 int dev_change_xdp_fd(struct net_device *dev, struct netlink_ext_ack *extack,
-		      int fd, u32 flags)
+		      int fd, u32 flags, u32 frame_type)
 {
 	const struct net_device_ops *ops = dev->netdev_ops;
 	enum bpf_netdev_command query;
@@ -7879,6 +7880,13 @@ int dev_change_xdp_fd(struct net_device *dev, struct netlink_ext_ack *extack,
 	int err;
 
 	ASSERT_RTNL();
+
+	if ((dev->ieee80211_ptr && frame_type != XDP_FRAME_80211) ||
+	    (!dev->ieee80211_ptr && frame_type != XDP_FRAME_ETH)) {
+		NL_SET_ERR_MSG(extack,
+			       "frame_type not supported by the device");
+		return -EOPNOTSUPP;
+	}
 
 	query = flags & XDP_FLAGS_HW_MODE ? XDP_QUERY_PROG_HW : XDP_QUERY_PROG;
 
