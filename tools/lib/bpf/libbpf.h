@@ -289,6 +289,8 @@ LIBBPF_API int bpf_prog_load_xattr(const struct bpf_prog_load_attr *attr,
 LIBBPF_API int bpf_prog_load(const char *file, enum bpf_prog_type type,
 			     struct bpf_object **pobj, int *prog_fd);
 
+LIBBPF_API int bpf_set_link_xdp_frame_type_fd(int ifindex, int fd,
+					      __u32 flags, __u32 frame_type);
 LIBBPF_API int bpf_set_link_xdp_fd(int ifindex, int fd, __u32 flags);
 
 enum bpf_perf_event_ret {

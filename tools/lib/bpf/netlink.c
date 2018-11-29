@@ -122,7 +122,8 @@ done:
 	return ret;
 }
 
-int bpf_set_link_xdp_fd(int ifindex, int fd, __u32 flags)
+int bpf_set_link_xdp_frame_type_fd(int ifindex, int fd, __u32 flags,
+				   __u32 frame_type)
 {
 	int sock, seq = 0, ret;
 	struct nlattr *nla, *nla_xdp;
@@ -168,6 +169,14 @@ int bpf_set_link_xdp_fd(int ifindex, int fd, __u32 flags)
 		nla->nla_len += nla_xdp->nla_len;
 	}
 
+	/* frame type supported by the program */
+	nla_xdp = (struct nlattr *)((char *)nla + nla->nla_len);
+	nla_xdp->nla_type = IFLA_XDP_FRAME_TYPE;
+	nla_xdp->nla_len = NLA_HDRLEN + sizeof(frame_type);
+	memcpy((char *)nla_xdp + NLA_HDRLEN, &frame_type,
+	       sizeof(frame_type));
+	nla->nla_len += nla_xdp->nla_len;
+
 	req.nh.nlmsg_len += NLA_ALIGN(nla->nla_len);
 
 	if (send(sock, &req, req.nh.nlmsg_len, 0) < 0) {
@@ -179,6 +188,12 @@ int bpf_set_link_xdp_fd(int ifindex, int fd, __u32 flags)
 cleanup:
 	close(sock);
 	return ret;
+}
+
+int bpf_set_link_xdp_fd(int ifindex, int fd, __u32 flags)
+{
+	return bpf_set_link_xdp_frame_type_fd(ifindex, fd, flags,
+					      XDP_FRAME_ETH);
 }
 
 static int __dump_link_nlmsg(struct nlmsghdr *nlh,
