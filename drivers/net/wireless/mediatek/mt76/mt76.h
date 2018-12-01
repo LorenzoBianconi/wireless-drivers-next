@@ -114,6 +114,9 @@ struct mt76_queue {
 	spinlock_t lock;
 	struct mt76_queue_entry *entry;
 	struct mt76_desc *desc;
+	/* recycle ring */
+	u16 rhead, rtail;
+	u8 **recycle;
 
 	struct list_head swq;
 	int swq_queued;
