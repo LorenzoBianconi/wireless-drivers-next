@@ -39,6 +39,15 @@ mt76_dma_alloc_queue(struct mt76_dev *dev, struct mt76_queue *q)
 	if (!q->entry)
 		return -ENOMEM;
 
+	/* allocate recycle buffer ring */
+	if (q == &dev->q_rx[MT_RXQ_MCU] ||
+	    q == &dev->q_rx[MT_RXQ_MAIN]) {
+		size = q->ndesc * sizeof(*q->recycle);
+		q->recycle = devm_kzalloc(dev->dev, size, GFP_KERNEL);
+		if (!q->recycle)
+			return -ENOMEM;
+	}
+
 	/* clear descriptors */
 	for (i = 0; i < q->ndesc; i++)
 		q->desc[i].ctrl = cpu_to_le32(MT_DMA_CTL_DMA_DONE);
@@ -317,6 +326,49 @@ free:
 }
 EXPORT_SYMBOL_GPL(mt76_dma_tx_queue_skb);
 
+/* caller must holf mt76_queue spinlock */
+static u8 *mt76_dma_get_free_buf(struct mt76_queue *q, bool flush)
+{
+	if (q->recycle[q->rhead] || flush) {
+		u8 *buff = q->recycle[q->rhead];
+
+		q->recycle[q->rhead] = NULL;
+		q->rhead = (q->rhead + 1) % q->ndesc;
+		return buff;
+	}
+
+	return page_frag_alloc(&q->rx_page, q->buf_size, GFP_ATOMIC);
+}
+
+static void
+mt76_dma_set_recycle_buf(struct mt76_queue *q, u8 *data)
+{
+	spin_lock_bh(&q->lock);
+	if (!q->recycle[q->rtail]) {
+		q->recycle[q->rtail] = data;
+		q->rtail = (q->rtail + 1) % q->ndesc;
+	} else {
+		skb_free_frag(data);
+	}
+	spin_unlock_bh(&q->lock);
+}
+
+static void
+mt76_dma_free_recycle_ring(struct mt76_queue *q)
+{
+	u8 *buf;
+
+	spin_lock_bh(&q->lock);
+	while (true) {
+		buf = mt76_dma_get_free_buf(q, true);
+		if (!buf)
+			break;
+
+		skb_free_frag(buf);
+	}
+	spin_unlock_bh(&q->lock);
+}
+
 static int
 mt76_dma_rx_fill(struct mt76_dev *dev, struct mt76_queue *q)
 {
@@ -332,7 +384,7 @@ mt76_dma_rx_fill(struct mt76_dev *dev, struct mt76_queue *q)
 	while (q->queued < q->ndesc - 1) {
 		struct mt76_queue_buf qbuf;
 
-		buf = page_frag_alloc(&q->rx_page, q->buf_size, GFP_ATOMIC);
+		buf = mt76_dma_get_free_buf(q, false);
 		if (!buf)
 			break;
 
@@ -372,6 +424,8 @@ mt76_dma_rx_cleanup(struct mt76_dev *dev, struct mt76_queue *q)
 		skb_free_frag(buf);
 	} while (1);
 	spin_unlock_bh(&q->lock);
+
+	mt76_dma_free_recycle_ring(q);
 
 	if (!q->rx_page.va)
 		return;
@@ -438,7 +492,7 @@ mt76_dma_rx_process(struct mt76_dev *dev, struct mt76_queue *q, int budget)
 			dev_kfree_skb(q->rx_head);
 			q->rx_head = NULL;
 
-			skb_free_frag(data);
+			mt76_dma_set_recycle_buf(q, data);
 			continue;
 		}
 
@@ -449,7 +503,7 @@ mt76_dma_rx_process(struct mt76_dev *dev, struct mt76_queue *q, int budget)
 
 		skb = build_skb(data, q->buf_size);
 		if (!skb) {
-			skb_free_frag(data);
+			mt76_dma_set_recycle_buf(q, data);
 			continue;
 		}
 		skb_reserve(skb, q->buf_offset);
