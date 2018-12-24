@@ -385,3 +385,26 @@ void mt76x02_mac_start(struct mt76x02_dev *dev)
 			   MT_INT_TX_STAT);
 }
 EXPORT_SYMBOL_GPL(mt76x02_mac_start);
+
+bool mt76x02_tx_hang(struct mt76x02_dev *dev)
+{
+	u32 dma_idx, prev_dma_idx;
+	struct mt76_queue *q;
+	int i;
+
+	for (i = 0; i < 4; i++) {
+		q = &dev->mt76.q_tx[i];
+
+		if (!q->queued)
+			continue;
+
+		prev_dma_idx = dev->mt76.tx_dma_idx[i];
+		dma_idx = ioread32(&q->regs->dma_idx);
+		dev->mt76.tx_dma_idx[i] = dma_idx;
+
+		if (prev_dma_idx == dma_idx)
+			break;
+	}
+
+	return i < 4;
+}

@@ -778,6 +778,90 @@ static void mt76x02_check_mac_err(struct mt76x02_dev *dev)
 		MT_MAC_SYS_CTRL_ENABLE_TX | MT_MAC_SYS_CTRL_ENABLE_RX);
 }
 
+static void mt76x02_mac_watchdog_reset(struct mt76x02_dev *dev)
+{
+	u32 mask = dev->mt76.mmio.irqmask;
+	int i;
+
+	ieee80211_stop_queues(dev->mt76.hw);
+	set_bit(MT76_RESET, &dev->mt76.state);
+
+	if (dev->beacon_mask) {
+		tasklet_disable(&dev->pre_tbtt_tasklet);
+		mt76_clear(dev, MT_BEACON_TIME_CFG,
+			   MT_BEACON_TIME_CFG_BEACON_TX |
+			   MT_BEACON_TIME_CFG_TBTT_EN);
+	}
+
+	tasklet_disable(&dev->tx_tasklet);
+
+	for (i = 0; i < ARRAY_SIZE(dev->mt76.napi); i++)
+		napi_disable(&dev->mt76.napi[i]);
+
+	mt76x02_irq_disable(dev, mask);
+
+	/* perform device reset */
+	mt76_clear(dev, MT_TXOP_CTRL_CFG, MT_TXOP_ED_CCA_EN);
+	mt76_wr(dev, MT_MAC_SYS_CTRL, 0);
+	mt76_clear(dev, MT_WPDMA_GLO_CFG,
+		   MT_WPDMA_GLO_CFG_TX_DMA_EN | MT_WPDMA_GLO_CFG_RX_DMA_EN);
+	usleep_range(5000, 10000);
+	mt76_wr(dev, MT_INT_SOURCE_CSR, 0xffffffff);
+
+	/* let fw reset DMA */
+	mt76_set(dev, 0x734, 0x3);
+
+	for (i = 0; i < ARRAY_SIZE(dev->mt76.q_tx); i++)
+		mt76_queue_tx_cleanup(dev, i, true);
+
+	mt76_wr(dev, MT_MAC_SYS_CTRL,
+		MT_MAC_SYS_CTRL_ENABLE_TX | MT_MAC_SYS_CTRL_ENABLE_RX);
+	mt76_set(dev, MT_WPDMA_GLO_CFG,
+		 MT_WPDMA_GLO_CFG_TX_DMA_EN | MT_WPDMA_GLO_CFG_RX_DMA_EN);
+	if (dev->ed_monitor)
+		mt76_set(dev, MT_TXOP_CTRL_CFG, MT_TXOP_ED_CCA_EN);
+
+	clear_bit(MT76_RESET, &dev->mt76.state);
+
+	mt76x02_irq_enable(dev, mask);
+
+	tasklet_enable(&dev->tx_tasklet);
+	tasklet_schedule(&dev->tx_tasklet);
+
+	for (i = 0; i < ARRAY_SIZE(dev->mt76.napi); i++) {
+		napi_enable(&dev->mt76.napi[i]);
+		napi_schedule(&dev->mt76.napi[i]);
+	}
+
+	if (dev->beacon_mask) {
+		tasklet_enable(&dev->pre_tbtt_tasklet);
+		mt76_set(dev, MT_BEACON_TIME_CFG,
+			 MT_BEACON_TIME_CFG_BEACON_TX |
+			 MT_BEACON_TIME_CFG_TBTT_EN);
+	}
+
+	ieee80211_wake_queues(dev->mt76.hw);
+
+	mt76_txq_schedule_all(&dev->mt76);
+}
+
+static void mt76x02_check_tx_hang(struct mt76x02_dev *dev)
+{
+	if (mt76x02_tx_hang(dev)) {
+		if (++dev->tx_hang_check < MT_TX_HANG_TH)
+			return;
+
+		mt76x02_mac_watchdog_reset(dev);
+
+		dev->tx_hang_reset++;
+		dev->tx_hang_check = 0;
+		memset(dev->mt76.tx_dma_idx, 0xff,
+		       sizeof(dev->mt76.tx_dma_idx));
+	} else {
+		dev->tx_hang_check = 0;
+	}
+}
+
 static void
 mt76x02_edcca_tx_enable(struct mt76x02_dev *dev, bool enable)
 {
@@ -876,7 +960,9 @@ void mt76x02_mac_work(struct work_struct *work)
 		dev->aggr_stats[idx++] += val >> 16;
 	}
 
-	/* XXX: check beacon stuck for ap mode */
+	if (mt76_is_mmio(dev))
+		mt76x02_check_tx_hang(dev);
+
 	if (!dev->beacon_mask)
 		mt76x02_check_mac_err(dev);
 
