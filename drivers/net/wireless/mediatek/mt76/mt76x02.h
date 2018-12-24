@@ -26,6 +26,7 @@
 #include "mt76x02_dfs.h"
 #include "mt76x02_dma.h"
 
+#define MT_WATCHDOG_TIME	(HZ / 10)
 #define MT_CALIBRATE_INTERVAL	HZ
 
 #define MT_MAX_CHAINS		2
