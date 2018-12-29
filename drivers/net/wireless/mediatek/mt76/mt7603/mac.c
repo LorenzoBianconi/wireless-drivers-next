@@ -18,6 +18,7 @@
 #include <linux/etherdevice.h>
 #include <linux/timekeeping.h>
 #include "mt7603.h"
+#include "../dma.h"
 #include "mac.h"
 
 #define MT_PSE_PAGE_SIZE	128
@@ -1188,15 +1189,6 @@ void mt7603_tx_complete_skb(struct mt76_dev *mdev, struct mt76_queue *q,
 	mt76_tx_complete_skb(mdev, skb);
 }
 
-static bool
-wait_for_wpdma(struct mt7603_dev *dev)
-{
-	return mt76_poll(dev, MT_WPDMA_GLO_CFG,
-			 MT_WPDMA_GLO_CFG_TX_DMA_BUSY |
-			 MT_WPDMA_GLO_CFG_RX_DMA_BUSY,
-			 0, 1000);
-}
-
 static void mt7603_pse_reset(struct mt7603_dev *dev)
 {
 	/* Clear previous reset result */
@@ -1226,7 +1218,7 @@ void mt7603_mac_dma_start(struct mt7603_dev *dev)
 {
 	mt7603_mac_start(dev);
 
-	wait_for_wpdma(dev);
+	mt76_wait_for_wpdma(&dev->mt76, MT_WPDMA_GLO_CFG, 1000);
 	usleep_range(50, 100);
 
 	mt76_set(dev, MT_WPDMA_GLO_CFG,
