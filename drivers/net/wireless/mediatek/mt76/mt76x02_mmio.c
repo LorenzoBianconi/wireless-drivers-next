@@ -343,7 +343,7 @@ static void mt76x02_dma_enable(struct mt76x02_dev *dev)
 	u32 val;
 
 	mt76_wr(dev, MT_MAC_SYS_CTRL, MT_MAC_SYS_CTRL_ENABLE_TX);
-	mt76x02_wait_for_wpdma(&dev->mt76, 1000);
+	mt76_wait_for_wpdma(&dev->mt76, MT_WPDMA_GLO_CFG, 1000);
 	usleep_range(50, 100);
 
 	val = FIELD_PREP(MT_WPDMA_GLO_CFG_DMA_BURST_SIZE, 3) |

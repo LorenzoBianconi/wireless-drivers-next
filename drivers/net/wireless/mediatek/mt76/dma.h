@@ -54,6 +54,18 @@ enum mt76_mcu_evt_type {
 	EVT_EVENT_DFS_DETECT_RSP,
 };
 
+#define MT_WPDMA_GLO_CFG_TX_DMA_BUSY	BIT(1)
+#define MT_WPDMA_GLO_CFG_RX_DMA_BUSY	BIT(3)
+
+static inline bool
+mt76_wait_for_wpdma(struct mt76_dev *dev, u32 addr, int timeout)
+{
+	return __mt76_poll(dev, addr,
+			   MT_WPDMA_GLO_CFG_TX_DMA_BUSY |
+			   MT_WPDMA_GLO_CFG_RX_DMA_BUSY,
+			   0, timeout);
+}
+
 int mt76_dma_attach(struct mt76_dev *dev);
 void mt76_dma_cleanup(struct mt76_dev *dev);
 

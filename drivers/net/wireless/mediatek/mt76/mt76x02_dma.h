@@ -61,15 +61,6 @@ enum dma_msg_port {
 	DISCARD,
 };
 
-static inline bool
-mt76x02_wait_for_wpdma(struct mt76_dev *dev, int timeout)
-{
-	return __mt76_poll(dev, MT_WPDMA_GLO_CFG,
-			   MT_WPDMA_GLO_CFG_TX_DMA_BUSY |
-			   MT_WPDMA_GLO_CFG_RX_DMA_BUSY,
-			   0, timeout);
-}
-
 int mt76x02_dma_init(struct mt76x02_dev *dev);
 void mt76x02_dma_disable(struct mt76x02_dev *dev);
 void mt76x02_dma_cleanup(struct mt76x02_dev *dev);

@@ -171,14 +171,17 @@ int mt76x0_mac_start(struct mt76x02_dev *dev)
 {
 	mt76_wr(dev, MT_MAC_SYS_CTRL, MT_MAC_SYS_CTRL_ENABLE_TX);
 
-	if (!mt76x02_wait_for_wpdma(&dev->mt76, 200000))
+	if (!mt76_wait_for_wpdma(&dev->mt76, MT_WPDMA_GLO_CFG, 200000))
 		return -ETIMEDOUT;
 
 	mt76_wr(dev, MT_RX_FILTR_CFG, dev->mt76.rxfilter);
 	mt76_wr(dev, MT_MAC_SYS_CTRL,
 		MT_MAC_SYS_CTRL_ENABLE_TX | MT_MAC_SYS_CTRL_ENABLE_RX);
 
-	return !mt76x02_wait_for_wpdma(&dev->mt76, 50) ? -ETIMEDOUT : 0;
+	if (!mt76_wait_for_wpdma(&dev->mt76, MT_WPDMA_GLO_CFG, 50))
+		return -ETIMEDOUT;
+
+	return 0;
 }
 EXPORT_SYMBOL_GPL(mt76x0_mac_start);
 
@@ -219,7 +222,7 @@ int mt76x0_init_hardware(struct mt76x02_dev *dev)
 {
 	int ret, i, k;
 
-	if (!mt76x02_wait_for_wpdma(&dev->mt76, 1000))
+	if (!mt76_wait_for_wpdma(&dev->mt76, MT_WPDMA_GLO_CFG, 1000))
 		return -EIO;
 
 	/* Wait for ASIC ready after FW load. */
