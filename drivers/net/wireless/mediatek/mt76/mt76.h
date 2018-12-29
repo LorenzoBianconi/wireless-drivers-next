@@ -689,6 +689,10 @@ int mt76_get_min_avg_rssi(struct mt76_dev *dev);
 int mt76_get_txpower(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 		     int *dbm);
 
+void mt76_mcu_rx_event(struct mt76_dev *dev, struct sk_buff *skb);
+struct sk_buff *mt76_mcu_get_response(struct mt76_dev *dev,
+				      unsigned long expires);
+
 /* internal */
 void mt76_tx_free(struct mt76_dev *dev);
 struct mt76_txwi_cache *mt76_get_txwi(struct mt76_dev *dev);
