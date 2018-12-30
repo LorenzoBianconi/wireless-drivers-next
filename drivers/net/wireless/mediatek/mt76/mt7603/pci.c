@@ -50,7 +50,8 @@ mt76pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	if (!dev)
 		return -ENOMEM;
 
-	mt76_mmio_init(&dev->mt76, pcim_iomap_table(pdev)[0]);
+	mt76_mmio_init(&dev->mt76, pcim_iomap_table(pdev)[0],
+		       &mt7603_mmio_ops);
 
 	dev->mt76.rev = (mt76_rr(dev, MT_HW_CHIPID) << 16) |
 			(mt76_rr(dev, MT_HW_REV) & 0xff);

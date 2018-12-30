@@ -103,8 +103,6 @@ enum mt7603_reset_cause {
 struct mt7603_dev {
 	struct mt76_dev mt76; /* must be first */
 
-	const struct mt76_bus_ops *bus_ops;
-
 	u32 rxfilter;
 
 	u8 vif_mask;
@@ -177,6 +175,8 @@ static inline bool is_mt7628(struct mt7603_dev *dev)
 {
 	return mt76xx_chip(dev) == 0x7628;
 }
+
+extern const struct mt76_bus_ops mt7603_mmio_ops;
 
 /* need offset to prevent conflict with ampdu_ack_len */
 #define MT_RATE_DRIVER_DATA_OFFSET	4

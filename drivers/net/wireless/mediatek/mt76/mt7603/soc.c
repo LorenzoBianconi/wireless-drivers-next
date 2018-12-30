@@ -46,7 +46,7 @@ mt76_wmac_probe(struct platform_device *pdev)
 	if (!dev)
 		return -ENOMEM;
 
-	mt76_mmio_init(&dev->mt76, mem_base);
+	mt76_mmio_init(&dev->mt76, mem_base, &mt7603_mmio_ops);
 
 	dev->mt76.rev = (mt76_rr(dev, MT_HW_CHIPID) << 16) |
 			(mt76_rr(dev, MT_HW_REV) & 0xff);
