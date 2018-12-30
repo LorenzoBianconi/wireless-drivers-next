@@ -541,7 +541,17 @@ bool __mt76_poll_msec(struct mt76_dev *dev, u32 offset, u32 mask, u32 val,
 
 #define mt76_poll_msec(dev, ...) __mt76_poll_msec(&((dev)->mt76), __VA_ARGS__)
 
-void mt76_mmio_init(struct mt76_dev *dev, void __iomem *regs);
+void mt76_mmio_init(struct mt76_dev *dev, void __iomem *regs,
+		    const struct mt76_bus_ops *ops);
+u32 mt76_mmio_rmw(struct mt76_dev *dev, u32 offset, u32 mask, u32 val);
+void mt76_mmio_wr(struct mt76_dev *dev, u32 offset, u32 val);
+u32 mt76_mmio_rr(struct mt76_dev *dev, u32 offset);
+void mt76_mmio_copy(struct mt76_dev *dev, u32 offset,
+		    const void *data, int len);
+int mt76_mmio_wr_rp(struct mt76_dev *dev, u32 base,
+		    const struct mt76_reg_pair *data, int len);
+int mt76_mmio_rd_rp(struct mt76_dev *dev, u32 base,
+		    struct mt76_reg_pair *data, int len);
 
 static inline u16 mt76_chip(struct mt76_dev *dev)
 {

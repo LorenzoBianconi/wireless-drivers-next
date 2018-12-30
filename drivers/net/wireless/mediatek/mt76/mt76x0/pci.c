@@ -159,6 +159,8 @@ static int mt76x0e_register_device(struct mt76x02_dev *dev)
 	return 0;
 }
 
+extern const struct mt76_bus_ops mt76_mmio_ops;
+
 static int
 mt76x0e_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 {
@@ -194,7 +196,8 @@ mt76x0e_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	if (!dev)
 		return -ENOMEM;
 
-	mt76_mmio_init(&dev->mt76, pcim_iomap_table(pdev)[0]);
+	mt76_mmio_init(&dev->mt76, pcim_iomap_table(pdev)[0],
+		       &mt76_mmio_ops);
 
 	dev->mt76.rev = mt76_rr(dev, MT_ASIC_VERSION);
 	dev_info(dev->mt76.dev, "ASIC revision: %08x\n", dev->mt76.rev);

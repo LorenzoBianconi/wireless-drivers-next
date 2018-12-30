@@ -17,7 +17,7 @@
 #include "mt76.h"
 #include "trace.h"
 
-static u32 mt76_mmio_rr(struct mt76_dev *dev, u32 offset)
+u32 mt76_mmio_rr(struct mt76_dev *dev, u32 offset)
 {
 	u32 val;
 
@@ -26,28 +26,32 @@ static u32 mt76_mmio_rr(struct mt76_dev *dev, u32 offset)
 
 	return val;
 }
+EXPORT_SYMBOL_GPL(mt76_mmio_rr);
 
-static void mt76_mmio_wr(struct mt76_dev *dev, u32 offset, u32 val)
+void mt76_mmio_wr(struct mt76_dev *dev, u32 offset, u32 val)
 {
 	trace_reg_wr(dev, offset, val);
 	iowrite32(val, dev->mmio.regs + offset);
 }
+EXPORT_SYMBOL_GPL(mt76_mmio_wr);
 
-static u32 mt76_mmio_rmw(struct mt76_dev *dev, u32 offset, u32 mask, u32 val)
+u32 mt76_mmio_rmw(struct mt76_dev *dev, u32 offset, u32 mask, u32 val)
 {
 	val |= mt76_mmio_rr(dev, offset) & ~mask;
 	mt76_mmio_wr(dev, offset, val);
 	return val;
 }
+EXPORT_SYMBOL_GPL(mt76_mmio_rmw);
 
-static void mt76_mmio_copy(struct mt76_dev *dev, u32 offset, const void *data,
-			   int len)
+void mt76_mmio_copy(struct mt76_dev *dev, u32 offset,
+		    const void *data, int len)
 {
 	__iowrite32_copy(dev->mmio.regs + offset, data, len >> 2);
 }
+EXPORT_SYMBOL_GPL(mt76_mmio_copy);
 
-static int mt76_mmio_wr_rp(struct mt76_dev *dev, u32 base,
-			   const struct mt76_reg_pair *data, int len)
+int mt76_mmio_wr_rp(struct mt76_dev *dev, u32 base,
+		    const struct mt76_reg_pair *data, int len)
 {
 	while (len > 0) {
 		mt76_mmio_wr(dev, data->reg, data->value);
@@ -57,9 +61,10 @@ static int mt76_mmio_wr_rp(struct mt76_dev *dev, u32 base,
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(mt76_mmio_wr_rp);
 
-static int mt76_mmio_rd_rp(struct mt76_dev *dev, u32 base,
-			   struct mt76_reg_pair *data, int len)
+int mt76_mmio_rd_rp(struct mt76_dev *dev, u32 base,
+		    struct mt76_reg_pair *data, int len)
 {
 	while (len > 0) {
 		data->value = mt76_mmio_rr(dev, data->reg);
@@ -69,20 +74,12 @@ static int mt76_mmio_rd_rp(struct mt76_dev *dev, u32 base,
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(mt76_mmio_rd_rp);
 
-void mt76_mmio_init(struct mt76_dev *dev, void __iomem *regs)
+void mt76_mmio_init(struct mt76_dev *dev, void __iomem *regs,
+		    const struct mt76_bus_ops *ops)
 {
-	static const struct mt76_bus_ops mt76_mmio_ops = {
-		.rr = mt76_mmio_rr,
-		.rmw = mt76_mmio_rmw,
-		.wr = mt76_mmio_wr,
-		.copy = mt76_mmio_copy,
-		.wr_rp = mt76_mmio_wr_rp,
-		.rd_rp = mt76_mmio_rd_rp,
-		.type = MT76_BUS_MMIO,
-	};
-
-	dev->bus = &mt76_mmio_ops;
+	dev->bus = ops;
 	dev->mmio.regs = regs;
 
 	skb_queue_head_init(&dev->mmio.mcu.res_q);

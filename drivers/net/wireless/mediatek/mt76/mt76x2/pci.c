@@ -27,6 +27,8 @@ static const struct pci_device_id mt76pci_device_table[] = {
 	{ },
 };
 
+extern const struct mt76_bus_ops mt76_mmio_ops;
+
 static int
 mt76pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 {
@@ -51,7 +53,8 @@ mt76pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	if (!dev)
 		return -ENOMEM;
 
-	mt76_mmio_init(&dev->mt76, pcim_iomap_table(pdev)[0]);
+	mt76_mmio_init(&dev->mt76, pcim_iomap_table(pdev)[0],
+		       &mt76_mmio_ops);
 	mt76x2_reset_wlan(dev, false);
 
 	dev->mt76.rev = mt76_rr(dev, MT_ASIC_VERSION);

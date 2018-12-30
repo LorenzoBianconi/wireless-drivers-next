@@ -21,6 +21,17 @@
 #include "mt76x02.h"
 #include "mt76x02_trace.h"
 
+const struct mt76_bus_ops mt76_mmio_ops = {
+	.rr = mt76_mmio_rr,
+	.rmw = mt76_mmio_rmw,
+	.wr = mt76_mmio_wr,
+	.copy = mt76_mmio_copy,
+	.wr_rp = mt76_mmio_wr_rp,
+	.rd_rp = mt76_mmio_rd_rp,
+	.type = MT76_BUS_MMIO,
+};
+EXPORT_SYMBOL_GPL(mt76_mmio_ops);
+
 struct beacon_bc_data {
 	struct mt76x02_dev *dev;
 	struct sk_buff_head q;
