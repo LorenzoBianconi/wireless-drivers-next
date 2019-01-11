@@ -364,13 +364,28 @@ void mt76x02_mac_write_txwi(struct mt76x02_dev *dev, struct mt76x02_txwi *txwi,
 }
 EXPORT_SYMBOL_GPL(mt76x02_mac_write_txwi);
 
+static int
+mt76x02_get_max_idx(struct ieee80211_tx_rate *rate, int index,
+		    struct mt76x02_dev *dev)
+{
+	int nstreams = __sw_hweight8(dev->mt76.antenna_mask);
+	u16 flags = rate[index].flags;
+
+	if (flags & IEEE80211_TX_RC_VHT_MCS)
+		return (nstreams - 1) << 4 | 9;
+	else if (flags & IEEE80211_TX_RC_MCS)
+		return (nstreams - 1) << 3 | 7;
+	else
+		return rate->idx + index;
+}
+
 static void
 mt76x02_mac_fill_tx_status(struct mt76x02_dev *dev,
 			   struct ieee80211_tx_info *info,
 			   struct mt76x02_tx_status *st, int n_frames)
 {
 	struct ieee80211_tx_rate *rate = info->status.rates;
-	int cur_idx, last_rate;
+	int cur_idx, last_rate, max_idx;
 	int i;
 
 	if (!n_frames)
@@ -382,7 +397,8 @@ mt76x02_mac_fill_tx_status(struct mt76x02_dev *dev,
 	if (last_rate < IEEE80211_TX_MAX_RATES - 1)
 		rate[last_rate + 1].idx = -1;
 
-	cur_idx = rate[last_rate].idx + last_rate;
+	max_idx = mt76x02_get_max_idx(rate, last_rate, dev);
+	cur_idx = min_t(int, max_idx, rate[last_rate].idx + last_rate);
 	for (i = 0; i <= last_rate; i++) {
 		rate[i].flags = rate[last_rate].flags;
 		rate[i].idx = max_t(int, 0, cur_idx - i);
