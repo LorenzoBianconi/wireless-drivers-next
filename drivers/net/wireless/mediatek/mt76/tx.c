@@ -85,10 +85,17 @@ void mt76_tx_free(struct mt76_dev *dev)
 static int
 mt76_txq_get_qid(struct ieee80211_txq *txq)
 {
+/* TODO: MT7615 just uses ring 0 as data ring, so being a little
+ * more abstract could help in the long run.
+ */
+#ifdef CONFIG_MT7615E
+	return MT7615_TXQ_MAIN;
+#else
 	if (!txq->sta)
 		return MT_TXQ_BE;
 
 	return txq->ac;
+#endif
 }
 
 static void

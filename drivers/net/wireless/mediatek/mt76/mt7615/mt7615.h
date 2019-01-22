@@ -10,6 +10,8 @@
 #include "regs.h"
 
 #define MT7615_MAX_INTERFACES		4
+#define MT7615_WTBL_SIZE		128
+#define MT7615_WTBL_RESERVED		(MT7615_WTBL_SIZE - 1)
 
 #define MT7615_TX_RING_SIZE		1024
 #define MT7615_TX_MCU_RING_SIZE		128
@@ -56,12 +58,39 @@ struct mt7615_token_queue {
 
 struct mt7615_dev {
 	struct mt76_dev mt76; /* must be first */
+	u32 vif_mask;
+	u32 omac_mask;
 
 	struct tasklet_struct tx_tasklet;
 
 	 /* token id lock */
 	spinlock_t token_lock;
 	struct mt7615_token_queue tkq;
+};
+
+enum {
+	HW_BSSID_0 = 0x0,
+	HW_BSSID_1,
+	HW_BSSID_2,
+	HW_BSSID_3,
+	HW_BSSID_MAX,
+	EXT_BSSID_START = 0x10,
+	EXT_BSSID_1,
+	EXT_BSSID_2,
+	EXT_BSSID_3,
+	EXT_BSSID_4,
+	EXT_BSSID_5,
+	EXT_BSSID_6,
+	EXT_BSSID_7,
+	EXT_BSSID_8,
+	EXT_BSSID_9,
+	EXT_BSSID_10,
+	EXT_BSSID_11,
+	EXT_BSSID_12,
+	EXT_BSSID_13,
+	EXT_BSSID_14,
+	EXT_BSSID_15,
+	EXT_BSSID_END
 };
 
 extern const struct ieee80211_ops mt7615_ops;
@@ -81,6 +110,28 @@ int mt7615_mcu_init(struct mt7615_dev *dev);
 int mt7615_tx_queue_mcu(struct mt7615_dev *dev, enum mt7615_txq_id qid,
 			struct sk_buff *skb);
 void mt7615_mcu_rx_event(struct mt7615_dev *dev, struct sk_buff *skb);
+int mt7615_mcu_set_dev_info(struct mt7615_dev *dev, struct ieee80211_vif *vif,
+			    int en);
+int mt7615_mcu_set_bss_info(struct mt7615_dev *dev, struct ieee80211_vif *vif,
+			    int en);
+int mt7615_mcu_add_wtbl_bmc(struct mt7615_dev *dev, struct ieee80211_vif *vif);
+int mt7615_mcu_del_wtbl_bmc(struct mt7615_dev *dev, struct ieee80211_vif *vif);
+int mt7615_mcu_add_wtbl(struct mt7615_dev *dev, struct ieee80211_vif *vif,
+			struct ieee80211_sta *sta);
+int mt7615_mcu_del_wtbl(struct mt7615_dev *dev, struct ieee80211_vif *vif,
+			struct ieee80211_sta *sta);
+int mt7615_mcu_del_wtbl_all(struct mt7615_dev *dev);
+int mt7615_mcu_add_sta_rec_bmc(struct mt7615_dev *dev,
+			       struct ieee80211_vif *vif);
+int mt7615_mcu_del_sta_rec_bmc(struct mt7615_dev *dev,
+			       struct ieee80211_vif *vif);
+int mt7615_mcu_add_sta_rec(struct mt7615_dev *dev, struct ieee80211_vif *vif,
+			   struct ieee80211_sta *sta);
+int mt7615_mcu_del_sta_rec(struct mt7615_dev *dev, struct ieee80211_vif *vif,
+			   struct ieee80211_sta *sta);
+int mt7615_mcu_set_bcn(struct mt7615_dev *dev, struct ieee80211_vif *vif,
+		       int en);
+int mt7615_mcu_set_channel(struct mt7615_dev *dev);
 
 void mt7615_set_irq_mask(struct mt7615_dev *dev, u32 clear, u32 set);
 

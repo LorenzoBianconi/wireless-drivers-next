@@ -138,6 +138,7 @@ static int mt7615_init_hardware(struct mt7615_dev *dev)
 	mt7615_mac_init(dev);
 	mt7615_phy_init(dev);
 	mt7615_mcu_ctrl_pm_state(dev, 0);
+	mt7615_mcu_del_wtbl_all(dev);
 
 	return 0;
 }
