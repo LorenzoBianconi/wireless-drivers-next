@@ -60,6 +60,16 @@ struct mt76_bus_ops {
 #define mt76_is_usb(dev) ((dev)->mt76.bus->type == MT76_BUS_USB)
 #define mt76_is_mmio(dev) ((dev)->mt76.bus->type == MT76_BUS_MMIO)
 
+/* TODO: MT7615 has different ring layout, so being a little more
+ * abstract could help in the long run.
+ */
+enum mt7615_txq_id {
+	MT7615_TXQ_MAIN,
+	MT7615_TXQ_EXT,
+	MT7615_TXQ_MCU,
+	MT7615_TXQ_FWDL,
+};
+
 enum mt76_txq_id {
 	MT_TXQ_VO = IEEE80211_AC_VO,
 	MT_TXQ_VI = IEEE80211_AC_VI,
