@@ -12,6 +12,10 @@
 #define MT7615_MAX_INTERFACES		4
 #define MT7615_WTBL_SIZE		128
 #define MT7615_WTBL_RESERVED		(MT7615_WTBL_SIZE - 1)
+#define MT7615_WTBL_STA			(MT7615_WTBL_RESERVED - \
+					 MT7615_MAX_INTERFACES)
+
+#define MT7615_RATE_RETRY		2
 
 #define MT7615_TX_RING_SIZE		1024
 #define MT7615_TX_MCU_RING_SIZE		128
@@ -34,6 +38,8 @@ struct mt7615_sta {
 	struct mt76_wcid wcid; /* must be first */
 
 	struct mt7615_vif *vif;
+
+	struct ieee80211_tx_rate rates[8];
 };
 
 struct mt7615_vif {
@@ -147,9 +153,10 @@ static inline void mt7615_irq_disable(struct mt7615_dev *dev, u32 mask)
 
 int mt7615_mac_write_txwi(struct mt7615_dev *dev, __le32 *txwi,
 			  struct sk_buff *skb, struct mt76_wcid *wcid,
-			  struct ieee80211_sta *sta,
+			  struct ieee80211_sta *sta, int pid,
 			  struct ieee80211_key_conf *key);
 int mt7615_mac_fill_rx(struct mt7615_dev *dev, struct sk_buff *skb);
+void mt7615_mac_add_txs(struct mt7615_dev *dev, void *data);
 void mt7615_mac_tx_free(struct mt7615_dev *dev, struct sk_buff *skb);
 
 int mt7615_mcu_set_eeprom(struct mt7615_dev *dev);

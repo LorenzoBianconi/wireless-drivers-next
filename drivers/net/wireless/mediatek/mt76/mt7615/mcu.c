@@ -1311,7 +1311,8 @@ int mt7615_mcu_set_bcn(struct mt7615_dev *dev, struct ieee80211_vif *vif,
 		return -EINVAL;
 	}
 
-	mt7615_mac_write_txwi(dev, (__le32 *)(req.pkt), skb, wcid, NULL, NULL);
+	mt7615_mac_write_txwi(dev, (__le32 *)(req.pkt), skb, wcid, NULL,
+			      0, NULL);
 	memcpy(req.pkt + MT_TXD_SIZE, skb->data, skb->len);
 	dev_kfree_skb(skb);
 
