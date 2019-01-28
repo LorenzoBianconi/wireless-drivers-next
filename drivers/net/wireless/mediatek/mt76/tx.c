@@ -130,7 +130,12 @@ mt76_tx_status_unlock(struct mt76_dev *dev, struct sk_buff_head *list)
 	__release(&dev->status_list.unlock);
 
 	while ((skb = __skb_dequeue(list)) != NULL)
+/* TODO: cut-through arch must wait until TX_FREE notification to free skb */
+#ifndef CONFIG_CUT_THROUGH
 		ieee80211_tx_status(dev->hw, skb);
+#else
+		;
+#endif
 }
 EXPORT_SYMBOL_GPL(mt76_tx_status_unlock);
 
