@@ -9,10 +9,42 @@
 #include "mt7615.h"
 #include "mac.h"
 
+static int mt7615_alloc_token(struct mt7615_dev *dev)
+{
+	struct mt7615_token_queue *q = &dev->tkq;
+	int i, size;
+
+	spin_lock_init(&dev->token_lock);
+
+	q->ntoken = MT7615_TOKEN_SIZE + 1;
+	q->used = q->ntoken;
+	q->tail = 0;
+	q->head = 0;
+	q->queued = 0;
+
+	size = q->ntoken * sizeof(*q->skb);
+	q->skb = devm_kzalloc(dev->mt76.dev, size, GFP_KERNEL);
+	if (!q->skb)
+		return -ENOMEM;
+
+	size = q->ntoken * sizeof(*q->id);
+	q->id = devm_kzalloc(dev->mt76.dev, size, GFP_KERNEL);
+	if (!q->id)
+		return -ENOMEM;
+
+	for (i = 0; i < q->ntoken; i++)
+		q->id[i] = i;
+
+	return 0;
+}
+
 struct mt7615_dev *mt7615_alloc_device(struct device *pdev)
 {
 	static const struct mt76_driver_ops drv_ops = {
-		.txwi_size = MT_TXD_SIZE,
+		/* txwi_size = txd size + txp size */
+		.txwi_size = MT_TXD_SIZE + sizeof(struct mt7615_txp),
+		.txct_len = MT_TXCT_LEN,
+		.tx_prepare_txp = mt7615_tx_prepare_txp,
 		.tx_prepare_skb = mt7615_tx_prepare_skb,
 		.tx_complete_skb = mt7615_tx_complete_skb,
 		.rx_skb = mt7615_queue_rx_skb,
@@ -21,6 +53,7 @@ struct mt7615_dev *mt7615_alloc_device(struct device *pdev)
 	};
 	struct mt7615_dev *dev;
 	struct mt76_dev *mdev;
+	int ret;
 
 	mdev = mt76_alloc_device(sizeof(*dev), &mt7615_ops);
 	if (!mdev)
@@ -29,6 +62,9 @@ struct mt7615_dev *mt7615_alloc_device(struct device *pdev)
 	dev = container_of(mdev, struct mt7615_dev, mt76);
 	mdev->dev = pdev;
 	mdev->drv = &drv_ops;
+	ret = mt7615_alloc_token(dev);
+	if (ret)
+		return NULL;
 
 	return dev;
 }

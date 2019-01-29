@@ -225,11 +225,97 @@ int mt7615_mac_write_txwi(struct mt7615_dev *dev, __le32 *txwi,
 	return 0;
 }
 
+static int mt7615_token_enqueue(struct mt7615_dev *dev, struct sk_buff *skb)
+{
+	struct mt7615_token_queue *q = &dev->tkq;
+	u16 token;
+
+	token = q->id[q->head];
+
+	if (q->queued == q->ntoken || token == q->used)
+		return -ENOSPC;
+
+	q->id[q->head] = q->used;
+	q->skb[token] = skb;
+
+	q->head = (q->head + 1) % q->ntoken;
+	q->queued++;
+
+	return token;
+}
+
+static struct sk_buff *mt7615_token_dequeue(struct mt7615_dev *dev, u16 token)
+{
+	struct mt7615_token_queue *q = &dev->tkq;
+	struct sk_buff *skb;
+
+	if (!q->queued)
+		return NULL;
+
+	skb = q->skb[token];
+
+	q->id[q->tail] = token;
+	q->skb[token] = NULL;
+
+	q->tail = (q->tail + 1) % q->ntoken;
+	q->queued--;
+
+	return skb;
+}
+
+int mt7615_tx_prepare_txp(struct mt76_dev *mdev, void *txwi_ptr,
+			  struct sk_buff *skb, struct mt76_queue_buf *buf,
+			  int nbufs)
+{
+	struct mt7615_dev *dev = container_of(mdev, struct mt7615_dev, mt76);
+	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)skb->data;
+	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
+	struct ieee80211_key_conf *key = info->control.hw_key;
+	struct ieee80211_vif *vif = info->control.vif;
+	struct mt7615_txp *txp = (struct mt7615_txp *)((__le32 *)txwi_ptr + 8);
+	int i, token;
+
+	/* first buffer is preserved for txd */
+	if (nbufs - 1 > MT_TXP_MAX_BUF_NUM)
+		return -ENOSPC;
+
+	token = mt7615_token_enqueue(dev, skb);
+	if (token < 0)
+		return token;
+
+	memset(txp, 0, sizeof(struct mt7615_txp));
+
+	txp->flags = cpu_to_le16(MT_CT_INFO_APPLY_TXD);
+	if (!key)
+		txp->flags |= cpu_to_le16(MT_CT_INFO_NONE_CIPHER_FRAME);
+
+	if (ieee80211_is_mgmt(hdr->frame_control) &&
+	    !ieee80211_is_beacon(hdr->frame_control))
+		txp->flags |= cpu_to_le16(MT_CT_INFO_MGMT_FRAME);
+
+	if (vif) {
+		struct mt7615_vif *mvif = (struct mt7615_vif *)vif->drv_priv;
+
+		txp->bss_idx = mvif->idx;
+	}
+
+	txp->token = cpu_to_le16(token);
+	txp->rept_wds_wcid = 0xff;
+	txp->nbuf = nbufs - 1;
+
+	for (i = 1; i < nbufs; i++) {
+		txp->buf[i - 1] = cpu_to_le32(buf[i].addr);
+		txp->len[i - 1] = cpu_to_le16(buf[i].len);
+	}
+
+	return 0;
+}
+
 static void mt7615_skb_done(struct mt7615_dev *dev, struct sk_buff *skb,
 			    u8 flags)
 {
 	struct mt76_tx_cb *cb = mt76_tx_skb_cb(skb);
-	u8 done = MT_TX_CB_DMA_DONE;
+	u8 done = MT_TX_CB_DMA_DONE | MT_TX_CB_TX_FREE;
 
 	flags |= cb->flags;
 	cb->flags = flags;
@@ -260,4 +346,27 @@ void mt7615_tx_complete_skb(struct mt76_dev *mdev, struct mt76_queue *q,
 
 	if (free)
 		ieee80211_free_txskb(mdev->hw, skb);
+}
+
+void mt7615_mac_tx_free(struct mt7615_dev *dev, struct sk_buff *skb)
+{
+	struct mt7615_tx_free *free;
+	u8 i, cnt;
+
+	free = (struct mt7615_tx_free *)skb->data;
+	cnt = FIELD_GET(MT_TX_FREE_MSDU_ID_CNT, le16_to_cpu(free->ctrl));
+
+	for (i = 0; i < cnt; i++) {
+		struct sk_buff *skb;
+
+		skb = mt7615_token_dequeue(dev, le16_to_cpu(free->token[i]));
+		if (!skb)
+			continue;
+
+		spin_lock_bh(&dev->token_lock);
+		mt7615_skb_done(dev, skb, MT_TX_CB_TX_FREE);
+		spin_unlock_bh(&dev->token_lock);
+	}
+
+	dev_kfree_skb(skb);
 }

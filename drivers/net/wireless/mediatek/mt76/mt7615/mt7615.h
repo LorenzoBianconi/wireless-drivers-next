@@ -23,6 +23,7 @@
 #define MT7615_ROM_PATCH		"mt7615_rom_patch.bin"
 
 #define MT7615_EEPROM_SIZE		1024
+#define MT7615_TOKEN_SIZE		4095
 
 struct mt7615_vif;
 struct mt7615_sta;
@@ -42,10 +43,25 @@ struct mt7615_vif {
 	struct mt7615_sta sta;
 };
 
+struct mt7615_token_queue {
+	struct sk_buff **skb;
+	int *id;
+
+	int ntoken;
+	int queued;
+	int used;
+	u16 head;
+	u16 tail;
+};
+
 struct mt7615_dev {
 	struct mt76_dev mt76; /* must be first */
 
 	struct tasklet_struct tx_tasklet;
+
+	 /* token id lock */
+	spinlock_t token_lock;
+	struct mt7615_token_queue tkq;
 };
 
 extern const struct ieee80211_ops mt7615_ops;
@@ -83,6 +99,7 @@ int mt7615_mac_write_txwi(struct mt7615_dev *dev, __le32 *txwi,
 			  struct ieee80211_sta *sta,
 			  struct ieee80211_key_conf *key);
 int mt7615_mac_fill_rx(struct mt7615_dev *dev, struct sk_buff *skb);
+void mt7615_mac_tx_free(struct mt7615_dev *dev, struct sk_buff *skb);
 
 int mt7615_mcu_set_eeprom(struct mt7615_dev *dev);
 int mt7615_mcu_init_mac(struct mt7615_dev *dev);
@@ -96,6 +113,10 @@ int mt7615_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 
 void mt7615_tx_complete_skb(struct mt76_dev *mdev, struct mt76_queue *q,
 			    struct mt76_queue_entry *e, bool flush);
+
+int mt7615_tx_prepare_txp(struct mt76_dev *mdev, void *txwi_ptr,
+			  struct sk_buff *skb, struct mt76_queue_buf *buf,
+			  int nbufs);
 
 void mt7615_queue_rx_skb(struct mt76_dev *mdev, enum mt76_rxq_id q,
 			 struct sk_buff *skb);

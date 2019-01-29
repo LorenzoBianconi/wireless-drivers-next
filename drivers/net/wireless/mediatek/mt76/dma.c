@@ -266,8 +266,6 @@ int mt76_dma_tx_queue_skb(struct mt76_dev *dev, struct mt76_queue *q,
 				DMA_TO_DEVICE);
 	ret = dev->drv->tx_prepare_skb(dev, &t->txwi, skb, q, wcid, sta,
 				       &tx_info);
-	dma_sync_single_for_device(dev->dev, t->dma_addr, sizeof(t->txwi),
-				   DMA_TO_DEVICE);
 	if (ret < 0)
 		goto free;
 
@@ -282,7 +280,12 @@ int mt76_dma_tx_queue_skb(struct mt76_dev *dev, struct mt76_queue *q,
 	buf[n].addr = t->dma_addr;
 	buf[n++].len = dev->drv->txwi_size;
 	buf[n].addr = addr;
+/* TODO: a little more abstract could help in the long run. */
+#ifndef CONFIG_CUT_THROUGH
 	buf[n++].len = len;
+#else
+	buf[n++].len = len < dev->drv->txct_len ? len : dev->drv->txct_len;
+#endif
 
 	skb_walk_frags(skb, iter) {
 		if (n == ARRAY_SIZE(buf))
@@ -296,6 +299,17 @@ int mt76_dma_tx_queue_skb(struct mt76_dev *dev, struct mt76_queue *q,
 		buf[n].addr = addr;
 		buf[n++].len = iter->len;
 	}
+
+/* TODO: a little more abstract could help in the long run. */
+#ifdef CONFIG_CUT_THROUGH
+	if (dev->drv->tx_prepare_txp) {
+		ret = dev->drv->tx_prepare_txp(dev, &t->txwi, skb, buf, n);
+		if (ret < 0)
+			goto unmap;
+	}
+#endif
+	dma_sync_single_for_device(dev->dev, t->dma_addr, sizeof(t->txwi),
+				   DMA_TO_DEVICE);
 
 	if (q->queued + (n + 1) / 2 >= q->ndesc - 1)
 		goto unmap;

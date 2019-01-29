@@ -110,7 +110,14 @@ enum tx_mcu_port_q_idx {
 	MT_TX_MCU_PORT_RX_FWDL = 0x1e
 };
 
+#define MT_CT_INFO_APPLY_TXD		BIT(0)
+#define MT_CT_INFO_COPY_HOST_TXD_ALL	BIT(1)
+#define MT_CT_INFO_MGMT_FRAME		BIT(2)
+#define MT_CT_INFO_NONE_CIPHER_FRAME	BIT(3)
+#define MT_CT_INFO_HSR2_TX		BIT(4)
+
 #define MT_TXD_SIZE			(8 * 4)
+#define MT_TXCT_LEN			72
 
 #define MT_TXD0_P_IDX			BIT(31)
 #define MT_TXD0_Q_IDX			GENMASK(30, 26)
@@ -180,5 +187,28 @@ enum tx_mcu_port_q_idx {
 #define MT_TX_RATE_NSS			GENMASK(10, 9)
 #define MT_TX_RATE_MODE			GENMASK(8, 6)
 #define MT_TX_RATE_IDX			GENMASK(5, 0)
+
+#define MT_TXP_MAX_BUF_NUM		6
+
+struct mt7615_txp {
+	__le16 flags;
+	__le16 token;
+	u8 bss_idx;
+	u8 rept_wds_wcid;
+	u8 rsv;
+	u8 nbuf;
+	__le32 buf[MT_TXP_MAX_BUF_NUM];
+	__le16 len[MT_TXP_MAX_BUF_NUM];
+} __packed;
+
+struct mt7615_tx_free {
+	__le16 rx_byte_cnt;
+	__le16 ctrl;
+	u8 txd_cnt;
+	u8 rsv[3];
+	__le16 token[];
+} __packed;
+
+#define MT_TX_FREE_MSDU_ID_CNT		GENMASK(6, 0)
 
 #endif
