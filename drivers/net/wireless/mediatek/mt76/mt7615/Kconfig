@@ -1,5 +1,6 @@
 config MT7615E
 	tristate "MediaTek MT7615E (PCIe) support"
+	select CUT_THROUGH
 	select MT76_CORE
 	depends on MAC80211
 	depends on PCI

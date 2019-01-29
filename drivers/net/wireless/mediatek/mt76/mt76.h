@@ -230,7 +230,8 @@ struct mt76_txq {
 };
 
 struct mt76_txwi_cache {
-	u32 txwi[8];
+	/* TODO: allocate the txwi array dynamically */
+	u32 txwi[20];
 	dma_addr_t dma_addr;
 	struct list_head list;
 };
@@ -256,6 +257,7 @@ struct mt76_rx_tid {
 #define MT_TX_CB_DMA_DONE		BIT(0)
 #define MT_TX_CB_TXS_DONE		BIT(1)
 #define MT_TX_CB_TXS_FAILED		BIT(2)
+#define MT_TX_CB_TX_FREE		BIT(3)
 
 #define MT_PACKET_ID_MASK		GENMASK(7, 0)
 #define MT_PACKET_ID_NO_ACK		0
@@ -289,7 +291,13 @@ struct mt76_hw_cap {
 
 struct mt76_driver_ops {
 	u16 txwi_size;
+#ifdef CONFIG_CUT_THROUGH
+	u16 txct_len;
 
+	int (*tx_prepare_txp)(struct mt76_dev *dev, void *txwi_ptr,
+			      struct sk_buff *skb, struct mt76_queue_buf *buf,
+			      int nbufs);
+#endif
 	void (*update_survey)(struct mt76_dev *dev);
 
 	int (*tx_prepare_skb)(struct mt76_dev *dev, void *txwi_ptr,

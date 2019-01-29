@@ -1,6 +1,9 @@
 config MT76_CORE
 	tristate
 
+config CUT_THROUGH
+	bool
+
 config MT76_LEDS
 	bool
 	depends on MT76_CORE
