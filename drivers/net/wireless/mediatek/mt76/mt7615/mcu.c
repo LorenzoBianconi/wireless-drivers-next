@@ -374,10 +374,11 @@ static int mt7615_load_patch(struct mt7615_dev *dev)
 	}
 
 	ret = mt7615_mcu_start_patch(dev);
-	if (ret) {
+	if (ret)
 		dev_err(dev->mt76.dev, "Failed to start patch\n");
-		goto out;
-	}
+
+out:
+	release_firmware(fw);
 
 	sem = mt7615_mcu_patch_sem_ctrl(dev, 0);
 	switch (sem) {
@@ -388,9 +389,6 @@ static int mt7615_load_patch(struct mt7615_dev *dev)
 		dev_err(dev->mt76.dev, "Failed to release patch semaphore\n");
 		break;
 	}
-
-out:
-	release_firmware(fw);
 
 	return ret;
 }
