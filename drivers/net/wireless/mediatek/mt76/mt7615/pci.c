@@ -9,6 +9,7 @@
 #include <linux/pci.h>
 
 #include "mt7615.h"
+#include "mac.h"
 
 static const struct pci_device_id mt7615_pci_device_table[] = {
 	{ PCI_DEVICE(0x14c3, 0x7615) },
@@ -77,7 +78,20 @@ irqreturn_t mt7615_irq_handler(int irq, void *dev_instance)
 static int mt7615_pci_probe(struct pci_dev *pdev,
 			    const struct pci_device_id *id)
 {
+	static const struct mt76_driver_ops drv_ops = {
+		/* txwi_size = txd size + txp size */
+		.txwi_size = MT_TXD_SIZE + sizeof(struct mt7615_txp),
+		.tx_prepare_txp = mt7615_tx_prepare_txp,
+		.tx_prepare_skb = mt7615_tx_prepare_skb,
+		.tx_complete_skb = mt7615_tx_complete_skb,
+		.rx_skb = mt7615_queue_rx_skb,
+		.rx_poll_complete = mt7615_rx_poll_complete,
+		.sta_ps = mt7615_sta_ps,
+		.sta_add = mt7615_sta_add,
+		.sta_remove = mt7615_sta_remove,
+	};
 	struct mt7615_dev *dev;
+	struct mt76_dev *mdev;
 	int ret;
 
 	ret = pcim_enable_device(pdev);
@@ -94,17 +108,19 @@ static int mt7615_pci_probe(struct pci_dev *pdev,
 	if (ret)
 		return ret;
 
-	dev = mt7615_alloc_device(&pdev->dev);
-	if (!dev)
+	mdev = mt76_alloc_device(&pdev->dev, sizeof(*dev), &mt7615_ops,
+				 &drv_ops);
+	if (!mdev)
 		return -ENOMEM;
 
+	dev = container_of(mdev, struct mt7615_dev, mt76);
 	mt76_mmio_init(&dev->mt76, pcim_iomap_table(pdev)[0]);
 
-	dev->mt76.rev = (mt76_rr(dev, MT_HW_CHIPID) << 16) |
-			(mt76_rr(dev, MT_HW_REV) & 0xff);
-	dev_dbg(dev->mt76.dev, "ASIC revision: %04x\n", dev->mt76.rev);
+	mdev->rev = (mt76_rr(dev, MT_HW_CHIPID) << 16) |
+		    (mt76_rr(dev, MT_HW_REV) & 0xff);
+	dev_dbg(mdev->dev, "ASIC revision: %04x\n", mdev->rev);
 
-	ret = devm_request_irq(dev->mt76.dev, pdev->irq, mt7615_irq_handler,
+	ret = devm_request_irq(mdev->dev, pdev->irq, mt7615_irq_handler,
 			       IRQF_SHARED, KBUILD_MODNAME, dev);
 	if (ret)
 		goto error;

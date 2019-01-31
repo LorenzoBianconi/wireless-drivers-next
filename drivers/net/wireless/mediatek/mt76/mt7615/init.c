@@ -38,38 +38,6 @@ static int mt7615_alloc_token(struct mt7615_dev *dev)
 	return 0;
 }
 
-struct mt7615_dev *mt7615_alloc_device(struct device *pdev)
-{
-	static const struct mt76_driver_ops drv_ops = {
-		/* txwi_size = txd size + txp size */
-		.txwi_size = MT_TXD_SIZE + sizeof(struct mt7615_txp),
-		.tx_prepare_txp = mt7615_tx_prepare_txp,
-		.tx_prepare_skb = mt7615_tx_prepare_skb,
-		.tx_complete_skb = mt7615_tx_complete_skb,
-		.rx_skb = mt7615_queue_rx_skb,
-		.rx_poll_complete = mt7615_rx_poll_complete,
-		.sta_ps = mt7615_sta_ps,
-		.sta_add = mt7615_sta_add,
-		.sta_remove = mt7615_sta_remove,
-	};
-	struct mt7615_dev *dev;
-	struct mt76_dev *mdev;
-	int ret;
-
-	mdev = mt76_alloc_device(sizeof(*dev), &mt7615_ops);
-	if (!mdev)
-		return NULL;
-
-	dev = container_of(mdev, struct mt7615_dev, mt76);
-	mdev->dev = pdev;
-	mdev->drv = &drv_ops;
-	ret = mt7615_alloc_token(dev);
-	if (ret)
-		return NULL;
-
-	return dev;
-}
-
 static void mt7615_phy_init(struct mt7615_dev *dev)
 {
 	/* disable band 0 rf low power beacon mode */
@@ -116,6 +84,10 @@ static int mt7615_init_hardware(struct mt7615_dev *dev)
 	int ret;
 
 	mt76_wr(dev, MT_INT_SOURCE_CSR, ~0);
+
+	ret = mt7615_alloc_token(dev);
+	if (ret < 0)
+		return ret;
 
 	ret = mt7615_eeprom_init(dev);
 	if (ret < 0)

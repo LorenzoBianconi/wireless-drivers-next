@@ -104,8 +104,6 @@ extern struct pci_driver mt7615_pci_driver;
 
 u32 mt7615_reg_map(struct mt7615_dev *dev, u32 addr);
 
-struct mt7615_dev *mt7615_alloc_device(struct device *pdev);
-
 int mt7615_register_device(struct mt7615_dev *dev);
 void mt7615_unregister_device(struct mt7615_dev *dev);
 int mt7615_eeprom_init(struct mt7615_dev *dev);
