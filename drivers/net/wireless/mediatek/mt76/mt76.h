@@ -291,13 +291,7 @@ struct mt76_hw_cap {
 
 struct mt76_driver_ops {
 	u16 txwi_size;
-#ifdef CONFIG_CUT_THROUGH
-	u16 txct_len;
 
-	int (*tx_prepare_txp)(struct mt76_dev *dev, void *txwi_ptr,
-			      struct sk_buff *skb, struct mt76_queue_buf *buf,
-			      int nbufs);
-#endif
 	void (*update_survey)(struct mt76_dev *dev);
 
 	int (*tx_prepare_skb)(struct mt76_dev *dev, void *txwi_ptr,

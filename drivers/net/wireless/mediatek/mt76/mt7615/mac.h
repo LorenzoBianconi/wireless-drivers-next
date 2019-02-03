@@ -117,7 +117,6 @@ enum tx_mcu_port_q_idx {
 #define MT_CT_INFO_HSR2_TX		BIT(4)
 
 #define MT_TXD_SIZE			(8 * 4)
-#define MT_TXCT_LEN			72
 
 #define MT_TXD0_P_IDX			BIT(31)
 #define MT_TXD0_Q_IDX			GENMASK(30, 26)

@@ -292,54 +292,6 @@ static struct sk_buff *mt7615_token_dequeue(struct mt7615_dev *dev, u16 token)
 	return skb;
 }
 
-int mt7615_tx_prepare_txp(struct mt76_dev *mdev, void *txwi_ptr,
-			  struct sk_buff *skb, struct mt76_queue_buf *buf,
-			  int nbufs)
-{
-	struct mt7615_dev *dev = container_of(mdev, struct mt7615_dev, mt76);
-	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)skb->data;
-	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
-	struct ieee80211_key_conf *key = info->control.hw_key;
-	struct ieee80211_vif *vif = info->control.vif;
-	struct mt7615_txp *txp = (struct mt7615_txp *)((__le32 *)txwi_ptr + 8);
-	int i, token;
-
-	/* first buffer is preserved for txd */
-	if (nbufs - 1 > MT_TXP_MAX_BUF_NUM)
-		return -ENOSPC;
-
-	token = mt7615_token_enqueue(dev, skb);
-	if (token < 0)
-		return token;
-
-	memset(txp, 0, sizeof(struct mt7615_txp));
-
-	txp->flags = cpu_to_le16(MT_CT_INFO_APPLY_TXD);
-	if (!key)
-		txp->flags |= cpu_to_le16(MT_CT_INFO_NONE_CIPHER_FRAME);
-
-	if (ieee80211_is_mgmt(hdr->frame_control) &&
-	    !ieee80211_is_beacon(hdr->frame_control))
-		txp->flags |= cpu_to_le16(MT_CT_INFO_MGMT_FRAME);
-
-	if (vif) {
-		struct mt7615_vif *mvif = (struct mt7615_vif *)vif->drv_priv;
-
-		txp->bss_idx = mvif->idx;
-	}
-
-	txp->token = cpu_to_le16(token);
-	txp->rept_wds_wcid = 0xff;
-	txp->nbuf = nbufs - 1;
-
-	for (i = 1; i < nbufs; i++) {
-		txp->buf[i - 1] = cpu_to_le32(buf[i].addr);
-		txp->len[i - 1] = cpu_to_le16(buf[i].len);
-	}
-
-	return 0;
-}
-
 static void mt7615_skb_done(struct mt7615_dev *dev, struct sk_buff *skb,
 			    u8 flags)
 {
