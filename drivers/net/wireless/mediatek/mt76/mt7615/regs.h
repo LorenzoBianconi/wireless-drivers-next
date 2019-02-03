@@ -89,10 +89,6 @@
 #define MT_WF_AGG_BASE			0x20a00
 #define MT_WF_AGG(ofs)			(MT_WF_AGG_BASE + (ofs))
 
-#define MT_AGG_PCR1_RTS			MT_WF_AGG(0x05c)
-#define MT_AGG_PCR1_RTS_LEN_THR		GENMASK(19, 0)
-#define MT_AGG_PCR1_RTS_PKT_THR		GENMASK(31, 25)
-
 #define MT_AGG_SCR			MT_WF_AGG(0x0fc)
 #define MT_AGG_SCR_NLNAV_MID_PTEC_DIS	BIT(3)
 

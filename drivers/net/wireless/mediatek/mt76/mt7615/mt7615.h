@@ -161,6 +161,7 @@ void mt7615_mac_tx_free(struct mt7615_dev *dev, struct sk_buff *skb);
 
 int mt7615_mcu_set_eeprom(struct mt7615_dev *dev);
 int mt7615_mcu_init_mac(struct mt7615_dev *dev);
+int mt7615_mcu_set_rts_thresh(struct mt7615_dev *dev, u32 val);
 int mt7615_mcu_ctrl_pm_state(struct mt7615_dev *dev, int enter);
 void mt7615_mcu_exit(struct mt7615_dev *dev);
 

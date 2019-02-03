@@ -622,6 +622,26 @@ int mt7615_mcu_init_mac(struct mt7615_dev *dev)
 				   MCU_Q_SET, MCU_S2D_H2N, NULL);
 }
 
+int mt7615_mcu_set_rts_thresh(struct mt7615_dev *dev, u32 val)
+{
+	struct {
+		u8 prot_idx;
+		u8 band;
+		u8 rsv[2];
+		u32 len_thresh;
+		u32 pkt_thresh;
+	} __packed req = {
+		.prot_idx = 1,
+		.band = 0,
+		.len_thresh = val,
+		.pkt_thresh = 0x2,
+	};
+	struct sk_buff *skb = mt7615_mcu_msg_alloc(&req, sizeof(req));
+
+	return mt7615_mcu_msg_send(dev, skb, MCU_EXT_CMD_PROTECT_CTRL,
+				   MCU_Q_SET, MCU_S2D_H2N, NULL);
+}
+
 int mt7615_mcu_ctrl_pm_state(struct mt7615_dev *dev, int enter)
 {
 #define ENTER_PM_STATE	1

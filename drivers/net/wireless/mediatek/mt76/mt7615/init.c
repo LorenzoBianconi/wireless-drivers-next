@@ -98,10 +98,7 @@ static void mt7615_mac_init(struct mt7615_dev *dev)
 		 MT_TMAC_CTCR0_INS_DDLMT_VHT_SMPDU_EN |
 		 MT_TMAC_CTCR0_INS_DDLMT_EN);
 
-	mt76_rmw_field(dev, MT_AGG_PCR1_RTS,
-		       MT_AGG_PCR1_RTS_LEN_THR, 0x92b);
-	mt76_rmw_field(dev, MT_AGG_PCR1_RTS,
-		       MT_AGG_PCR1_RTS_PKT_THR, 0x2);
+	mt7615_mcu_set_rts_thresh(dev, 0x92b);
 
 	mt76_rmw(dev, MT_AGG_SCR, MT_AGG_SCR_NLNAV_MID_PTEC_DIS,
 		 MT_AGG_SCR_NLNAV_MID_PTEC_DIS);

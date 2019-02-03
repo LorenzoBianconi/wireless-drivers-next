@@ -298,6 +298,17 @@ static void mt7615_tx(struct ieee80211_hw *hw,
 	spin_unlock_bh(&q->lock);
 }
 
+static int mt7615_set_rts_threshold(struct ieee80211_hw *hw, u32 val)
+{
+	struct mt7615_dev *dev = hw->priv;
+
+	mutex_lock(&dev->mt76.mutex);
+	mt7615_mcu_set_rts_thresh(dev, val);
+	mutex_unlock(&dev->mt76.mutex);
+
+	return 0;
+}
+
 const struct ieee80211_ops mt7615_ops = {
 	.tx = mt7615_tx,
 	.start = mt7615_start,
@@ -308,4 +319,5 @@ const struct ieee80211_ops mt7615_ops = {
 	.configure_filter = mt7615_configure_filter,
 	.bss_info_changed = mt7615_bss_info_changed,
 	.sta_state = mt76_sta_state,
+	.set_rts_threshold = mt7615_set_rts_threshold,
 };
