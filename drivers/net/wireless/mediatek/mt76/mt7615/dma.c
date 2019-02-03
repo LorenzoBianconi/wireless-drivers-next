@@ -118,7 +118,7 @@ int mt7615_dma_init(struct mt7615_dev *dev)
 {
 	int ret;
 
-	mt76_dma_attach(&dev->mt76);
+	mt76_ct_dma_attach(&dev->mt76);
 
 	tasklet_init(&dev->tx_tasklet, mt7615_tx_tasklet, (unsigned long)dev);
 

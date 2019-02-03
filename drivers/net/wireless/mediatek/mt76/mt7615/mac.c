@@ -292,6 +292,80 @@ static struct sk_buff *mt7615_token_dequeue(struct mt7615_dev *dev, u16 token)
 	return skb;
 }
 
+int mt7615_tx_prepare_txp(struct mt76_dev *mdev, void *txwi_ptr,
+			  struct sk_buff *skb, struct mt76_queue_buf *buf)
+{
+	struct mt7615_dev *dev = container_of(mdev, struct mt7615_dev, mt76);
+	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)skb->data;
+	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
+	struct ieee80211_key_conf *key = info->control.hw_key;
+	struct ieee80211_vif *vif = info->control.vif;
+	struct mt7615_txp *txp = (struct mt7615_txp *)((__le32 *)txwi_ptr + 8);
+	struct sk_buff *iter;
+	int n = 0, res = -ENOMEM, len = skb_headlen(skb);
+	dma_addr_t addr;
+
+#define MT_CT_PARSE_LEN		72
+#define MT_CT_DMA_BUF_NUM	2
+
+	addr = dma_map_single(mdev->dev, skb->data, len, DMA_TO_DEVICE);
+	if (unlikely(dma_mapping_error(mdev->dev, addr)))
+		return -ENOMEM;
+
+	/* pass partial skb header to fw */
+	buf->addr = addr;
+	buf->len = MT_CT_PARSE_LEN;
+
+	/* concatenate txp buffers */
+	txp->buf[n] = cpu_to_le32(addr);
+	txp->len[n++] = cpu_to_le32(len);
+
+	skb_walk_frags(skb, iter) {
+		if (n == MT_TXP_MAX_BUF_NUM)
+			goto unmap;
+
+		addr = dma_map_single(mdev->dev, iter->data, iter->len,
+				      DMA_TO_DEVICE);
+		if (unlikely(dma_mapping_error(mdev->dev, addr)))
+			goto unmap;
+
+		txp->buf[n] = cpu_to_le32(addr);
+		txp->len[n++] = cpu_to_le32(iter->len);
+	}
+
+	txp->nbuf = n;
+	txp->flags = cpu_to_le16(MT_CT_INFO_APPLY_TXD);
+
+	if (!key)
+		txp->flags |= cpu_to_le16(MT_CT_INFO_NONE_CIPHER_FRAME);
+
+	if (ieee80211_is_mgmt(hdr->frame_control))
+		txp->flags |= cpu_to_le16(MT_CT_INFO_MGMT_FRAME);
+
+	if (vif) {
+		struct mt7615_vif *mvif = (struct mt7615_vif *)vif->drv_priv;
+
+		txp->bss_idx = mvif->idx;
+	}
+
+	res = mt7615_token_enqueue(dev, skb);
+	if (res < 0)
+		goto unmap;
+
+	txp->token = cpu_to_le16(res);
+	txp->rept_wds_wcid = 0xff;
+
+	/* move txd and partial skb header into tx ring */
+	return MT_CT_DMA_BUF_NUM;
+
+unmap:
+	for (n--; n >= 0; n--)
+		dma_unmap_single(mdev->dev, txp->buf[n], txp->len[n],
+				 DMA_TO_DEVICE);
+
+	return res;
+}
+
 static void mt7615_skb_done(struct mt7615_dev *dev, struct sk_buff *skb,
 			    u8 flags)
 {
