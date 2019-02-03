@@ -108,9 +108,10 @@ static void mt7615_mac_init(struct mt7615_dev *dev)
 
 	mt7615_mcu_init_mac(dev);
 
-	dev->mt76.global_wcid.idx = 0;
+	dev->mt76.global_wcid.idx = MT7615_WTBL_RESERVED;
 	dev->mt76.global_wcid.hw_key_idx = -1;
-	rcu_assign_pointer(dev->mt76.wcid[0], &dev->mt76.global_wcid);
+	rcu_assign_pointer(dev->mt76.wcid[MT7615_WTBL_RESERVED],
+			   &dev->mt76.global_wcid);
 }
 
 static int mt7615_init_hardware(struct mt7615_dev *dev)
