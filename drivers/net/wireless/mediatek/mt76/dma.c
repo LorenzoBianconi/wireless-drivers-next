@@ -342,6 +342,57 @@ free:
 EXPORT_SYMBOL_GPL(mt76_dma_tx_queue_skb);
 
 static int
+mt76_dma_tx_ct_queue_skb(struct mt76_dev *dev, struct mt76_queue *q,
+			 struct sk_buff *skb, struct mt76_wcid *wcid,
+			 struct ieee80211_sta *sta)
+{
+	struct mt76_queue_entry e;
+	struct mt76_txwi_cache *t;
+	struct mt76_queue_buf buf[2];
+	u32 tx_info = 0;
+	int ret;
+
+	if (q->queued + 1 >= q->ndesc - 1)
+		return -ENOSPC;
+
+	t = mt76_get_txwi(dev);
+	if (!t) {
+		ieee80211_free_txskb(dev->hw, skb);
+		return -ENOMEM;
+	}
+
+	skb->prev = skb->next = NULL;
+	dma_sync_single_for_cpu(dev->dev, t->dma_addr, sizeof(t->txwi),
+				DMA_TO_DEVICE);
+	ret = dev->drv->tx_prepare_skb(dev, &t->txwi, skb, q, wcid, sta,
+				       &tx_info);
+	if (ret < 0)
+		goto free;
+
+	/* the cut-through architecture just needs to move txd and
+	 * partial skb header (optional) to the tx ring.
+	 */
+	buf[0].addr = t->dma_addr;
+	buf[0].len = dev->drv->txwi_size;
+
+	/* txp will concatenate skbs */
+	ret = dev->drv->tx_prepare_txp(dev, &t->txwi, skb, &buf[1]);
+	dma_sync_single_for_device(dev->dev, t->dma_addr, sizeof(t->txwi),
+				   DMA_TO_DEVICE);
+	if (ret < 0)
+		goto free;
+
+	return mt76_dma_add_buf(dev, q, buf, ret, tx_info, skb, t);
+
+free:
+	e.skb = skb;
+	e.txwi = t;
+	dev->drv->tx_complete_skb(dev, q, &e, true);
+	mt76_put_txwi(dev, t);
+	return ret;
+}
+
+static int
 mt76_dma_rx_fill(struct mt76_dev *dev, struct mt76_queue *q)
 {
 	dma_addr_t addr;
@@ -553,11 +604,27 @@ static const struct mt76_queue_ops mt76_dma_ops = {
 	.kick = mt76_dma_kick_queue,
 };
 
+static const struct mt76_queue_ops mt76_ct_dma_ops = {
+	.init = mt76_dma_init,
+	.alloc = mt76_dma_alloc_queue,
+	.add_buf = mt76_dma_add_buf,
+	.tx_queue_skb = mt76_dma_tx_ct_queue_skb,
+	.tx_cleanup = mt76_dma_tx_cleanup,
+	.rx_reset = mt76_dma_rx_reset,
+	.kick = mt76_dma_kick_queue,
+};
+
 void mt76_dma_attach(struct mt76_dev *dev)
 {
 	dev->queue_ops = &mt76_dma_ops;
 }
 EXPORT_SYMBOL_GPL(mt76_dma_attach);
+
+void mt76_ct_dma_attach(struct mt76_dev *dev)
+{
+	dev->queue_ops = &mt76_ct_dma_ops;
+}
+EXPORT_SYMBOL_GPL(mt76_ct_dma_attach);
 
 void mt76_dma_cleanup(struct mt76_dev *dev)
 {

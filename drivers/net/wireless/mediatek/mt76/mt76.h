@@ -299,6 +299,9 @@ struct mt76_driver_ops {
 			      struct mt76_wcid *wcid,
 			      struct ieee80211_sta *sta, u32 *tx_info);
 
+	int (*tx_prepare_txp)(struct mt76_dev *dev, void *txwi_ptr,
+			      struct sk_buff *skb, struct mt76_queue_buf *buf);
+
 	void (*tx_complete_skb)(struct mt76_dev *dev, struct mt76_queue *q,
 				struct mt76_queue_entry *e, bool flush);
 
