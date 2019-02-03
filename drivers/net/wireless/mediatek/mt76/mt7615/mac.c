@@ -10,64 +10,27 @@
 #include "mt7615.h"
 #include "mac.h"
 
-int mt7615_mac_fill_rx(struct mt7615_dev *dev, struct sk_buff *skb)
+static struct mt76_wcid *mt7615_rx_get_wcid(struct mt7615_dev *dev,
+					    u8 idx, bool unicast)
 {
-	__le32 *rxd = (__le32 *)skb->data;
-	u32 rxd0 = le32_to_cpu(rxd[0]);
-	u32 rxd1 = le32_to_cpu(rxd[1]);
-	bool remove_pad;
+	struct mt7615_sta *sta;
+	struct mt76_wcid *wcid;
 
-	remove_pad = rxd1 & MT_RXD1_NORMAL_HDR_OFFSET;
+	if (idx >= ARRAY_SIZE(dev->mt76.wcid))
+		return NULL;
 
-	rxd += 4;
-	if (rxd0 & MT_RXD0_NORMAL_GROUP_4) {
-		rxd += 4;
-		if ((u8 *)rxd - skb->data >= skb->len)
-			return -EINVAL;
-	}
+	wcid = rcu_dereference(dev->mt76.wcid[idx]);
+	if (unicast || !wcid)
+		return wcid;
 
-	if (rxd0 & MT_RXD0_NORMAL_GROUP_1) {
-		rxd += 4;
-		if ((u8 *)rxd - skb->data >= skb->len)
-			return -EINVAL;
-	}
+	if (!wcid->sta)
+		return NULL;
 
-	if (rxd0 & MT_RXD0_NORMAL_GROUP_2) {
-		rxd += 2;
-		if ((u8 *)rxd - skb->data >= skb->len)
-			return -EINVAL;
-	}
+	sta = container_of(wcid, struct mt7615_sta, wcid);
+	if (!sta->vif)
+		return NULL;
 
-	if (rxd0 & MT_RXD0_NORMAL_GROUP_3) {
-		rxd += 6;
-		if ((u8 *)rxd - skb->data >= skb->len)
-			return -EINVAL;
-	}
-
-	skb_pull(skb, (u8 *)rxd - skb->data + 2 * remove_pad);
-
-	return 0;
-}
-
-int mt7615_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
-			  struct sk_buff *skb, struct mt76_queue *q,
-			  struct mt76_wcid *wcid, struct ieee80211_sta *sta,
-			  u32 *tx_info)
-{
-	struct mt7615_dev *dev = container_of(mdev, struct mt7615_dev, mt76);
-	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
-	struct ieee80211_key_conf *key = info->control.hw_key;
-	int pid = 0;
-
-	pid = mt76_tx_status_skb_add(mdev, wcid, skb);
-	/* TODO: complete tx path */
-	mt7615_mac_write_txwi(dev, txwi_ptr, skb, wcid, sta, pid, key);
-
-	return 0;
-}
-
-void mt7615_sta_ps(struct mt76_dev *mdev, struct ieee80211_sta *sta, bool ps)
-{
+	return &sta->vif->sta.wcid;
 }
 
 static int mt7615_get_rate(struct mt7615_dev *dev,
@@ -93,6 +56,156 @@ static int mt7615_get_rate(struct mt7615_dev *dev,
 	}
 
 	return 0;
+}
+
+static void mt7615_insert_ccmp_hdr(struct sk_buff *skb, u8 key_id)
+{
+	struct mt76_rx_status *status = (struct mt76_rx_status *)skb->cb;
+	int hdr_len = ieee80211_get_hdrlen_from_skb(skb);
+	u8 *pn = status->iv;
+	u8 *hdr;
+
+	__skb_push(skb, 8);
+	memmove(skb->data, skb->data + 8, hdr_len);
+	hdr = skb->data + hdr_len;
+
+	hdr[0] = pn[5];
+	hdr[1] = pn[4];
+	hdr[2] = 0;
+	hdr[3] = 0x20 | (key_id << 6);
+	hdr[4] = pn[3];
+	hdr[5] = pn[2];
+	hdr[6] = pn[1];
+	hdr[7] = pn[0];
+
+	status->flag &= ~RX_FLAG_IV_STRIPPED;
+}
+
+int mt7615_mac_fill_rx(struct mt7615_dev *dev, struct sk_buff *skb)
+{
+	struct mt76_rx_status *status = (struct mt76_rx_status *)skb->cb;
+	struct ieee80211_supported_band *sband;
+	struct ieee80211_hdr *hdr;
+	__le32 *rxd = (__le32 *)skb->data;
+	u32 rxd0 = le32_to_cpu(rxd[0]);
+	u32 rxd1 = le32_to_cpu(rxd[1]);
+	u32 rxd2 = le32_to_cpu(rxd[2]);
+	bool unicast, remove_pad, insert_ccmp_hdr = false;
+	int i, idx;
+
+	memset(status, 0, sizeof(*status));
+
+	i = FIELD_GET(MT_RXD1_NORMAL_CH_FREQ, rxd1);
+	sband = (i & 1) ? &dev->mt76.sband_5g.sband :
+			  &dev->mt76.sband_2g.sband;
+	i >>= 1;
+
+	unicast = (rxd1 & MT_RXD1_NORMAL_ADDR_TYPE) == MT_RXD1_NORMAL_U2M;
+	idx = FIELD_GET(MT_RXD2_NORMAL_WLAN_IDX, rxd2);
+	status->wcid = mt7615_rx_get_wcid(dev, idx, unicast);
+
+	status->band = sband->band;
+	if (i < sband->n_channels)
+		status->freq = sband->channels[i].center_freq;
+
+	if (rxd2 & MT_RXD2_NORMAL_FCS_ERR)
+		status->flag |= RX_FLAG_FAILED_FCS_CRC;
+
+	if (rxd2 & MT_RXD2_NORMAL_TKIP_MIC_ERR)
+		status->flag |= RX_FLAG_MMIC_ERROR;
+
+	if (FIELD_GET(MT_RXD2_NORMAL_SEC_MODE, rxd2) != 0 &&
+	    !(rxd2 & (MT_RXD2_NORMAL_CLM | MT_RXD2_NORMAL_CM))) {
+		status->flag |= RX_FLAG_DECRYPTED;
+		status->flag |= RX_FLAG_IV_STRIPPED;
+		status->flag |= RX_FLAG_MMIC_STRIPPED | RX_FLAG_MIC_STRIPPED;
+	}
+
+	remove_pad = rxd1 & MT_RXD1_NORMAL_HDR_OFFSET;
+
+	if (rxd2 & MT_RXD2_NORMAL_MAX_LEN_ERROR)
+		return -EINVAL;
+
+	if (!sband->channels)
+		return -EINVAL;
+
+	rxd += 4;
+	if (rxd0 & MT_RXD0_NORMAL_GROUP_4) {
+		rxd += 4;
+		if ((u8 *)rxd - skb->data >= skb->len)
+			return -EINVAL;
+	}
+
+	if (rxd0 & MT_RXD0_NORMAL_GROUP_1) {
+		u8 *data = (u8 *)rxd;
+
+		if (status->flag & RX_FLAG_DECRYPTED) {
+			status->iv[0] = data[5];
+			status->iv[1] = data[4];
+			status->iv[2] = data[3];
+			status->iv[3] = data[2];
+			status->iv[4] = data[1];
+			status->iv[5] = data[0];
+
+			insert_ccmp_hdr = FIELD_GET(MT_RXD2_NORMAL_FRAG, rxd2);
+		}
+		rxd += 4;
+		if ((u8 *)rxd - skb->data >= skb->len)
+			return -EINVAL;
+	}
+
+	if (rxd0 & MT_RXD0_NORMAL_GROUP_2) {
+		rxd += 2;
+		if ((u8 *)rxd - skb->data >= skb->len)
+			return -EINVAL;
+	}
+
+	if (rxd0 & MT_RXD0_NORMAL_GROUP_3) {
+		/* TODO: rxv */
+		rxd += 6;
+		if ((u8 *)rxd - skb->data >= skb->len)
+			return -EINVAL;
+	}
+
+	skb_pull(skb, (u8 *)rxd - skb->data + 2 * remove_pad);
+
+	if (insert_ccmp_hdr) {
+		u8 key_id = FIELD_GET(MT_RXD1_NORMAL_KEY_ID, rxd1);
+
+		mt7615_insert_ccmp_hdr(skb, key_id);
+	}
+
+	hdr = (struct ieee80211_hdr *)skb->data;
+	if (!status->wcid || !ieee80211_is_data_qos(hdr->frame_control))
+		return 0;
+
+	status->aggr = unicast &&
+		       !ieee80211_is_qos_nullfunc(hdr->frame_control);
+	status->tid = *ieee80211_get_qos_ctl(hdr) & IEEE80211_QOS_CTL_TID_MASK;
+	status->seqno = hdr->seq_ctrl >> 4;
+
+	return 0;
+}
+
+int mt7615_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
+			  struct sk_buff *skb, struct mt76_queue *q,
+			  struct mt76_wcid *wcid, struct ieee80211_sta *sta,
+			  u32 *tx_info)
+{
+	struct mt7615_dev *dev = container_of(mdev, struct mt7615_dev, mt76);
+	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
+	struct ieee80211_key_conf *key = info->control.hw_key;
+	int pid = 0;
+
+	pid = mt76_tx_status_skb_add(mdev, wcid, skb);
+	/* TODO: complete tx path */
+	mt7615_mac_write_txwi(dev, txwi_ptr, skb, wcid, sta, pid, key);
+
+	return 0;
+}
+
+void mt7615_sta_ps(struct mt76_dev *mdev, struct ieee80211_sta *sta, bool ps)
+{
 }
 
 static u16 mt7615_mac_tx_rate_val(struct mt7615_dev *dev,
