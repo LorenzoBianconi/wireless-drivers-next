@@ -229,16 +229,33 @@ static void mt7615_bss_info_changed(struct ieee80211_hw *hw,
 	mutex_unlock(&dev->mt76.mutex);
 }
 
-static int mt7615_sta_add(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
-			  struct ieee80211_sta *sta)
+int mt7615_sta_add(struct mt76_dev *mdev, struct ieee80211_vif *vif,
+		   struct ieee80211_sta *sta)
 {
+	struct mt7615_dev *dev = container_of(mdev, struct mt7615_dev, mt76);
+	struct mt7615_sta *msta = (struct mt7615_sta *)sta->drv_priv;
+	int idx;
+
+	idx = mt76_wcid_alloc(dev->mt76.wcid_mask, MT7615_WTBL_STA - 1);
+	if (idx < 0)
+		return -ENOSPC;
+
+	msta->wcid.sta = 1;
+	msta->wcid.idx = idx;
+
+	mt7615_mcu_add_wtbl(dev, vif, sta);
+	mt7615_mcu_add_sta_rec(dev, vif, sta);
+
 	return 0;
 }
 
-static int mt7615_sta_remove(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
-			     struct ieee80211_sta *sta)
+void mt7615_sta_remove(struct mt76_dev *mdev, struct ieee80211_vif *vif,
+		       struct ieee80211_sta *sta)
 {
-	return 0;
+	struct mt7615_dev *dev = container_of(mdev, struct mt7615_dev, mt76);
+
+	mt7615_mcu_del_sta_rec(dev, vif, sta);
+	mt7615_mcu_del_wtbl(dev, vif, sta);
 }
 
 static void mt7615_tx(struct ieee80211_hw *hw,
@@ -290,6 +307,5 @@ const struct ieee80211_ops mt7615_ops = {
 	.config = mt7615_config,
 	.configure_filter = mt7615_configure_filter,
 	.bss_info_changed = mt7615_bss_info_changed,
-	.sta_add = mt7615_sta_add,
-	.sta_remove = mt7615_sta_remove,
+	.sta_state = mt76_sta_state,
 };

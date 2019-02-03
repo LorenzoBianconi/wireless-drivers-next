@@ -49,6 +49,8 @@ struct mt7615_dev *mt7615_alloc_device(struct device *pdev)
 		.rx_skb = mt7615_queue_rx_skb,
 		.rx_poll_complete = mt7615_rx_poll_complete,
 		.sta_ps = mt7615_sta_ps,
+		.sta_add = mt7615_sta_add,
+		.sta_remove = mt7615_sta_remove,
 	};
 	struct mt7615_dev *dev;
 	struct mt76_dev *mdev;
