@@ -48,22 +48,6 @@ struct mt7615_fw_trailer {
 #define FW_START_OVERRIDE		BIT(0)
 #define FW_START_WORKING_PDA_CR4	BIT(2)
 
-static struct sk_buff *mt7615_mcu_msg_alloc(const void *data, int len)
-{
-	struct sk_buff *skb;
-
-	skb = alloc_skb(len + sizeof(struct mt7615_mcu_txd),
-			GFP_KERNEL);
-	if (!skb)
-		return NULL;
-
-	skb_reserve(skb, sizeof(struct mt7615_mcu_txd));
-	if (data && len)
-		memcpy(skb_put(skb, len), data, len);
-
-	return skb;
-}
-
 /* to support unsolicited event, need to do it here */
 void mt7615_mcu_rx_event(struct mt7615_dev *dev, struct sk_buff *skb)
 {
