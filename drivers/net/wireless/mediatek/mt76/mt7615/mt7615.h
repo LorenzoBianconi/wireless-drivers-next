@@ -113,7 +113,6 @@ void mt7615_dma_start(struct mt7615_dev *dev);
 int mt7615_mcu_init(struct mt7615_dev *dev);
 int mt7615_tx_queue_mcu(struct mt7615_dev *dev, enum mt7615_txq_id qid,
 			struct sk_buff *skb);
-void mt7615_mcu_rx_event(struct mt7615_dev *dev, struct sk_buff *skb);
 int mt7615_mcu_set_dev_info(struct mt7615_dev *dev, struct ieee80211_vif *vif,
 			    int en);
 int mt7615_mcu_set_bss_info(struct mt7615_dev *dev, struct ieee80211_vif *vif,

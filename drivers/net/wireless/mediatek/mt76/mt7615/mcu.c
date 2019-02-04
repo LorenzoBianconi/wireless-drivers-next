@@ -48,13 +48,6 @@ struct mt7615_fw_trailer {
 #define FW_START_OVERRIDE		BIT(0)
 #define FW_START_WORKING_PDA_CR4	BIT(2)
 
-/* to support unsolicited event, need to do it here */
-void mt7615_mcu_rx_event(struct mt7615_dev *dev, struct sk_buff *skb)
-{
-	skb_queue_tail(&dev->mt76.mmio.mcu.res_q, skb);
-	wake_up(&dev->mt76.mmio.mcu.wait);
-}
-
 static int __mt7615_mcu_msg_send(struct mt7615_dev *dev, struct sk_buff *skb,
 				 int cmd, int query, int dest, int *wait_seq)
 {
