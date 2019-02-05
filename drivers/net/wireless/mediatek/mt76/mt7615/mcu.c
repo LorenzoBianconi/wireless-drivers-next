@@ -512,12 +512,9 @@ int mt7615_mcu_init(struct mt7615_dev *dev)
 
 	ret = mt7615_driver_own(dev);
 	if (ret)
-		goto out;
+		return ret;
 
-	ret = mt7615_load_firmware(dev);
-
-out:
-	return ret;
+	return mt7615_load_firmware(dev);
 }
 
 void mt7615_mcu_exit(struct mt7615_dev *dev)
