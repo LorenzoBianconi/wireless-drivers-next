@@ -465,10 +465,8 @@ static int mt7615_load_ram(struct mt7615_dev *dev)
 	}
 
 	ret = mt7615_mcu_start_firmware(dev, 0, FW_START_WORKING_PDA_CR4);
-	if (ret) {
+	if (ret)
 		dev_err(dev->mt76.dev, "Failed to start CR4 firmware\n");
-		goto out;
-	}
 
 out:
 	release_firmware(fw);
