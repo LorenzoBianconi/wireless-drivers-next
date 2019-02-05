@@ -519,13 +519,9 @@ int mt7615_mcu_init(struct mt7615_dev *dev)
 
 void mt7615_mcu_exit(struct mt7615_dev *dev)
 {
-	struct sk_buff *skb;
-
 	mt7615_mcu_restart(dev);
 	mt7615_fw_own(dev);
-
-	while ((skb = skb_dequeue(&dev->mt76.mmio.mcu.res_q)) != NULL)
-		dev_kfree_skb(skb);
+	skb_queue_purge(&dev->mt76.mmio.mcu.res_q);
 }
 
 int mt7615_mcu_set_eeprom(struct mt7615_dev *dev)
