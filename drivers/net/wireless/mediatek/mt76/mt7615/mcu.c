@@ -137,16 +137,20 @@ static int mt7615_mcu_msg_send(struct mt7615_dev *dev, struct sk_buff *skb,
 		}
 
 		rxd = (struct mt7615_mcu_rxd *)skb->data;
-		skb_pull(skb, test_bit(MT76_STATE_MCU_RUNNING, &dev->mt76.state) ?
-			 sizeof(*rxd) : sizeof(*rxd) - 4);
-
 		if (seq != rxd->seq)
 			continue;
 
-		if (skb_ret)
+		if (skb_ret) {
+			int hdr_len = sizeof(*rxd);
+
+			if (!test_bit(MT76_STATE_MCU_RUNNING,
+				      &dev->mt76.state))
+				hdr_len -= 4;
+			skb_pull(skb, hdr_len);
 			*skb_ret = skb;
-		else
+		} else {
 			dev_kfree_skb(skb);
+		}
 
 		break;
 	}
