@@ -483,30 +483,27 @@ static int mt7615_load_firmware(struct mt7615_dev *dev)
 
 	if (val != FW_STATE_FW_DOWNLOAD) {
 		dev_err(dev->mt76.dev, "Firmware is not ready for download\n");
-		ret = -EIO;
-		goto out;
+		return -EIO;
 	}
 
 	ret = mt7615_load_patch(dev);
 	if (ret)
-		goto out;
+		return ret;
 
 	ret = mt7615_load_ram(dev);
 	if (ret)
-		goto out;
+		return ret;
 
 	if (!mt76_poll_msec(dev, MT_TOP_MISC2, MT_TOP_MISC2_FW_STATE,
 			    FIELD_PREP(MT_TOP_MISC2_FW_STATE,
 				       FW_STATE_CR4_RDY), 500)) {
 		dev_err(dev->mt76.dev, "Timeout for initializing firmware\n");
-		ret = -EIO;
-		goto out;
+		return -EIO;
 	}
 
 	dev_dbg(dev->mt76.dev, "Firmware init done\n");
 
-out:
-	return ret;
+	return 0;
 }
 
 int mt7615_mcu_init(struct mt7615_dev *dev)
