@@ -280,13 +280,6 @@ static int mt7615_driver_own(struct mt7615_dev *dev)
 	return 0;
 }
 
-static int mt7615_fw_own(struct mt7615_dev *dev)
-{
-	mt76_wr(dev, MT_CFG_LPCR_HOST, MT_CFG_LPCR_HOST_FW_OWN);
-
-	return 0;
-}
-
 static int mt7615_load_patch(struct mt7615_dev *dev)
 {
 	const struct firmware *fw;
@@ -520,7 +513,7 @@ int mt7615_mcu_init(struct mt7615_dev *dev)
 void mt7615_mcu_exit(struct mt7615_dev *dev)
 {
 	mt7615_mcu_restart(dev);
-	mt7615_fw_own(dev);
+	mt76_wr(dev, MT_CFG_LPCR_HOST, MT_CFG_LPCR_HOST_FW_OWN);
 	skb_queue_purge(&dev->mt76.mmio.mcu.res_q);
 }
 
