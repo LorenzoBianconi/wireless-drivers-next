@@ -9,28 +9,6 @@
 #include "../dma.h"
 #include "mac.h"
 
-int mt7615_tx_queue_mcu(struct mt7615_dev *dev, enum mt7615_txq_id qid,
-			struct sk_buff *skb)
-{
-	struct mt76_queue *q = &dev->mt76.q_tx[qid];
-	struct mt76_queue_buf buf;
-	dma_addr_t addr;
-
-	addr = dma_map_single(dev->mt76.dev, skb->data, skb->len,
-			      DMA_TO_DEVICE);
-	if (unlikely(dma_mapping_error(dev->mt76.dev, addr)))
-		return -ENOMEM;
-
-	buf.addr = addr;
-	buf.len = skb->len;
-	spin_lock_bh(&q->lock);
-	mt76_queue_add_buf(dev, q, &buf, 1, 0, skb, NULL);
-	mt76_queue_kick(dev, q);
-	spin_unlock_bh(&q->lock);
-
-	return 0;
-}
-
 static int
 mt7615_init_tx_queue(struct mt7615_dev *dev, struct mt76_queue *q,
 		     int n_desc)

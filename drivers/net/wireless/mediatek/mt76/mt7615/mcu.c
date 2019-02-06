@@ -53,6 +53,7 @@ static int __mt7615_mcu_msg_send(struct mt7615_dev *dev, struct sk_buff *skb,
 {
 	struct mt7615_mcu_txd *mcu_txd;
 	u8 seq, q_idx, pkt_fmt;
+	enum mt76_txq_id qid;
 	u32 val;
 	__le32 *txd;
 
@@ -108,9 +109,12 @@ static int __mt7615_mcu_msg_send(struct mt7615_dev *dev, struct sk_buff *skb,
 	if (wait_seq)
 		*wait_seq = seq;
 
-	return mt7615_tx_queue_mcu(dev, test_bit(MT76_STATE_MCU_RUNNING,
-				   &dev->mt76.state) ? MT7615_TXQ_MCU :
-				   MT7615_TXQ_FWDL, skb);
+	if (test_bit(MT76_STATE_MCU_RUNNING, &dev->mt76.state))
+		qid = MT7615_TXQ_MCU;
+	else
+		qid = MT7615_TXQ_FWDL;
+
+	return mt76_tx_queue_skb_raw(dev, qid, skb, 0);
 }
 
 static int mt7615_mcu_msg_send(struct mt7615_dev *dev, struct sk_buff *skb,
