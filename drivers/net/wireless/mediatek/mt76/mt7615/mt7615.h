@@ -34,6 +34,13 @@
 struct mt7615_vif;
 struct mt7615_sta;
 
+enum mt7615_txq_id {
+	MT7615_TXQ_MAIN,
+	MT7615_TXQ_EXT,
+	MT7615_TXQ_MCU,
+	MT7615_TXQ_FWDL,
+};
+
 struct mt7615_sta {
 	struct mt76_wcid wcid; /* must be first */
 
