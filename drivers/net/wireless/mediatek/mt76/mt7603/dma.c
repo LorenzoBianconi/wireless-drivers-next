@@ -19,25 +19,6 @@
 #include "mac.h"
 #include "../dma.h"
 
-static int
-mt7603_init_tx_queue(struct mt7603_dev *dev, struct mt76_queue *q,
-		     int idx, int n_desc)
-{
-	int ret;
-
-	q->hw_idx = idx;
-	q->regs = dev->mt76.mmio.regs + MT_TX_RING_BASE + idx * MT_RING_SIZE;
-	q->ndesc = n_desc;
-
-	ret = mt76_queue_alloc(dev, q);
-	if (ret)
-		return ret;
-
-	mt7603_irq_enable(dev, MT_INT_TX_DONE(idx));
-
-	return 0;
-}
-
 static void
 mt7603_rx_loopback_skb(struct mt7603_dev *dev, struct sk_buff *skb)
 {
@@ -115,25 +96,6 @@ void mt7603_queue_rx_skb(struct mt76_dev *mdev, enum mt76_rxq_id q,
 		dev_kfree_skb(skb);
 		break;
 	}
-}
-
-static int
-mt7603_init_rx_queue(struct mt7603_dev *dev, struct mt76_queue *q,
-		     int idx, int n_desc, int bufsize)
-{
-	int ret;
-
-	q->regs = dev->mt76.mmio.regs + MT_RX_RING_BASE + idx * MT_RING_SIZE;
-	q->ndesc = n_desc;
-	q->buf_size = bufsize;
-
-	ret = mt76_queue_alloc(dev, q);
-	if (ret)
-		return ret;
-
-	mt7603_irq_enable(dev, MT_INT_RX_DONE(idx));
-
-	return 0;
 }
 
 static void
