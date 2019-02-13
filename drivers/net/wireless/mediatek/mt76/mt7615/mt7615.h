@@ -141,16 +141,14 @@ int mt7615_mcu_set_bcn(struct mt7615_dev *dev, struct ieee80211_vif *vif,
 		       int en);
 int mt7615_mcu_set_channel(struct mt7615_dev *dev);
 
-void mt7615_set_irq_mask(struct mt7615_dev *dev, u32 clear, u32 set);
-
 static inline void mt7615_irq_enable(struct mt7615_dev *dev, u32 mask)
 {
-	mt7615_set_irq_mask(dev, 0, mask);
+	mt76_set_irq_mask(&dev->mt76, MT_INT_MASK_CSR, 0, mask);
 }
 
 static inline void mt7615_irq_disable(struct mt7615_dev *dev, u32 mask)
 {
-	mt7615_set_irq_mask(dev, mask, 0);
+	mt76_set_irq_mask(&dev->mt76, MT_INT_MASK_CSR, mask, 0);
 }
 
 int mt7615_mac_write_txwi(struct mt7615_dev *dev, __le32 *txwi,
