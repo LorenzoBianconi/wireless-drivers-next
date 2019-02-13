@@ -151,6 +151,38 @@ static inline void mt7615_irq_disable(struct mt7615_dev *dev, u32 mask)
 	mt76_set_irq_mask(&dev->mt76, MT_INT_MASK_CSR, mask, 0);
 }
 
+static inline int
+mt7615_init_tx_queue(struct mt7615_dev *dev, struct mt76_queue *q,
+		     int n_desc)
+{
+	int err, idx = q - dev->mt76.q_tx;
+
+	err = mt76_queue_alloc(dev, q, idx, n_desc, 0,
+			       MT_TX_RING_BASE);
+	if (err < 0)
+		return err;
+
+	mt7615_irq_enable(dev, MT_INT_TX_DONE(idx));
+
+	return 0;
+}
+
+static inline int
+mt7615_init_rx_queue(struct mt7615_dev *dev, struct mt76_queue *q,
+		     int idx, int n_desc, int bufsize)
+{
+	int err;
+
+	err = mt76_queue_alloc(dev, q, idx, n_desc, bufsize,
+			       MT_RX_RING_BASE);
+	if (err < 0)
+		return err;
+
+	mt7615_irq_enable(dev, MT_INT_RX_DONE(idx));
+
+	return 0;
+}
+
 int mt7615_mac_write_txwi(struct mt7615_dev *dev, __le32 *txwi,
 			  struct sk_buff *skb, struct mt76_wcid *wcid,
 			  struct ieee80211_sta *sta, int pid,

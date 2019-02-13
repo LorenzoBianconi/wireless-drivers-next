@@ -9,26 +9,6 @@
 #include "../dma.h"
 #include "mac.h"
 
-static int
-mt7615_init_tx_queue(struct mt7615_dev *dev, struct mt76_queue *q,
-		     int n_desc)
-{
-	int idx = q - dev->mt76.q_tx;
-	int ret;
-
-	q->hw_idx = idx;
-	q->regs = dev->mt76.mmio.regs + MT_TX_RING_BASE + idx * MT_RING_SIZE;
-	q->ndesc = n_desc;
-
-	ret = mt76_queue_alloc(dev, q);
-	if (ret)
-		return ret;
-
-	mt7615_irq_enable(dev, MT_INT_TX_DONE(idx));
-
-	return 0;
-}
-
 void mt7615_queue_rx_skb(struct mt76_dev *mdev, enum mt76_rxq_id q,
 			 struct sk_buff *skb)
 {
@@ -61,24 +41,6 @@ void mt7615_queue_rx_skb(struct mt76_dev *mdev, enum mt76_rxq_id q,
 		dev_kfree_skb(skb);
 		break;
 	}
-}
-
-static int mt7615_init_rx_queue(struct mt7615_dev *dev, struct mt76_queue *q,
-				int idx, int n_desc, int bufsize)
-{
-	int ret;
-
-	q->regs = dev->mt76.mmio.regs + MT_RX_RING_BASE + idx * MT_RING_SIZE;
-	q->ndesc = n_desc;
-	q->buf_size = bufsize;
-
-	ret = mt76_queue_alloc(dev, q);
-	if (ret)
-		return ret;
-
-	mt7615_irq_enable(dev, MT_INT_RX_DONE(idx));
-
-	return 0;
 }
 
 static void mt7615_tx_tasklet(unsigned long data)
