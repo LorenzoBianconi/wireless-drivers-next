@@ -914,6 +914,76 @@ static int __mt7615_mcu_set_wtbl(struct mt7615_dev *dev, int wlan_idx,
 				   MCU_Q_SET, MCU_S2D_H2N, NULL);
 }
 
+static enum mt7615_cipher_type
+mt7615_get_key_info(struct ieee80211_key_conf *key, u8 *key_data)
+{
+	if (!key || key->keylen > 32)
+		return MT_CIPHER_NONE;
+
+	memcpy(key_data, key->key, key->keylen);
+
+	switch (key->cipher) {
+	case WLAN_CIPHER_SUITE_WEP40:
+		return MT_CIPHER_WEP40;
+	case WLAN_CIPHER_SUITE_WEP104:
+		return MT_CIPHER_WEP104;
+	case WLAN_CIPHER_SUITE_TKIP:
+		/* Rx/Tx MIC keys are swapped */
+		memcpy(key_data + 16, key->key + 24, 8);
+		memcpy(key_data + 24, key->key + 16, 8);
+		return MT_CIPHER_TKIP;
+	case WLAN_CIPHER_SUITE_CCMP:
+		return MT_CIPHER_AES_CCMP;
+	case WLAN_CIPHER_SUITE_CCMP_256:
+		return MT_CIPHER_CCMP_256;
+	case WLAN_CIPHER_SUITE_GCMP:
+		return MT_CIPHER_GCMP;
+	case WLAN_CIPHER_SUITE_GCMP_256:
+		return MT_CIPHER_GCMP_256;
+	case WLAN_CIPHER_SUITE_SMS4:
+		return MT_CIPHER_WAPI;
+	default:
+		return MT_CIPHER_NONE;
+	}
+}
+
+int mt7615_mcu_set_wtbl_key(struct mt7615_dev *dev, int wcid,
+			    struct ieee80211_key_conf *key,
+			    enum set_key_cmd cmd)
+{
+	struct wtbl_sec_key *wtbl_sec_key;
+	int buf_len = sizeof(*wtbl_sec_key);
+	int ret = -EOPNOTSUPP;
+	u8 *buf, cipher;
+
+	buf = kzalloc(buf_len, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+
+	wtbl_sec_key = (struct wtbl_sec_key *)buf;
+	wtbl_sec_key->tag = cpu_to_le16(WTBL_SEC_KEY);
+	wtbl_sec_key->len = cpu_to_le16(buf_len);
+	wtbl_sec_key->add = cmd;
+
+	if (cmd == SET_KEY) {
+		cipher = mt7615_get_key_info(key, wtbl_sec_key->key_material);
+		if (cipher == MT_CIPHER_NONE && key)
+			goto out;
+
+		wtbl_sec_key->cipher_id = cipher;
+		wtbl_sec_key->key_id = key->keyidx;
+		wtbl_sec_key->key_len = key->keylen;
+	} else {
+		wtbl_sec_key->key_len = sizeof(wtbl_sec_key->key_material);
+	}
+
+	ret = __mt7615_mcu_set_wtbl(dev, wcid, WTBL_SET, buf, buf_len);
+
+out:
+	kfree(wtbl_sec_key);
+	return ret;
+}
+
 int mt7615_mcu_add_wtbl_bmc(struct mt7615_dev *dev, struct ieee80211_vif *vif)
 {
 	struct mt7615_vif *mvif = (struct mt7615_vif *)vif->drv_priv;
