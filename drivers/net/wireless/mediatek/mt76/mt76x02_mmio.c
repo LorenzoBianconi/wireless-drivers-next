@@ -151,44 +151,6 @@ static void mt76x02_pre_tbtt_tasklet(unsigned long arg)
 	spin_unlock_bh(&q->lock);
 }
 
-static int
-mt76x02_init_tx_queue(struct mt76x02_dev *dev, struct mt76_queue *q,
-		      int idx, int n_desc)
-{
-	int ret;
-
-	q->regs = dev->mt76.mmio.regs + MT_TX_RING_BASE + idx * MT_RING_SIZE;
-	q->ndesc = n_desc;
-	q->hw_idx = idx;
-
-	ret = mt76_queue_alloc(dev, q);
-	if (ret)
-		return ret;
-
-	mt76x02_irq_enable(dev, MT_INT_TX_DONE(idx));
-
-	return 0;
-}
-
-static int
-mt76x02_init_rx_queue(struct mt76x02_dev *dev, struct mt76_queue *q,
-		      int idx, int n_desc, int bufsize)
-{
-	int ret;
-
-	q->regs = dev->mt76.mmio.regs + MT_RX_RING_BASE + idx * MT_RING_SIZE;
-	q->ndesc = n_desc;
-	q->buf_size = bufsize;
-
-	ret = mt76_queue_alloc(dev, q);
-	if (ret)
-		return ret;
-
-	mt76x02_irq_enable(dev, MT_INT_RX_DONE(idx));
-
-	return 0;
-}
-
 static void mt76x02_process_tx_status_fifo(struct mt76x02_dev *dev)
 {
 	struct mt76x02_tx_status stat;
