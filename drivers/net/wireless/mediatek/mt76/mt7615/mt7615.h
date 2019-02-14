@@ -75,9 +75,6 @@ struct mt7615_dev {
 	u32 omac_mask;
 
 	struct tasklet_struct tx_tasklet;
-
-	 /* token id lock */
-	spinlock_t token_lock;
 	struct mt7615_token_queue tkq;
 };
 

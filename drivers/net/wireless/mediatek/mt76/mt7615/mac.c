@@ -386,13 +386,15 @@ static int mt7615_token_enqueue(struct mt7615_dev *dev, struct sk_buff *skb)
 	return token;
 }
 
-static struct sk_buff *mt7615_token_dequeue(struct mt7615_dev *dev, u16 token)
+static void mt7615_token_dequeue(struct mt7615_dev *dev, u16 token)
 {
 	struct mt7615_token_queue *q = &dev->tkq;
+	struct mt76_dev *mdev = &dev->mt76;
+	struct sk_buff_head list;
 	struct sk_buff *skb;
 
 	if (!q->queued)
-		return NULL;
+		return;
 
 	skb = q->skb[token];
 
@@ -402,7 +404,9 @@ static struct sk_buff *mt7615_token_dequeue(struct mt7615_dev *dev, u16 token)
 	q->tail = (q->tail + 1) % q->ntoken;
 	q->queued--;
 
-	return skb;
+	mt76_tx_status_lock(mdev, &list);
+	__mt76_tx_status_skb_done(mdev, skb, MT_TX_CB_DMA_TX_FREE, &list);
+	mt76_tx_status_unlock(mdev, &list);
 }
 
 int mt7615_tx_prepare_txp(struct mt76_dev *mdev, void *txwi_ptr,
@@ -477,21 +481,6 @@ unmap:
 				 DMA_TO_DEVICE);
 
 	return res;
-}
-
-static void mt7615_skb_done(struct mt7615_dev *dev, struct sk_buff *skb,
-			    u8 flags)
-{
-	struct mt76_tx_cb *cb = mt76_tx_skb_cb(skb);
-	u8 done = MT_TX_CB_DMA_DONE | MT_TX_CB_TX_FREE;
-
-	flags |= cb->flags;
-	cb->flags = flags;
-
-	if ((flags & done) != done)
-		return;
-
-	ieee80211_tx_status(mt76_hw(dev), skb);
 }
 
 static bool mt7615_fill_txs(struct mt7615_dev *dev, struct mt7615_sta *sta,
@@ -673,23 +662,22 @@ out:
 void mt7615_tx_complete_skb(struct mt76_dev *mdev, struct mt76_queue *q,
 			    struct mt76_queue_entry *e, bool flush)
 {
-	struct mt7615_dev *dev = container_of(mdev, struct mt7615_dev, mt76);
 	struct sk_buff *skb = e->skb;
-	bool free = true;
+	struct sk_buff_head list;
 
 	if (!e->txwi) {
 		dev_kfree_skb_any(skb);
 		return;
 	}
 
-	if (!flush) {
-		/* TODO: need a lock */
-		mt7615_skb_done(dev, skb, MT_TX_CB_DMA_DONE);
-		free = false;
+	if (!skb->prev) {
+		ieee80211_free_txskb(mdev->hw, skb);
+		return;
 	}
 
-	if (free)
-		ieee80211_free_txskb(mdev->hw, skb);
+	mt76_tx_status_lock(mdev, &list);
+	__mt76_tx_status_skb_done(mdev, skb, MT_TX_CB_DMA_TXD_DONE, &list);
+	mt76_tx_status_unlock(mdev, &list);
 }
 
 void mt7615_mac_tx_free(struct mt7615_dev *dev, struct sk_buff *skb)
@@ -700,17 +688,8 @@ void mt7615_mac_tx_free(struct mt7615_dev *dev, struct sk_buff *skb)
 	free = (struct mt7615_tx_free *)skb->data;
 	cnt = FIELD_GET(MT_TX_FREE_MSDU_ID_CNT, le16_to_cpu(free->ctrl));
 
-	for (i = 0; i < cnt; i++) {
-		struct sk_buff *skb;
-
-		skb = mt7615_token_dequeue(dev, le16_to_cpu(free->token[i]));
-		if (!skb)
-			continue;
-
-		spin_lock_bh(&dev->token_lock);
-		mt7615_skb_done(dev, skb, MT_TX_CB_TX_FREE);
-		spin_unlock_bh(&dev->token_lock);
-	}
+	for (i = 0; i < cnt; i++)
+		mt7615_token_dequeue(dev, le16_to_cpu(free->token[i]));
 
 	dev_kfree_skb(skb);
 }

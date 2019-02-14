@@ -14,8 +14,6 @@ static int mt7615_alloc_token(struct mt7615_dev *dev)
 	struct mt7615_token_queue *q = &dev->tkq;
 	int i, size;
 
-	spin_lock_init(&dev->token_lock);
-
 	q->ntoken = MT7615_TOKEN_SIZE + 1;
 	q->used = q->ntoken;
 	q->tail = 0;
