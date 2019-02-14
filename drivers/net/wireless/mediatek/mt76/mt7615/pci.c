@@ -141,7 +141,6 @@ static void mt7615_pci_remove(struct pci_dev *pdev)
 	struct mt7615_dev *dev = container_of(mdev, struct mt7615_dev, mt76);
 
 	mt7615_unregister_device(dev);
-	ieee80211_free_hw(mt76_hw(dev));
 }
 
 struct pci_driver mt7615_pci_driver = {
