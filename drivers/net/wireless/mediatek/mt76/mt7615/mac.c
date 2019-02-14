@@ -58,6 +58,29 @@ static int mt7615_get_rate(struct mt7615_dev *dev,
 	return 0;
 }
 
+static void mt7615_insert_ccmp_hdr(struct sk_buff *skb, u8 key_id)
+{
+	struct mt76_rx_status *status = (struct mt76_rx_status *)skb->cb;
+	int hdr_len = ieee80211_get_hdrlen_from_skb(skb);
+	u8 *pn = status->iv;
+	u8 *hdr;
+
+	__skb_push(skb, 8);
+	memmove(skb->data, skb->data + 8, hdr_len);
+	hdr = skb->data + hdr_len;
+
+	hdr[0] = pn[5];
+	hdr[1] = pn[4];
+	hdr[2] = 0;
+	hdr[3] = 0x20 | (key_id << 6);
+	hdr[4] = pn[3];
+	hdr[5] = pn[2];
+	hdr[6] = pn[1];
+	hdr[7] = pn[0];
+
+	status->flag &= ~RX_FLAG_IV_STRIPPED;
+}
+
 int mt7615_mac_fill_rx(struct mt7615_dev *dev, struct sk_buff *skb)
 {
 	struct mt76_rx_status *status = (struct mt76_rx_status *)skb->cb;
@@ -67,7 +90,7 @@ int mt7615_mac_fill_rx(struct mt7615_dev *dev, struct sk_buff *skb)
 	u32 rxd0 = le32_to_cpu(rxd[0]);
 	u32 rxd1 = le32_to_cpu(rxd[1]);
 	u32 rxd2 = le32_to_cpu(rxd[2]);
-	bool unicast, remove_pad;
+	bool unicast, remove_pad, insert_ccmp_hdr = false;
 	int i, idx;
 
 	memset(status, 0, sizeof(*status));
@@ -123,6 +146,8 @@ int mt7615_mac_fill_rx(struct mt7615_dev *dev, struct sk_buff *skb)
 			status->iv[3] = data[2];
 			status->iv[4] = data[1];
 			status->iv[5] = data[0];
+
+			insert_ccmp_hdr = FIELD_GET(MT_RXD2_NORMAL_FRAG, rxd2);
 		}
 		rxd += 4;
 		if ((u8 *)rxd - skb->data >= skb->len)
@@ -143,6 +168,12 @@ int mt7615_mac_fill_rx(struct mt7615_dev *dev, struct sk_buff *skb)
 	}
 
 	skb_pull(skb, (u8 *)rxd - skb->data + 2 * remove_pad);
+
+	if (insert_ccmp_hdr) {
+		u8 key_id = FIELD_GET(MT_RXD1_NORMAL_KEY_ID, rxd1);
+
+		mt7615_insert_ccmp_hdr(skb, key_id);
+	}
 
 	hdr = (struct ieee80211_hdr *)skb->data;
 	if (!status->wcid || !ieee80211_is_data_qos(hdr->frame_control))
