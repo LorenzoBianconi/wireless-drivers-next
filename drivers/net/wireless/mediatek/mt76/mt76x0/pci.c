@@ -107,20 +107,11 @@ static const struct ieee80211_ops mt76x0e_ops = {
 	.set_rts_threshold = mt76x02_set_rts_threshold,
 };
 
-static int mt76x0e_register_device(struct mt76x02_dev *dev)
+static int mt76x0e_init_hardware(struct mt76x02_dev *dev)
 {
 	int err;
 
-	mt76x0_chip_onoff(dev, true, false);
-	if (!mt76x02_wait_for_mac(&dev->mt76))
-		return -ETIMEDOUT;
-
-	mt76x02_dma_disable(dev);
 	err = mt76x0e_mcu_init(dev);
-	if (err < 0)
-		return err;
-
-	err = mt76x02_dma_init(dev);
 	if (err < 0)
 		return err;
 
@@ -149,6 +140,26 @@ static int mt76x0e_register_device(struct mt76x02_dev *dev)
 		MT_CH_TIME_CFG_EIFS_AS_BUSY |
 		MT_CH_CCA_RC_EN |
 		FIELD_PREP(MT_CH_TIME_CFG_CH_TIMER_CLR, 1));
+
+	return 0;
+}
+
+static int mt76x0e_register_device(struct mt76x02_dev *dev)
+{
+	int err;
+
+	mt76x0_chip_onoff(dev, true, false);
+	if (!mt76x02_wait_for_mac(&dev->mt76))
+		return -ETIMEDOUT;
+
+	mt76x02_dma_disable(dev);
+	err = mt76x02_dma_init(dev);
+	if (err < 0)
+		return err;
+
+	err = mt76x0e_init_hardware(dev);
+	if (err < 0)
+		return err;
 
 	err = mt76x0_register_device(dev);
 	if (err < 0)
@@ -241,6 +252,47 @@ mt76x0e_remove(struct pci_dev *pdev)
 	ieee80211_free_hw(mdev->hw);
 }
 
+static int __maybe_unused mt76x0e_suspend(struct device *device)
+{
+	struct pci_dev *pdev = to_pci_dev(device);
+	struct mt76_dev *mdev = pci_get_drvdata(pdev);
+	struct mt76x02_dev *dev = container_of(mdev, struct mt76x02_dev, mt76);
+
+	mt76_tx_status_check(mdev, NULL, true);
+	mt76_tx_free(mdev);
+	mt76x0e_cleanup(dev);
+
+	return 0;
+}
+
+static int __maybe_unused mt76x0e_resume(struct device *device)
+{
+	struct pci_dev *pdev = to_pci_dev(device);
+	struct mt76_dev *mdev = pci_get_drvdata(pdev);
+	struct mt76x02_dev *dev = container_of(mdev, struct mt76x02_dev, mt76);
+	int err;
+
+	tasklet_enable(&dev->pre_tbtt_tasklet);
+
+	mt76x0_chip_onoff(dev, true, false);
+	if (!mt76x02_wait_for_mac(&dev->mt76))
+		return -ETIMEDOUT;
+
+	mt76_resume_queues(dev);
+	mt76x02_irq_enable(dev, MT_INT_TX_DONE_ALL);
+	mt76x02_irq_enable(dev, MT_INT_RX_DONE_ALL);
+
+	err = mt76x0e_init_hardware(dev);
+	if (err < 0)
+		return err;
+
+	set_bit(MT76_STATE_INITIALIZED, &dev->mt76.state);
+
+	return 0;
+}
+
+static SIMPLE_DEV_PM_OPS(mt76x0e_pm_ops, mt76x0e_suspend, mt76x0e_resume);
+
 static const struct pci_device_id mt76x0e_device_table[] = {
 	{ PCI_DEVICE(0x14c3, 0x7630) },
 	{ PCI_DEVICE(0x14c3, 0x7650) },
@@ -257,6 +309,9 @@ static struct pci_driver mt76x0e_driver = {
 	.id_table	= mt76x0e_device_table,
 	.probe		= mt76x0e_probe,
 	.remove		= mt76x0e_remove,
+#ifdef CONFIG_PM_SLEEP
+	.driver.pm  = &mt76x0e_pm_ops,
+#endif /* CONFIG_PM_SLEEP */
 };
 
 module_pci_driver(mt76x0e_driver);

@@ -525,20 +525,29 @@ mt76_dma_rx_poll(struct napi_struct *napi, int budget)
 	return done;
 }
 
+static int mt76_dma_resume(struct mt76_dev *dev)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(dev->q_rx); i++) {
+		netif_napi_add(&dev->napi_dev, &dev->napi[i], mt76_dma_rx_poll,
+			       64);
+		mt76_dma_rx_fill(dev, &dev->q_rx[i]);
+		napi_enable(&dev->napi[i]);
+	}
+
+	return 0;
+}
+
 static int
 mt76_dma_init(struct mt76_dev *dev)
 {
 	int i;
 
 	init_dummy_netdev(&dev->napi_dev);
-
-	for (i = 0; i < ARRAY_SIZE(dev->q_rx); i++) {
-		netif_napi_add(&dev->napi_dev, &dev->napi[i], mt76_dma_rx_poll,
-			       64);
-		mt76_dma_rx_fill(dev, &dev->q_rx[i]);
+	for (i = 0; i < ARRAY_SIZE(dev->q_rx); i++)
 		skb_queue_head_init(&dev->rx_skb[i]);
-		napi_enable(&dev->napi[i]);
-	}
+	mt76_dma_resume(dev);
 
 	return 0;
 }
@@ -551,6 +560,7 @@ static const struct mt76_queue_ops mt76_dma_ops = {
 	.tx_cleanup = mt76_dma_tx_cleanup,
 	.rx_reset = mt76_dma_rx_reset,
 	.kick = mt76_dma_kick_queue,
+	.resume = mt76_dma_resume,
 };
 
 void mt76_dma_attach(struct mt76_dev *dev)

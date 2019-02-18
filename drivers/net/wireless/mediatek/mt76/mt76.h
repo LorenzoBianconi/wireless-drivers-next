@@ -169,6 +169,8 @@ struct mt76_queue_ops {
 			   bool flush);
 
 	void (*kick)(struct mt76_dev *dev, struct mt76_queue *q);
+
+	int (*resume)(struct mt76_dev *dev);
 };
 
 enum mt76_wcid_flags {
@@ -569,6 +571,7 @@ static inline u16 mt76_rev(struct mt76_dev *dev)
 #define mt76_queue_rx_reset(dev, ...)	(dev)->mt76.queue_ops->rx_reset(&((dev)->mt76), __VA_ARGS__)
 #define mt76_queue_tx_cleanup(dev, ...)	(dev)->mt76.queue_ops->tx_cleanup(&((dev)->mt76), __VA_ARGS__)
 #define mt76_queue_kick(dev, ...)	(dev)->mt76.queue_ops->kick(&((dev)->mt76), __VA_ARGS__)
+#define mt76_resume_queues(dev)		(dev)->mt76.queue_ops->resume(&((dev)->mt76))
 
 static inline struct mt76_channel_state *
 mt76_channel_state(struct mt76_dev *dev, struct ieee80211_channel *c)
