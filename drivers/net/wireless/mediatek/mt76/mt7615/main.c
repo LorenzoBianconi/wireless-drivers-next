@@ -311,6 +311,59 @@ static int mt7615_set_rts_threshold(struct ieee80211_hw *hw, u32 val)
 	return 0;
 }
 
+static int
+mt7615_ampdu_action(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
+		    struct ieee80211_ampdu_params *params)
+{
+	enum ieee80211_ampdu_mlme_action action = params->action;
+	struct mt7615_dev *dev = hw->priv;
+	struct ieee80211_sta *sta = params->sta;
+	struct ieee80211_txq *txq = sta->txq[params->tid];
+	struct mt7615_sta *msta = (struct mt7615_sta *)sta->drv_priv;
+	u16 tid = params->tid;
+	u16 *ssn = &params->ssn;
+	struct mt76_txq *mtxq;
+
+	if (!txq)
+		return -EINVAL;
+
+	mtxq = (struct mt76_txq *)txq->drv_priv;
+
+	switch (action) {
+	case IEEE80211_AMPDU_RX_START:
+		mt76_rx_aggr_start(&dev->mt76, &msta->wcid, tid, *ssn,
+				   params->buf_size);
+		mt7615_mcu_set_rx_ba(dev, params, 1);
+		break;
+	case IEEE80211_AMPDU_RX_STOP:
+		mt76_rx_aggr_stop(&dev->mt76, &msta->wcid, tid);
+		mt7615_mcu_set_rx_ba(dev, params, 0);
+		break;
+	case IEEE80211_AMPDU_TX_OPERATIONAL:
+		mtxq->aggr = true;
+		mtxq->send_bar = false;
+		mt7615_mcu_set_tx_ba(dev, params, 1);
+		break;
+	case IEEE80211_AMPDU_TX_STOP_FLUSH:
+	case IEEE80211_AMPDU_TX_STOP_FLUSH_CONT:
+		mtxq->aggr = false;
+		ieee80211_send_bar(vif, sta->addr, tid, mtxq->agg_ssn);
+		mt7615_mcu_set_tx_ba(dev, params, 0);
+		break;
+	case IEEE80211_AMPDU_TX_START:
+		mtxq->agg_ssn = IEEE80211_SN_TO_SEQ(*ssn);
+		ieee80211_start_tx_ba_cb_irqsafe(vif, sta->addr, tid);
+		break;
+	case IEEE80211_AMPDU_TX_STOP_CONT:
+		mtxq->aggr = false;
+		mt7615_mcu_set_tx_ba(dev, params, 0);
+		ieee80211_stop_tx_ba_cb_irqsafe(vif, sta->addr, tid);
+		break;
+	}
+
+	return 0;
+}
+
 const struct ieee80211_ops mt7615_ops = {
 	.tx = mt7615_tx,
 	.start = mt7615_start,
@@ -322,6 +375,7 @@ const struct ieee80211_ops mt7615_ops = {
 	.bss_info_changed = mt7615_bss_info_changed,
 	.sta_state = mt76_sta_state,
 	.set_key = mt7615_set_key,
+	.ampdu_action = mt7615_ampdu_action,
 	.set_rts_threshold = mt7615_set_rts_threshold,
 	.wake_tx_queue = mt76_wake_tx_queue,
 };
