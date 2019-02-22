@@ -183,6 +183,9 @@ enum tx_mcu_port_q_idx {
 #define MT_TXD6_FIXED_BW		BIT(2)
 #define MT_TXD6_BW			GENMASK(1, 0)
 
+#define MT_TXD7_TYPE			GENMASK(21, 20)
+#define MT_TXD7_SUB_TYPE		GENMASK(19, 16)
+
 #define MT_TX_RATE_STBC			BIT(11)
 #define MT_TX_RATE_NSS			GENMASK(10, 9)
 #define MT_TX_RATE_MODE			GENMASK(8, 6)
