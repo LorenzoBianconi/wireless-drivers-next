@@ -341,6 +341,9 @@ int mt7615_mac_write_txwi(struct mt7615_dev *dev, __le32 *txwi,
 		if (rate->flags & IEEE80211_TX_RC_SHORT_GI)
 			txwi[6] |= cpu_to_le32(MT_TXD6_SGI);
 
+		if (info->flags & IEEE80211_TX_CTL_LDPC)
+			txwi[6] |= cpu_to_le32(MT_TXD6_LDPC);
+
 		if (!(rate->flags & IEEE80211_TX_RC_MCS))
 			txwi[2] |= cpu_to_le32(MT_TXD2_BA_DISABLE);
 

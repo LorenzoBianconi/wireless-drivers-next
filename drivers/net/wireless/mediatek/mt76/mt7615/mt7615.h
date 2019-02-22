@@ -120,6 +120,7 @@ int mt7615_mcu_set_dev_info(struct mt7615_dev *dev, struct ieee80211_vif *vif,
 			    int en);
 int mt7615_mcu_set_bss_info(struct mt7615_dev *dev, struct ieee80211_vif *vif,
 			    int en);
+int mt7615_mcu_set_wtbl_sgi(struct mt7615_dev *dev, struct ieee80211_sta *sta);
 int mt7615_mcu_set_wtbl_key(struct mt7615_dev *dev, int wcid,
 			    struct ieee80211_key_conf *key,
 			    enum set_key_cmd cmd);
@@ -222,6 +223,8 @@ void mt7615_rx_poll_complete(struct mt76_dev *mdev, enum mt76_rxq_id q);
 void mt7615_sta_ps(struct mt76_dev *mdev, struct ieee80211_sta *sta, bool ps);
 int mt7615_sta_add(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 		   struct ieee80211_sta *sta);
+void mt7615_sta_assoc(struct mt76_dev *mdev, struct ieee80211_vif *vif,
+		      struct ieee80211_sta *sta);
 void mt7615_sta_remove(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 		       struct ieee80211_sta *sta);
 

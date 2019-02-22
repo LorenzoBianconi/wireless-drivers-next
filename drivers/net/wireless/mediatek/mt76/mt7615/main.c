@@ -267,6 +267,16 @@ int mt7615_sta_add(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 	return 0;
 }
 
+void mt7615_sta_assoc(struct mt76_dev *mdev, struct ieee80211_vif *vif,
+		      struct ieee80211_sta *sta)
+{
+	struct mt7615_dev *dev = container_of(mdev, struct mt7615_dev, mt76);
+
+	mt7615_mcu_add_wtbl(dev, vif, sta);
+	mt7615_mcu_set_wtbl_sgi(dev, sta);
+	mt7615_mcu_add_sta_rec(dev, vif, sta);
+}
+
 void mt7615_sta_remove(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 		       struct ieee80211_sta *sta)
 {

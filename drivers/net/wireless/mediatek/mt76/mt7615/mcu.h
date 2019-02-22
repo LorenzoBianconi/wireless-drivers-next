@@ -384,6 +384,16 @@ struct wtbl_spe {
 	u8 rsv[3];
 } __packed;
 
+struct wtbl_raw {
+	__le16 tag;
+	__le16 len;
+	u8 wtbl_idx;
+	u8 dw;
+	u8 rsv[2];
+	__le32 msk;
+	__le32 val;
+} __packed;
+
 #define MT7615_WTBL_UPDATE_MAX_SIZE (sizeof(struct wtbl_generic) + \
 				     sizeof(struct wtbl_rx) + \
 				     sizeof(struct wtbl_ht) + \

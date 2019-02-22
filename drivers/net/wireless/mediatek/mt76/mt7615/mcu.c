@@ -914,6 +914,52 @@ static int __mt7615_mcu_set_wtbl(struct mt7615_dev *dev, int wlan_idx,
 				   MCU_Q_SET, MCU_S2D_H2N, NULL);
 }
 
+static int __mt7615_mcu_set_wtbl_raw(struct mt7615_dev *dev, int wcid,
+				     u8 wtbl_idx, u8 dw, u32 msk, u32 val)
+{
+	struct wtbl_raw *wtbl_raw;
+	int buf_len = sizeof(*wtbl_raw);
+	int ret;
+	u8 *buf;
+
+	buf = kzalloc(buf_len, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+
+	wtbl_raw = (struct wtbl_raw *)buf;
+	wtbl_raw->tag = cpu_to_le16(WTBL_RAW_DATA);
+	wtbl_raw->len = cpu_to_le16(buf_len);
+	wtbl_raw->wtbl_idx = wtbl_idx;
+	wtbl_raw->dw = dw;
+	wtbl_raw->msk = cpu_to_le32(~msk);
+	wtbl_raw->val = cpu_to_le32(val);
+
+	ret = __mt7615_mcu_set_wtbl(dev, wcid, WTBL_SET, buf, buf_len);
+
+	kfree(buf);
+	return ret;
+}
+
+int mt7615_mcu_set_wtbl_sgi(struct mt7615_dev *dev, struct ieee80211_sta *sta)
+{
+	struct mt7615_sta *msta = (struct mt7615_sta *)sta->drv_priv;
+	u32 msk, val = 0;
+
+	msk = MT_WTBL_W5_SHORT_GI_20 | MT_WTBL_W5_SHORT_GI_40 |
+	      MT_WTBL_W5_SHORT_GI_80 | MT_WTBL_W5_SHORT_GI_160;
+
+	if (sta->ht_cap.cap & IEEE80211_HT_CAP_SGI_20)
+		val |= MT_WTBL_W5_SHORT_GI_20;
+	if (sta->ht_cap.cap & IEEE80211_HT_CAP_SGI_40)
+		val |= MT_WTBL_W5_SHORT_GI_40;
+	if (sta->vht_cap.cap & IEEE80211_VHT_CAP_SHORT_GI_80)
+		val |= MT_WTBL_W5_SHORT_GI_80;
+	if (sta->vht_cap.cap & IEEE80211_VHT_CAP_SHORT_GI_160)
+		val |= MT_WTBL_W5_SHORT_GI_160;
+
+	return __mt7615_mcu_set_wtbl_raw(dev, msta->wcid.idx, 1, 5, msk, val);
+}
+
 static enum mt7615_cipher_type
 mt7615_get_key_info(struct ieee80211_key_conf *key, u8 *key_data)
 {
@@ -1065,6 +1111,7 @@ int mt7615_mcu_add_wtbl(struct mt7615_dev *dev, struct ieee80211_vif *vif,
 		wtbl_ht->tag = cpu_to_le16(WTBL_HT);
 		wtbl_ht->len = cpu_to_le16(sizeof(struct wtbl_ht));
 		wtbl_ht->ht = 1;
+		wtbl_ht->ldpc = sta->ht_cap.cap & IEEE80211_HT_CAP_LDPC_CODING;
 		wtbl_ht->af = sta->ht_cap.ampdu_factor;
 		wtbl_ht->mm = sta->ht_cap.ampdu_density;
 	}
@@ -1235,8 +1282,6 @@ int mt7615_mcu_add_sta_rec(struct mt7615_dev *dev, struct ieee80211_vif *vif,
 	struct mt7615_vif *mvif = (struct mt7615_vif *)vif->drv_priv;
 	struct mt7615_sta *msta = (struct mt7615_sta *)sta->drv_priv;
 	struct sta_rec_basic *sta_rec_basic;
-	struct sta_rec_ht *sta_rec_ht;
-	struct sta_rec_vht *sta_rec_vht;
 	int buf_len, ret;
 	u32 conn_type = 0;
 	u8 *buf;
@@ -1259,21 +1304,29 @@ int mt7615_mcu_add_sta_rec(struct mt7615_dev *dev, struct ieee80211_vif *vif,
 	sta_rec_basic->extra_info =
 		cpu_to_le16(EXTRA_INFO_VER | EXTRA_INFO_NEW);
 
-	sta_rec_ht = (struct sta_rec_ht *)(buf + buf_len);
-	buf_len += sizeof(struct sta_rec_ht);
-	sta_rec_ht->tag = cpu_to_le16(STA_REC_HT);
-	sta_rec_ht->len = cpu_to_le16(sizeof(struct sta_rec_ht));
-	sta_rec_ht->ht_cap = cpu_to_le16(sta->ht_cap.cap);
+	if (sta->ht_cap.ht_supported) {
+		struct sta_rec_ht *sta_rec_ht;
 
-	sta_rec_vht = (struct sta_rec_vht *)(buf + buf_len);
-	buf_len += sizeof(struct sta_rec_vht);
-	sta_rec_vht->tag = cpu_to_le16(STA_REC_VHT);
-	sta_rec_vht->len = cpu_to_le16(sizeof(struct sta_rec_vht));
-	sta_rec_vht->vht_cap = cpu_to_le32(sta->vht_cap.cap);
-	sta_rec_vht->vht_rx_mcs_map =
-		cpu_to_le16(sta->vht_cap.vht_mcs.rx_mcs_map);
-	sta_rec_vht->vht_tx_mcs_map =
-		cpu_to_le16(sta->vht_cap.vht_mcs.tx_mcs_map);
+		sta_rec_ht = (struct sta_rec_ht *)(buf + buf_len);
+		buf_len += sizeof(struct sta_rec_ht);
+		sta_rec_ht->tag = cpu_to_le16(STA_REC_HT);
+		sta_rec_ht->len = cpu_to_le16(sizeof(struct sta_rec_ht));
+		sta_rec_ht->ht_cap = cpu_to_le16(sta->ht_cap.cap);
+	}
+
+	if (sta->vht_cap.vht_supported) {
+		struct sta_rec_vht *sta_rec_vht;
+
+		sta_rec_vht = (struct sta_rec_vht *)(buf + buf_len);
+		buf_len += sizeof(struct sta_rec_vht);
+		sta_rec_vht->tag = cpu_to_le16(STA_REC_VHT);
+		sta_rec_vht->len = cpu_to_le16(sizeof(struct sta_rec_vht));
+		sta_rec_vht->vht_cap = cpu_to_le32(sta->vht_cap.cap);
+		sta_rec_vht->vht_rx_mcs_map =
+			cpu_to_le16(sta->vht_cap.vht_mcs.rx_mcs_map);
+		sta_rec_vht->vht_tx_mcs_map =
+			cpu_to_le16(sta->vht_cap.vht_mcs.tx_mcs_map);
+	}
 
 	ret = __mt7615_mcu_set_sta_rec(dev, mvif->idx, msta->wcid.idx,
 				       mvif->omac_idx, buf, buf_len);

@@ -177,6 +177,10 @@ int mt7615_register_device(struct mt7615_dev *dev)
 	wiphy->iface_combinations = if_comb;
 	wiphy->n_iface_combinations = ARRAY_SIZE(if_comb);
 
+	dev->mt76.sband_2g.sband.ht_cap.cap |= IEEE80211_HT_CAP_LDPC_CODING;
+	dev->mt76.sband_5g.sband.ht_cap.cap |= IEEE80211_HT_CAP_LDPC_CODING;
+	dev->mt76.sband_5g.sband.vht_cap.cap |=
+				IEEE80211_VHT_CAP_SHORT_GI_160;
 	dev->mt76.chainmask = 0x404;
 	dev->mt76.antenna_mask = 0xf;
 	dev->mt76.hwq_quirk = 0;
