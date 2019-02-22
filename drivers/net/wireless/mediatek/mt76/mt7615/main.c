@@ -342,4 +342,5 @@ const struct ieee80211_ops mt7615_ops = {
 	.sta_state = mt76_sta_state,
 	.set_key = mt7615_set_key,
 	.set_rts_threshold = mt7615_set_rts_threshold,
+	.wake_tx_queue = mt76_wake_tx_queue,
 };
