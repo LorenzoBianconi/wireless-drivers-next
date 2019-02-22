@@ -177,6 +177,7 @@ int mt7615_register_device(struct mt7615_dev *dev)
 
 	dev->mt76.chainmask = 0x404;
 	dev->mt76.antenna_mask = 0xf;
+	dev->mt76.hwq_quirk = 0;
 
 	wiphy->interface_modes =
 		BIT(NL80211_IFTYPE_STATION) |
