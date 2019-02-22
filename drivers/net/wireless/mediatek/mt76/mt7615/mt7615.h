@@ -142,6 +142,13 @@ int mt7615_mcu_set_bcn(struct mt7615_dev *dev, struct ieee80211_vif *vif,
 		       int en);
 int mt7615_mcu_set_channel(struct mt7615_dev *dev);
 
+int mt7615_mcu_set_tx_ba(struct mt7615_dev *dev,
+			 struct ieee80211_ampdu_params *params,
+			 bool add);
+int mt7615_mcu_set_rx_ba(struct mt7615_dev *dev,
+			 struct ieee80211_ampdu_params *params,
+			 bool add);
+
 static inline void mt7615_irq_enable(struct mt7615_dev *dev, u32 mask)
 {
 	mt76_set_irq_mask(&dev->mt76, MT_INT_MASK_CSR, 0, mask);

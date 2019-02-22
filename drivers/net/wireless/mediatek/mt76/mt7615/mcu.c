@@ -1441,3 +1441,127 @@ int mt7615_mcu_set_channel(struct mt7615_dev *dev)
 	return mt7615_mcu_msg_send(dev, skb, MCU_EXT_CMD_SET_RX_PATH,
 				  MCU_Q_SET, MCU_S2D_H2N, NULL);
 }
+
+int mt7615_mcu_set_tx_ba(struct mt7615_dev *dev,
+			 struct ieee80211_ampdu_params *params,
+			 bool add)
+{
+	struct ieee80211_sta *sta = params->sta;
+	struct mt7615_sta *msta = (struct mt7615_sta *)sta->drv_priv;
+	struct mt7615_vif *mvif = msta->vif;
+	u8 ba_range[8] = {4, 8, 12, 24, 36, 48, 54, 64};
+	u16 tid = params->tid;
+	u16 ba_size = params->buf_size;
+	u16 ssn = params->ssn;
+	struct wtbl_ba *wtbl_ba;
+	struct sta_rec_ba *sta_rec_ba;
+	int ret, buf_len;
+	u8 *buf;
+
+	buf_len = sizeof(*wtbl_ba);
+	buf = kzalloc(buf_len, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+
+	wtbl_ba = (struct wtbl_ba *)buf;
+	wtbl_ba->tag = cpu_to_le16(WTBL_BA);
+	wtbl_ba->len = cpu_to_le16(buf_len);
+	wtbl_ba->tid = tid;
+	wtbl_ba->ba_type = MT_BA_TYPE_ORIGINATOR;
+
+	if (add) {
+		u8 idx;
+
+		for (idx = 7; idx > 0; idx--) {
+			if (ba_size >= ba_range[idx])
+				break;
+		}
+
+		wtbl_ba->sn = cpu_to_le16(ssn);
+		wtbl_ba->ba_en = 1;
+		wtbl_ba->ba_winsize_idx = idx;
+	}
+
+	ret = __mt7615_mcu_set_wtbl(dev, msta->wcid.idx, WTBL_SET, buf, buf_len);
+	kfree(buf);
+
+	if (ret)
+		return ret;
+
+	buf_len = sizeof(*sta_rec_ba);
+	buf = kzalloc(buf_len, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+
+	sta_rec_ba = (struct sta_rec_ba *)buf;
+	sta_rec_ba->tag = cpu_to_le16(STA_REC_BA);
+	sta_rec_ba->len = cpu_to_le16(buf_len);
+	sta_rec_ba->tid = tid;
+	sta_rec_ba->ba_type = MT_BA_TYPE_ORIGINATOR;
+	sta_rec_ba->amsdu = params->amsdu;
+	sta_rec_ba->ba_en = add << tid;
+	sta_rec_ba->ssn = cpu_to_le16(ssn);
+	sta_rec_ba->winsize = cpu_to_le16(ba_size);
+
+	ret = __mt7615_mcu_set_sta_rec(dev, mvif->idx, msta->wcid.idx,
+				       mvif->omac_idx, buf, buf_len);
+	kfree(buf);
+
+	return ret;
+}
+
+int mt7615_mcu_set_rx_ba(struct mt7615_dev *dev,
+			 struct ieee80211_ampdu_params *params,
+			 bool add)
+{
+	struct ieee80211_sta *sta = params->sta;
+	struct mt7615_sta *msta = (struct mt7615_sta *)sta->drv_priv;
+	struct mt7615_vif *mvif = msta->vif;
+	u16 tid = params->tid;
+	struct wtbl_ba *wtbl_ba;
+	struct sta_rec_ba *sta_rec_ba;
+	int ret, buf_len;
+	u8 *buf;
+
+	buf_len = sizeof(*sta_rec_ba);
+	buf = kzalloc(buf_len, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+
+	sta_rec_ba = (struct sta_rec_ba *)buf;
+	sta_rec_ba->tag = cpu_to_le16(STA_REC_BA);
+	sta_rec_ba->len = cpu_to_le16(buf_len);
+	sta_rec_ba->tid = tid;
+	sta_rec_ba->ba_type = MT_BA_TYPE_RECIPIENT;
+	sta_rec_ba->amsdu = params->amsdu;
+	sta_rec_ba->ba_en = add << tid;
+	sta_rec_ba->ssn = cpu_to_le16(params->ssn);
+	sta_rec_ba->winsize = cpu_to_le16(params->buf_size);
+
+	ret = __mt7615_mcu_set_sta_rec(dev, mvif->idx, msta->wcid.idx,
+				       mvif->omac_idx, buf, buf_len);
+	kfree(buf);
+
+	if (ret || !add)
+		return ret;
+
+	buf_len = sizeof(*wtbl_ba);
+	buf = kzalloc(buf_len, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+
+	wtbl_ba = (struct wtbl_ba *)buf;
+	wtbl_ba->tag = cpu_to_le16(WTBL_BA);
+	wtbl_ba->len = cpu_to_le16(buf_len);
+	wtbl_ba->tid = tid;
+	wtbl_ba->ba_type = MT_BA_TYPE_RECIPIENT;
+	memcpy(wtbl_ba->peer_addr, sta->addr, ETH_ALEN);
+	wtbl_ba->rst_ba_tid = tid;
+	wtbl_ba->rst_ba_sel = RST_BA_MAC_TID_MATCH;
+	wtbl_ba->rst_ba_sb = 1;
+
+	ret = __mt7615_mcu_set_wtbl(dev, msta->wcid.idx, WTBL_SET, buf, buf_len);
+	kfree(buf);
+
+	return ret;
+}
