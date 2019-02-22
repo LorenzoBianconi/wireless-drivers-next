@@ -60,6 +60,7 @@ struct mt7615_vif {
 
 struct mt7615_token_queue {
 	struct sk_buff **skb;
+	spinlock_t lock;
 	int *id;
 
 	int ntoken;
