@@ -141,6 +141,11 @@ __mt76_tx_status_skb_done(struct mt76_dev *dev, struct sk_buff *skb, u8 flags,
 	if ((flags & done) != done)
 		return;
 
+	if (!skb->prev) {
+		ieee80211_free_txskb(dev->hw, skb);
+		return;
+	}
+
 	__skb_unlink(skb, &dev->status_list);
 
 	/* Tx status can be unreliable. if it fails, mark the frame as ACKed */

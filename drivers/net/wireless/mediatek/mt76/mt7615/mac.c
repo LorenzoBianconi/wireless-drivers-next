@@ -664,19 +664,18 @@ void mt7615_tx_complete_skb(struct mt76_dev *mdev, struct mt76_queue *q,
 {
 	struct sk_buff *skb = e->skb;
 	struct sk_buff_head list;
+	u8 flags = MT_TX_CB_DMA_TXD_DONE;
 
 	if (!e->txwi) {
 		dev_kfree_skb_any(skb);
 		return;
 	}
 
-	if (!skb->prev) {
-		ieee80211_free_txskb(mdev->hw, skb);
-		return;
-	}
+	if (!skb->prev)
+		flags |= MT_TX_CB_TXS_DONE;
 
 	mt76_tx_status_lock(mdev, &list);
-	__mt76_tx_status_skb_done(mdev, skb, MT_TX_CB_DMA_TXD_DONE, &list);
+	__mt76_tx_status_skb_done(mdev, skb, flags, &list);
 	mt76_tx_status_unlock(mdev, &list);
 }
 
