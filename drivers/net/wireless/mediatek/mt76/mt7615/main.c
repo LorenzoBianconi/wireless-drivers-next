@@ -27,29 +27,6 @@ static void mt7615_stop(struct ieee80211_hw *hw)
 	clear_bit(MT76_STATE_RUNNING, &dev->mt76.state);
 }
 
-static void mt7615_txq_init(struct mt7615_dev *dev, struct ieee80211_txq *txq)
-{
-	struct mt76_txq *mtxq;
-
-	if (!txq)
-		return;
-
-	mtxq = (struct mt76_txq *)txq->drv_priv;
-	if (txq->sta) {
-		struct mt7615_sta *sta;
-
-		sta = (struct mt7615_sta *)txq->sta->drv_priv;
-		mtxq->wcid = &sta->wcid;
-	} else {
-		struct mt7615_vif *mvif;
-
-		mvif = (struct mt7615_vif *)txq->vif->drv_priv;
-		mtxq->wcid = &mvif->sta.wcid;
-	}
-
-	mt76_txq_init(&dev->mt76, txq);
-}
-
 static int get_omac_idx(enum nl80211_iftype type, u32 mask)
 {
 	int i;
@@ -85,6 +62,7 @@ static int mt7615_add_interface(struct ieee80211_hw *hw,
 {
 	struct mt7615_vif *mvif = (struct mt7615_vif *)vif->drv_priv;
 	struct mt7615_dev *dev = hw->priv;
+	struct mt76_txq *mtxq;
 	int idx, ret = 0;
 
 	mutex_lock(&dev->mt76.mutex);
@@ -114,8 +92,11 @@ static int mt7615_add_interface(struct ieee80211_hw *hw,
 	idx = MT7615_WTBL_RESERVED - 1 - mvif->idx;
 	mvif->sta.wcid.idx = idx;
 	mvif->sta.wcid.hw_key_idx = -1;
+
 	rcu_assign_pointer(dev->mt76.wcid[idx], &mvif->sta.wcid);
-	mt7615_txq_init(dev, vif->txq);
+	mtxq = (struct mt76_txq *)vif->txq->drv_priv;
+	mtxq->wcid = &mvif->sta.wcid;
+	mt76_txq_init(&dev->mt76, vif->txq);
 
 out:
 	mutex_unlock(&dev->mt76.mutex);
