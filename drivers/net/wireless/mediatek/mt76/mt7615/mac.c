@@ -193,6 +193,7 @@ int mt7615_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 			  u32 *tx_info)
 {
 	struct mt7615_dev *dev = container_of(mdev, struct mt7615_dev, mt76);
+	struct mt7615_sta *msta = container_of(wcid, struct mt7615_sta, wcid);
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
 	struct ieee80211_key_conf *key = info->control.hw_key;
 	int pid = 0;
@@ -201,7 +202,15 @@ int mt7615_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 		wcid = &dev->mt76.global_wcid;
 
 	pid = mt76_tx_status_skb_add(mdev, wcid, skb);
-	/* TODO: complete tx path */
+
+	if (info->flags & IEEE80211_TX_CTL_RATE_CTRL_PROBE) {
+		spin_lock_bh(&dev->mt76.lock);
+		msta->rate_probe = true;
+		mt7615_mcu_set_rates(dev, msta, &info->control.rates[0],
+				     msta->rates);
+		spin_unlock_bh(&dev->mt76.lock);
+	}
+
 	mt7615_mac_write_txwi(dev, txwi_ptr, skb, wcid, sta, pid, key);
 
 	return 0;
@@ -211,9 +220,9 @@ void mt7615_sta_ps(struct mt76_dev *mdev, struct ieee80211_sta *sta, bool ps)
 {
 }
 
-static u16 mt7615_mac_tx_rate_val(struct mt7615_dev *dev,
-				  const struct ieee80211_tx_rate *rate,
-				  bool stbc, u8 *bw)
+u16 mt7615_mac_tx_rate_val(struct mt7615_dev *dev,
+			   const struct ieee80211_tx_rate *rate,
+			   bool stbc, u8 *bw)
 {
 	u8 phy, nss, rate_idx;
 	u16 rateval;
@@ -255,7 +264,8 @@ static u16 mt7615_mac_tx_rate_val(struct mt7615_dev *dev,
 	}
 
 	rateval = (FIELD_PREP(MT_TX_RATE_IDX, rate_idx) |
-		   FIELD_PREP(MT_TX_RATE_MODE, phy));
+		   FIELD_PREP(MT_TX_RATE_MODE, phy) |
+		   FIELD_PREP(MT_TX_RATE_NSS, nss));
 
 	if (stbc && nss == 1)
 		rateval |= MT_TX_RATE_STBC;
@@ -281,6 +291,12 @@ int mt7615_mac_write_txwi(struct mt7615_dev *dev, __le32 *txwi,
 		struct mt7615_vif *mvif = (struct mt7615_vif *)vif->drv_priv;
 
 		omac_idx = mvif->omac_idx;
+	}
+
+	if (sta) {
+		struct mt7615_sta *msta = (struct mt7615_sta *)sta->drv_priv;
+
+		tx_count = msta->rate_count;
 	}
 
 	fc_type = (fc & IEEE80211_FCTL_FTYPE) >> 2;
@@ -618,6 +634,16 @@ static bool mt7615_mac_add_txs_skb(struct mt7615_dev *dev,
 	skb = mt76_tx_status_skb_get(mdev, &sta->wcid, pid, &list);
 	if (skb) {
 		struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
+
+		if (info->flags & IEEE80211_TX_CTL_RATE_CTRL_PROBE) {
+			spin_lock_bh(&dev->mt76.lock);
+			if (sta->rate_probe) {
+				mt7615_mcu_set_rates(dev, sta, NULL,
+						     sta->rates);
+				sta->rate_probe = false;
+			}
+			spin_unlock_bh(&dev->mt76.lock);
+		}
 
 		if (!mt7615_fill_txs(dev, sta, info, txs_data)) {
 			ieee80211_tx_info_clear_status(info);

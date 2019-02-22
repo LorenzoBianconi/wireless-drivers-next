@@ -47,6 +47,10 @@ struct mt7615_sta {
 	struct mt7615_vif *vif;
 
 	struct ieee80211_tx_rate rates[8];
+	u8 rate_count;
+	u8 n_rates;
+
+	u8 rate_probe;
 };
 
 struct mt7615_vif {
@@ -124,6 +128,9 @@ int mt7615_mcu_set_wtbl_sgi(struct mt7615_dev *dev, struct ieee80211_sta *sta);
 int mt7615_mcu_set_wtbl_key(struct mt7615_dev *dev, int wcid,
 			    struct ieee80211_key_conf *key,
 			    enum set_key_cmd cmd);
+void mt7615_mcu_set_rates(struct mt7615_dev *dev, struct mt7615_sta *sta,
+			   struct ieee80211_tx_rate *probe_rate,
+			   struct ieee80211_tx_rate *rates);
 int mt7615_mcu_add_wtbl_bmc(struct mt7615_dev *dev, struct ieee80211_vif *vif);
 int mt7615_mcu_del_wtbl_bmc(struct mt7615_dev *dev, struct ieee80211_vif *vif);
 int mt7615_mcu_add_wtbl(struct mt7615_dev *dev, struct ieee80211_vif *vif,
@@ -192,6 +199,9 @@ mt7615_init_rx_queue(struct mt7615_dev *dev, struct mt76_queue *q,
 	return 0;
 }
 
+u16 mt7615_mac_tx_rate_val(struct mt7615_dev *dev,
+			   const struct ieee80211_tx_rate *rate,
+			   bool stbc, u8 *bw);
 int mt7615_mac_write_txwi(struct mt7615_dev *dev, __le32 *txwi,
 			  struct sk_buff *skb, struct mt76_wcid *wcid,
 			  struct ieee80211_sta *sta, int pid,

@@ -286,6 +286,30 @@ void mt7615_sta_remove(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 	mt7615_mcu_del_wtbl(dev, vif, sta);
 }
 
+static void mt7615_sta_rate_tbl_update(struct ieee80211_hw *hw,
+				       struct ieee80211_vif *vif,
+				       struct ieee80211_sta *sta)
+{
+	struct mt7615_dev *dev = hw->priv;
+	struct mt7615_sta *msta = (struct mt7615_sta *)sta->drv_priv;
+	struct ieee80211_sta_rates *sta_rates = rcu_dereference(sta->rates);
+	int i;
+
+	spin_lock_bh(&dev->mt76.lock);
+	for (i = 0; i < ARRAY_SIZE(msta->rates); i++) {
+		msta->rates[i].idx = sta_rates->rate[i].idx;
+		msta->rates[i].count = sta_rates->rate[i].count;
+		msta->rates[i].flags = sta_rates->rate[i].flags;
+
+		if (msta->rates[i].idx < 0 || !msta->rates[i].count)
+			break;
+	}
+	msta->n_rates = i;
+	mt7615_mcu_set_rates(dev, msta, NULL, msta->rates);
+	msta->rate_probe = false;
+	spin_unlock_bh(&dev->mt76.lock);
+}
+
 static void mt7615_tx(struct ieee80211_hw *hw,
 		      struct ieee80211_tx_control *control,
 		      struct sk_buff *skb)
@@ -390,4 +414,5 @@ const struct ieee80211_ops mt7615_ops = {
 	.ampdu_action = mt7615_ampdu_action,
 	.set_rts_threshold = mt7615_set_rts_threshold,
 	.wake_tx_queue = mt76_wake_tx_queue,
+	.sta_rate_tbl_update = mt7615_sta_rate_tbl_update,
 };
