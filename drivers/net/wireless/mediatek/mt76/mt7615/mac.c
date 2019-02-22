@@ -197,6 +197,9 @@ int mt7615_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 	struct ieee80211_key_conf *key = info->control.hw_key;
 	int pid = 0;
 
+	if (!wcid)
+		wcid = &dev->mt76.global_wcid;
+
 	pid = mt76_tx_status_skb_add(mdev, wcid, skb);
 	/* TODO: complete tx path */
 	mt7615_mac_write_txwi(dev, txwi_ptr, skb, wcid, sta, pid, key);
@@ -310,8 +313,7 @@ int mt7615_mac_write_txwi(struct mt7615_dev *dev, __le32 *txwi,
 	      FIELD_PREP(MT_TXD1_OWN_MAC, omac_idx);
 	txwi[1] = cpu_to_le32(val);
 
-	val = MT_TXD2_FIX_RATE |
-	      FIELD_PREP(MT_TXD2_FRAME_TYPE, fc_type) |
+	val = FIELD_PREP(MT_TXD2_FRAME_TYPE, fc_type) |
 	      FIELD_PREP(MT_TXD2_SUB_TYPE, fc_stype) |
 	      FIELD_PREP(MT_TXD2_MULTICAST,
 			 is_multicast_ether_addr(hdr->addr1));
@@ -323,12 +325,13 @@ int mt7615_mac_write_txwi(struct mt7615_dev *dev, __le32 *txwi,
 	txwi[4] = 0;
 	txwi[6] = 0;
 
-	/* TODO: support non-fixed rate */
 	if (rate->idx >= 0 && rate->count &&
 	    !(info->flags & IEEE80211_TX_CTL_RATE_CTRL_PROBE)) {
 		bool stbc = info->flags & IEEE80211_TX_CTL_STBC;
 		u8 bw;
 		u16 rateval = mt7615_mac_tx_rate_val(dev, rate, stbc, &bw);
+
+		txwi[2] |= cpu_to_le32(MT_TXD2_FIX_RATE);
 
 		val = MT_TXD6_FIXED_BW |
 		      FIELD_PREP(MT_TXD6_BW, bw) |

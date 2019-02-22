@@ -60,7 +60,7 @@ static void mt7615_mac_init(struct mt7615_dev *dev)
 		       MT_TMAC_CTCR0_INS_DDLMT_REFTIME, 0x3f);
 	mt76_rmw_field(dev, MT_TMAC_CTCR0,
 		       MT_TMAC_CTCR0_INS_DDLMT_DENSITY, 0x3);
-	mt76_rmw(dev, MT_DMA_DCR0,
+	mt76_rmw(dev, MT_TMAC_CTCR0,
 		 MT_TMAC_CTCR0_INS_DDLMT_VHT_SMPDU_EN |
 		 MT_TMAC_CTCR0_INS_DDLMT_EN,
 		 MT_TMAC_CTCR0_INS_DDLMT_VHT_SMPDU_EN |
