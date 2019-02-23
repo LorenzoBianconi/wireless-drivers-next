@@ -292,7 +292,7 @@ mt76_tx(struct mt76_dev *dev, struct ieee80211_sta *sta,
 			mt76_check_agg_ssn(mtxq, skb);
 	}
 
-	q = &dev->q_tx[qid & dev->hwq_quirk];
+	q = &dev->q_tx[qid];
 
 	spin_lock_bh(&q->lock);
 	dev->queue_ops->tx_queue_skb(dev, q, skb, wcid, sta);
@@ -623,7 +623,7 @@ void mt76_txq_init(struct mt76_dev *dev, struct ieee80211_txq *txq)
 	INIT_LIST_HEAD(&mtxq->list);
 	skb_queue_head_init(&mtxq->retry_q);
 
-	mtxq->hwq = &dev->q_tx[mt76_txq_get_qid(txq) & dev->hwq_quirk];
+	mtxq->hwq = &dev->q_tx[mt76_txq_get_qid(txq)];
 }
 EXPORT_SYMBOL_GPL(mt76_txq_init);
 

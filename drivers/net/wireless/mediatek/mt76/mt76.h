@@ -479,7 +479,6 @@ struct mt76_dev {
 	u8 led_pin;
 
 	u8 csa_complete;
-	u8 hwq_quirk;
 
 	u32 rxfilter;
 

@@ -285,8 +285,6 @@ mt76_alloc_device(struct device *pdev, unsigned int size,
 	dev->dev = pdev;
 	dev->drv = drv_ops;
 
-	dev->hwq_quirk = ~0;
-
 	spin_lock_init(&dev->rx_lock);
 	spin_lock_init(&dev->lock);
 	spin_lock_init(&dev->cc_lock);

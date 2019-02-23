@@ -47,7 +47,10 @@ static void mt7615_txq_init(struct mt7615_dev *dev, struct ieee80211_txq *txq)
 		mtxq->wcid = &mvif->sta.wcid;
 	}
 
-	mt76_txq_init(&dev->mt76, txq);
+	INIT_LIST_HEAD(&mtxq->list);
+	skb_queue_head_init(&mtxq->retry_q);
+
+	mtxq->hwq = &dev->mt76.q_tx[MT7615_TXQ_MAIN];
 }
 
 static int get_omac_idx(enum nl80211_iftype type, u32 mask)
@@ -334,6 +337,8 @@ static void mt7615_tx(struct ieee80211_hw *hw,
 		      struct sk_buff *skb)
 {
 	struct mt7615_dev *dev = hw->priv;
+	struct mt76_dev *mdev = &dev->mt76;
+	struct mt76_queue *q = &mdev->q_tx[MT7615_TXQ_MAIN];
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
 	struct ieee80211_vif *vif = info->control.vif;
 	struct mt76_wcid *wcid = &dev->mt76.global_wcid;
@@ -352,7 +357,19 @@ static void mt7615_tx(struct ieee80211_hw *hw,
 		wcid = &mvif->sta.wcid;
 	}
 
-	mt76_tx(&dev->mt76, control->sta, wcid, skb);
+	if (!wcid->tx_rate_set)
+		ieee80211_get_tx_rates(info->control.vif, control->sta, skb,
+				       info->control.rates, 1);
+
+	spin_lock_bh(&q->lock);
+
+	mdev->queue_ops->tx_queue_skb(mdev, q, skb, wcid, control->sta);
+	mdev->queue_ops->kick(mdev, q);
+
+	if (q->queued > q->ndesc - 8)
+		ieee80211_stop_queue(mdev->hw, MT7615_TXQ_MAIN);
+
+	spin_unlock_bh(&q->lock);
 }
 
 static int mt7615_set_rts_threshold(struct ieee80211_hw *hw, u32 val)
