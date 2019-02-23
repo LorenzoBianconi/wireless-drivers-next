@@ -8,12 +8,14 @@ static int
 mt7603_init_tx_queue(struct mt7603_dev *dev, struct mt76_queue *q,
 		     int idx, int n_desc)
 {
-	int err;
+	struct mt76_hw_queue *hwq;
 
-	err = mt76_queue_alloc(dev, q, idx, n_desc, 0,
-			       MT_TX_RING_BASE);
-	if (err < 0)
-		return err;
+	hwq = mt76_queue_alloc(dev, idx, n_desc, 0, MT_TX_RING_BASE);
+	if (IS_ERR(hwq))
+		return PTR_ERR(hwq);
+
+	INIT_LIST_HEAD(&q->swq);
+	q->hwq = hwq;
 
 	mt7603_irq_enable(dev, MT_INT_TX_DONE(idx));
 
@@ -103,13 +105,14 @@ static int
 mt7603_init_rx_queue(struct mt7603_dev *dev, struct mt76_queue *q,
 		     int idx, int n_desc, int bufsize)
 {
-	int err;
+	struct mt76_hw_queue *hwq;
 
-	err = mt76_queue_alloc(dev, q, idx, n_desc, bufsize,
+	hwq = mt76_queue_alloc(dev, idx, n_desc, bufsize,
 			       MT_RX_RING_BASE);
-	if (err < 0)
-		return err;
+	if (IS_ERR(hwq))
+		return PTR_ERR(hwq);
 
+	q->hwq = hwq;
 	mt7603_irq_enable(dev, MT_INT_RX_DONE(idx));
 
 	return 0;

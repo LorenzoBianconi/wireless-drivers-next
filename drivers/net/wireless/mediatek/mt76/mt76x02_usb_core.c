@@ -91,7 +91,8 @@ int mt76x02u_tx_prepare_skb(struct mt76_dev *mdev, void *data,
 	pid = mt76_tx_status_skb_add(mdev, wcid, skb);
 	txwi->pktid = pid;
 
-	if (pid >= MT_PACKET_ID_FIRST || q2ep(q->hw_idx) == MT_EP_OUT_HCCA)
+	if (pid >= MT_PACKET_ID_FIRST ||
+	    q2ep(q->hwq->hw_idx) == MT_EP_OUT_HCCA)
 		qsel = MT_QSEL_MGMT;
 	else
 		qsel = MT_QSEL_EDCA;
