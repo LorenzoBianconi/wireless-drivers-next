@@ -389,7 +389,7 @@ static bool mt76_has_tx_pending(struct mt76_dev *dev)
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(dev->q_tx); i++) {
-		if (dev->q_tx[i].queued)
+		if (dev->q_tx[i].hwq->queued)
 			return true;
 	}
 

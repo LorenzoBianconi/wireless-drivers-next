@@ -139,7 +139,7 @@ static void mt76x02_pre_tbtt_tasklet(unsigned long arg)
 		mt76_skb_set_moredata(data.tail[i], false);
 	}
 
-	spin_lock_bh(&q->lock);
+	spin_lock_bh(&q->hwq->lock);
 	while ((skb = __skb_dequeue(&data.q)) != NULL) {
 		struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
 		struct ieee80211_vif *vif = info->control.vif;
@@ -148,7 +148,7 @@ static void mt76x02_pre_tbtt_tasklet(unsigned long arg)
 		mt76_dma_tx_queue_skb(&dev->mt76, q, skb, &mvif->group_wcid,
 				      NULL);
 	}
-	spin_unlock_bh(&q->lock);
+	spin_unlock_bh(&q->hwq->lock);
 }
 
 static void mt76x02_process_tx_status_fifo(struct mt76x02_dev *dev)
@@ -223,7 +223,7 @@ int mt76x02_dma_init(struct mt76x02_dev *dev)
 		return ret;
 
 	q = &dev->mt76.q_rx[MT_RXQ_MAIN];
-	q->buf_offset = MT_RX_HEADROOM - sizeof(struct mt76x02_rxwi);
+	q->hwq->buf_offset = MT_RX_HEADROOM - sizeof(struct mt76x02_rxwi);
 	ret = mt76x02_init_rx_queue(dev, q, 0, MT76X02_RX_RING_SIZE,
 				    MT_RX_BUF_SIZE);
 	if (ret)
@@ -280,7 +280,7 @@ irqreturn_t mt76x02_irq_handler(int irq, void *dev_instance)
 		if (dev->mt76.csa_complete)
 			mt76_csa_finish(&dev->mt76);
 		else
-			mt76_queue_kick(dev, &dev->mt76.q_tx[MT_TXQ_PSD]);
+			mt76_queue_kick(dev, dev->mt76.q_tx[MT_TXQ_PSD].hwq);
 	}
 
 	if (intr & MT_INT_TX_STAT) {
@@ -348,17 +348,17 @@ EXPORT_SYMBOL_GPL(mt76x02_mac_start);
 static bool mt76x02_tx_hang(struct mt76x02_dev *dev)
 {
 	u32 dma_idx, prev_dma_idx;
-	struct mt76_queue *q;
+	struct mt76_hw_queue *hwq;
 	int i;
 
 	for (i = 0; i < 4; i++) {
-		q = &dev->mt76.q_tx[i];
+		hwq = dev->mt76.q_tx[i].hwq;
 
-		if (!q->queued)
+		if (!hwq->queued)
 			continue;
 
 		prev_dma_idx = dev->mt76.tx_dma_idx[i];
-		dma_idx = ioread32(&q->regs->dma_idx);
+		dma_idx = ioread32(&hwq->regs->dma_idx);
 		dev->mt76.tx_dma_idx[i] = dma_idx;
 
 		if (prev_dma_idx == dma_idx)

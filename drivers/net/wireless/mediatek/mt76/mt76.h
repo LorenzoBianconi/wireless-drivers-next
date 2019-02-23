@@ -99,6 +99,7 @@ struct mt76_queue_entry {
 		struct mt76_txwi_cache *txwi;
 		struct mt76u_buf ubuf;
 	};
+	enum mt76_txq_id qid;
 	bool schedule;
 };
 
@@ -109,30 +110,37 @@ struct mt76_queue_regs {
 	u32 dma_idx;
 } __packed __aligned(4);
 
-struct mt76_queue {
+struct mt76_hw_queue {
 	struct mt76_queue_regs __iomem *regs;
 
-	spinlock_t lock;
 	struct mt76_queue_entry *entry;
 	struct mt76_desc *desc;
+	spinlock_t lock;
 
-	struct list_head swq;
-	int swq_queued;
+	int queued;
+	int ndesc;
 
 	u16 first;
 	u16 head;
 	u16 tail;
-	int ndesc;
-	int queued;
-	int buf_size;
-
-	u8 buf_offset;
-	u8 hw_idx;
 
 	dma_addr_t desc_dma;
-	struct sk_buff *rx_head;
+
+	int buf_size;
+	u8 buf_offset;
+
+	u8 hw_idx;
+
 	struct page_frag_cache rx_page;
 	spinlock_t rx_page_lock;
+	struct sk_buff *rx_head;
+};
+
+struct mt76_queue {
+	struct mt76_hw_queue *hwq;
+
+	struct list_head swq;
+	int swq_queued;
 };
 
 struct mt76_mcu_ops {
@@ -147,7 +155,7 @@ struct mt76_mcu_ops {
 struct mt76_queue_ops {
 	int (*init)(struct mt76_dev *dev);
 
-	int (*alloc)(struct mt76_dev *dev, struct mt76_queue *q,
+	int (*alloc)(struct mt76_dev *dev, struct mt76_hw_queue *hwq,
 		     int idx, int n_desc, int bufsize,
 		     u32 ring_base);
 
@@ -170,7 +178,7 @@ struct mt76_queue_ops {
 	void (*tx_cleanup)(struct mt76_dev *dev, enum mt76_txq_id qid,
 			   bool flush);
 
-	void (*kick)(struct mt76_dev *dev, struct mt76_queue *q);
+	void (*kick)(struct mt76_dev *dev, struct mt76_hw_queue *hwq);
 };
 
 enum mt76_wcid_flags {
