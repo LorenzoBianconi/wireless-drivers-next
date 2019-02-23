@@ -50,7 +50,7 @@ static void mt7615_txq_init(struct mt7615_dev *dev, struct ieee80211_txq *txq)
 	INIT_LIST_HEAD(&mtxq->list);
 	skb_queue_head_init(&mtxq->retry_q);
 
-	mtxq->hwq = &dev->mt76.q_tx[MT7615_TXQ_MAIN];
+	mtxq->q = &dev->mt76.q_tx[MT7615_TXQ_MAIN];
 }
 
 static int get_omac_idx(enum nl80211_iftype type, u32 mask)
