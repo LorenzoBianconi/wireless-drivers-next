@@ -213,7 +213,7 @@ struct mt76_wcid {
 
 struct mt76_txq {
 	struct list_head list;
-	struct mt76_queue *hwq;
+	struct mt76_queue *q;
 	struct mt76_wcid *wcid;
 
 	struct sk_buff_head retry_q;
