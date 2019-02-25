@@ -875,7 +875,7 @@ mt7603_mac_write_txwi(struct mt7603_dev *dev, __le32 *txwi,
 	frame_subtype = (fc & IEEE80211_FCTL_STYPE) >> 4;
 
 	val = FIELD_PREP(MT_TXD0_TX_BYTES, skb->len + MT_TXD_SIZE) |
-	      FIELD_PREP(MT_TXD0_Q_IDX, q->hw_idx);
+	      FIELD_PREP(MT_TXD0_Q_IDX, q->hwq->hw_idx);
 	txwi[0] = cpu_to_le32(val);
 
 	val = MT_TXD1_LONG_FORMAT |
@@ -1420,22 +1420,22 @@ static bool mt7603_tx_dma_busy(struct mt7603_dev *dev)
 
 static bool mt7603_tx_hang(struct mt7603_dev *dev)
 {
-	struct mt76_queue *q;
+	struct mt76_hw_queue *hwq;
 	u32 dma_idx, prev_dma_idx;
 	int i;
 
 	for (i = 0; i < 4; i++) {
-		q = &dev->mt76.q_tx[i];
+		hwq = dev->mt76.q_tx[i].hwq;
 
-		if (!q->queued)
+		if (!hwq->queued)
 			continue;
 
 		prev_dma_idx = dev->tx_dma_idx[i];
-		dma_idx = ioread32(&q->regs->dma_idx);
+		dma_idx = ioread32(&hwq->regs->dma_idx);
 		dev->tx_dma_idx[i] = dma_idx;
 
 		if (dma_idx == prev_dma_idx &&
-		    dma_idx != ioread32(&q->regs->cpu_idx))
+		    dma_idx != ioread32(&hwq->regs->cpu_idx))
 			break;
 	}
 
