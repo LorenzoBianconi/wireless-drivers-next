@@ -362,13 +362,14 @@ mt76_dma_tx_ct_queue_skb(struct mt76_dev *dev, struct mt76_queue *q,
 			 struct sk_buff *skb, struct mt76_wcid *wcid,
 			 struct ieee80211_sta *sta)
 {
+	struct mt76_hw_queue *hwq = q->hwq;
 	struct mt76_queue_entry e;
 	struct mt76_txwi_cache *t;
 	struct mt76_queue_buf buf[2];
 	u32 tx_info = 0;
 	int ret;
 
-	if (q->queued + 1 >= q->ndesc - 1)
+	if (hwq->queued + 1 >= hwq->ndesc - 1)
 		return -ENOSPC;
 
 	t = mt76_get_txwi(dev);
@@ -398,7 +399,7 @@ mt76_dma_tx_ct_queue_skb(struct mt76_dev *dev, struct mt76_queue *q,
 	if (ret < 0)
 		goto free;
 
-	return mt76_dma_add_buf(dev, q, buf, ret, tx_info, skb, t);
+	return mt76_dma_add_buf(dev, hwq, buf, ret, tx_info, skb, t);
 
 free:
 	e.skb = skb;

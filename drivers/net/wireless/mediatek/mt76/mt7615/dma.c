@@ -89,18 +89,17 @@ int mt7615_dma_init(struct mt7615_dev *dev)
 	mt76_clear(dev, 0x7000, BIT(23));
 	mt76_wr(dev, MT_WPDMA_RST_IDX, ~0);
 
-	ret = mt7615_init_tx_queue(dev, &dev->mt76.q_tx[MT7615_TXQ_MAIN],
-				   MT7615_TX_RING_SIZE);
+	ret = mt7615_init_tx_queues(dev, MT7615_TX_RING_SIZE);
 	if (ret)
 		return ret;
 
-	ret = mt7615_init_tx_queue(dev, &dev->mt76.q_tx[MT7615_TXQ_MCU],
-				   MT7615_TX_MCU_RING_SIZE);
+	ret = mt7615_init_mcu_queue(dev, &dev->mt76.q_tx[MT7615_TXQ_MCU],
+				    MT7615_TXQ_MCU, MT7615_TX_MCU_RING_SIZE);
 	if (ret)
 		return ret;
 
-	ret = mt7615_init_tx_queue(dev, &dev->mt76.q_tx[MT7615_TXQ_FWDL],
-				   MT7615_TX_FWDL_RING_SIZE);
+	ret = mt7615_init_mcu_queue(dev, &dev->mt76.q_tx[MT7615_TXQ_FWDL],
+				    MT7615_TXQ_FWDL, MT7615_TX_FWDL_RING_SIZE);
 	if (ret)
 		return ret;
 

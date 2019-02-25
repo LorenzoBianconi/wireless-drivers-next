@@ -168,15 +168,42 @@ static inline void mt7615_irq_disable(struct mt7615_dev *dev, u32 mask)
 }
 
 static inline int
-mt7615_init_tx_queue(struct mt7615_dev *dev, struct mt76_queue *q,
-		     int n_desc)
+mt7615_init_tx_queues(struct mt7615_dev *dev, int n_desc)
 {
-	int err, idx = q - dev->mt76.q_tx;
+	struct mt76_hw_queue *hwq = NULL;
+	struct mt76_queue *q;
+	int err, i;
 
-	err = mt76_queue_alloc(dev, q, idx, n_desc, 0,
+	err = mt76_queue_alloc(dev, hwq, 0, n_desc, 0,
 			       MT_TX_RING_BASE);
 	if (err < 0)
 		return err;
+
+	for (i = 0; i < IEEE80211_NUM_ACS; i++) {
+		q = &dev->mt76.q_tx[i];
+		INIT_LIST_HEAD(&q->swq);
+		q->hwq = hwq;
+	}
+
+	mt7615_irq_enable(dev, MT_INT_TX_DONE(0));
+
+	return 0;
+}
+
+static inline int
+mt7615_init_mcu_queue(struct mt7615_dev *dev, struct mt76_queue *q,
+		      int idx, int n_desc)
+{
+	struct mt76_hw_queue *hwq = NULL;
+	int err;
+
+	err = mt76_queue_alloc(dev, hwq, idx, n_desc, 0,
+			       MT_TX_RING_BASE);
+	if (err < 0)
+		return err;
+
+	INIT_LIST_HEAD(&q->swq);
+	q->hwq = hwq;
 
 	mt7615_irq_enable(dev, MT_INT_TX_DONE(idx));
 
@@ -187,13 +214,15 @@ static inline int
 mt7615_init_rx_queue(struct mt7615_dev *dev, struct mt76_queue *q,
 		     int idx, int n_desc, int bufsize)
 {
+	struct mt76_hw_queue *hwq = NULL;
 	int err;
 
-	err = mt76_queue_alloc(dev, q, idx, n_desc, bufsize,
+	err = mt76_queue_alloc(dev, hwq, idx, n_desc, bufsize,
 			       MT_RX_RING_BASE);
 	if (err < 0)
 		return err;
 
+	q->hwq = hwq;
 	mt7615_irq_enable(dev, MT_INT_RX_DONE(idx));
 
 	return 0;

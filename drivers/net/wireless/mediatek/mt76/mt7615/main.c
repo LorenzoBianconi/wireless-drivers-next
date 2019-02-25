@@ -163,9 +163,9 @@ static int mt7615_set_channel(struct mt7615_dev *dev,
 	clear_bit(MT76_RESET, &dev->mt76.state);
 
 	q = &dev->mt76.q_tx[MT7615_TXQ_MAIN];
-	spin_lock_bh(&q->lock);
+	spin_lock_bh(&q->hwq->lock);
 	mt76_txq_schedule(&dev->mt76, q);
-	spin_unlock_bh(&q->lock);
+	spin_unlock_bh(&q->hwq->lock);
 
 	return 0;
 }
@@ -342,6 +342,7 @@ static void mt7615_tx(struct ieee80211_hw *hw,
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
 	struct ieee80211_vif *vif = info->control.vif;
 	struct mt76_wcid *wcid = &dev->mt76.global_wcid;
+	struct mt76_hw_queue *hwq = q->hwq;
 
 	if (control->sta) {
 		struct mt7615_sta *sta;
@@ -361,15 +362,15 @@ static void mt7615_tx(struct ieee80211_hw *hw,
 		ieee80211_get_tx_rates(info->control.vif, control->sta, skb,
 				       info->control.rates, 1);
 
-	spin_lock_bh(&q->lock);
+	spin_lock_bh(&hwq->lock);
 
 	mdev->queue_ops->tx_queue_skb(mdev, q, skb, wcid, control->sta);
-	mdev->queue_ops->kick(mdev, q);
+	mdev->queue_ops->kick(mdev, hwq);
 
-	if (q->queued > q->ndesc - 8)
+	if (hwq->queued > hwq->ndesc - 8)
 		ieee80211_stop_queue(mdev->hw, MT7615_TXQ_MAIN);
 
-	spin_unlock_bh(&q->lock);
+	spin_unlock_bh(&hwq->lock);
 }
 
 static int mt7615_set_rts_threshold(struct ieee80211_hw *hw, u32 val)
