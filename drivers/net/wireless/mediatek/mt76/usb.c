@@ -325,15 +325,17 @@ mt76u_fill_rx_sg(struct mt76_dev *dev, struct mt76u_buf *buf,
 
 static int
 mt76u_refill_rx(struct mt76_dev *dev, struct mt76_queue *q,
-		struct mt76u_buf *buf, int nsgs, gfp_t gfp)
+		struct mt76u_buf *buf, int nsgs)
 {
-	if (dev->usb.sg_en) {
+	if (dev->usb.sg_en)
 		return mt76u_fill_rx_sg(dev, buf, nsgs, q->buf_size,
 					SKB_WITH_OVERHEAD(q->buf_size));
-	} else {
-		buf->buf = page_frag_alloc(&q->rx_page, q->buf_size, gfp);
-		return buf->buf ? 0 : -ENOMEM;
-	}
+
+	spin_lock_bh(&q->rx_page_lock);
+	buf->buf = page_frag_alloc(&q->rx_page, q->buf_size, GFP_ATOMIC);
+	spin_unlock_bh(&q->rx_page_lock);
+
+	return buf->buf ? 0 : -ENOMEM;
 }
 
 static int
@@ -358,7 +360,7 @@ mt76u_buf_alloc(struct mt76_dev *dev, struct mt76u_buf *buf)
 		sg_init_table(buf->urb->sg, MT_SG_MAX_SIZE);
 	}
 
-	return mt76u_refill_rx(dev, q, buf, MT_SG_MAX_SIZE, GFP_KERNEL);
+	return mt76u_refill_rx(dev, q, buf, MT_SG_MAX_SIZE);
 }
 
 static void mt76u_buf_free(struct mt76u_buf *buf)
@@ -529,8 +531,7 @@ static void mt76u_rx_tasklet(unsigned long data)
 
 		count = mt76u_process_rx_entry(dev, buf);
 		if (count > 0) {
-			err = mt76u_refill_rx(dev, q, buf, count,
-					      GFP_ATOMIC);
+			err = mt76u_refill_rx(dev, q, buf, count);
 			if (err < 0)
 				break;
 		}
