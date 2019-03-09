@@ -83,6 +83,13 @@ struct mt76_queue_buf {
 	int len;
 };
 
+struct mt76_tx_info {
+	struct mt76_queue_buf buf[32];
+	int nbuf;
+
+	u32 info;
+};
+
 struct mt76u_buf {
 	struct mt76_dev *dev;
 	struct urb *urb;
@@ -295,7 +302,7 @@ struct mt76_driver_ops {
 	int (*tx_prepare_skb)(struct mt76_dev *dev, void *txwi_ptr,
 			      struct sk_buff *skb, enum mt76_txq_id qid,
 			      struct mt76_wcid *wcid,
-			      struct ieee80211_sta *sta, u32 *tx_info);
+			      struct ieee80211_sta *sta, void *tx_info);
 
 	void (*tx_complete_skb)(struct mt76_dev *dev, enum mt76_txq_id qid,
 				struct mt76_queue_entry *e);

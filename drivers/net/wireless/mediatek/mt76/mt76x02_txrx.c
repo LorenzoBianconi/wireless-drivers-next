@@ -149,9 +149,10 @@ EXPORT_SYMBOL_GPL(mt76x02_tx_status_data);
 int mt76x02_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 			   struct sk_buff *skb, enum mt76_txq_id qid,
 			   struct mt76_wcid *wcid, struct ieee80211_sta *sta,
-			   u32 *tx_info)
+			   void *tx_info)
 {
 	struct mt76x02_dev *dev = container_of(mdev, struct mt76x02_dev, mt76);
+	struct mt76_tx_info *info = (struct mt76_tx_info *)tx_info;
 	struct mt76x02_txwi *txwi = txwi_ptr;
 	int qsel = MT_QSEL_EDCA;
 	int pid;
@@ -172,11 +173,11 @@ int mt76x02_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 	if (pid >= MT_PACKET_ID_FIRST)
 		qsel = MT_QSEL_MGMT;
 
-	*tx_info = FIELD_PREP(MT_TXD_INFO_QSEL, qsel) |
-		   MT_TXD_INFO_80211;
+	info->info = FIELD_PREP(MT_TXD_INFO_QSEL, qsel) |
+		     MT_TXD_INFO_80211;
 
 	if (!wcid || wcid->hw_key_idx == 0xff || wcid->sw_iv)
-		*tx_info |= MT_TXD_INFO_WIV;
+		info->info |= MT_TXD_INFO_WIV;
 
 	return 0;
 }
