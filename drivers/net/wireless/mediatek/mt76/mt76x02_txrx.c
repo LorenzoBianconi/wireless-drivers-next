@@ -182,3 +182,11 @@ int mt76x02_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 	return 0;
 }
 EXPORT_SYMBOL_GPL(mt76x02_tx_prepare_skb);
+
+int mt76x02_tx_map(struct mt76_dev *dev, enum mt76_txq_id qid,
+		   struct sk_buff *skb, struct mt76_txwi_cache *t,
+		   struct mt76_queue_buf *buf, int max_size)
+{
+	return mt76_dma_tx_map(dev, qid, skb, t, buf, max_size);
+}
+EXPORT_SYMBOL_GPL(mt76x02_tx_map);

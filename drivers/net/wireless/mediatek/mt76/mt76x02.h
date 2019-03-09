@@ -176,6 +176,9 @@ int mt76x02_tx_prepare_skb(struct mt76_dev *mdev, void *txwi,
 			   struct sk_buff *skb, enum mt76_txq_id qid,
 			   struct mt76_wcid *wcid, struct ieee80211_sta *sta,
 			   void *tx_info);
+int mt76x02_tx_map(struct mt76_dev *dev, enum mt76_txq_id qid,
+		   struct sk_buff *skb, struct mt76_txwi_cache *t,
+		   struct mt76_queue_buf *buf, int max_size);
 void mt76x02_sw_scan(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 		     const u8 *mac);
 void mt76x02_sw_scan_complete(struct ieee80211_hw *hw,
