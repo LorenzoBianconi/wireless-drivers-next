@@ -154,21 +154,15 @@ int mt76x02_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 	struct mt76x02_dev *dev = container_of(mdev, struct mt76x02_dev, mt76);
 	struct mt76_tx_info *info = (struct mt76_tx_info *)tx_info;
 	struct mt76x02_txwi *txwi = txwi_ptr;
-	int qsel = MT_QSEL_EDCA;
-	int pid;
-	int ret;
+	int pid, qsel = MT_QSEL_EDCA;
 
 	if (qid == MT_TXQ_PSD && wcid && wcid->idx < 128)
 		mt76x02_mac_wcid_set_drop(dev, wcid->idx, false);
 
-	mt76x02_mac_write_txwi(dev, txwi, skb, wcid, sta, skb->len);
+	mt76x02_mac_write_txwi(dev, txwi, skb, wcid, sta, info->len);
 
 	pid = mt76_tx_status_skb_add(mdev, wcid, skb);
 	txwi->pktid = pid;
-
-	ret = mt76x02_insert_hdr_pad(skb);
-	if (ret < 0)
-		return ret;
 
 	if (pid >= MT_PACKET_ID_FIRST)
 		qsel = MT_QSEL_MGMT;
@@ -187,6 +181,10 @@ int mt76x02_tx_map(struct mt76_dev *dev, enum mt76_txq_id qid,
 		   struct sk_buff *skb, struct mt76_txwi_cache *t,
 		   struct mt76_queue_buf *buf, int max_size)
 {
+	int err = mt76x02_insert_hdr_pad(skb);
+	if (err < 0)
+		return err;
+
 	return mt76_dma_tx_map(dev, qid, skb, t, buf, max_size);
 }
 EXPORT_SYMBOL_GPL(mt76x02_tx_map);

@@ -86,6 +86,7 @@ struct mt76_queue_buf {
 struct mt76_tx_info {
 	struct mt76_queue_buf buf[32];
 	int nbuf;
+	int len;
 
 	u32 info;
 };
