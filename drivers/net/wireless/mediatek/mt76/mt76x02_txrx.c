@@ -165,7 +165,7 @@ int mt76x02_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 	pid = mt76_tx_status_skb_add(mdev, wcid, skb);
 	txwi->pktid = pid;
 
-	ret = mt76x02_insert_hdr_pad(skb);
+	ret = mt76_insert_hdr_pad(skb);
 	if (ret < 0)
 		return ret;
 
