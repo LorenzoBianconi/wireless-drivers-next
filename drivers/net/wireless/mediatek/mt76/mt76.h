@@ -455,6 +455,8 @@ struct mt76_dev {
 	const struct mt76_queue_ops *queue_ops;
 	int tx_dma_idx[4];
 
+	struct delayed_work mac_work;
+
 	wait_queue_head_t tx_wait;
 	struct sk_buff_head status_list;
 

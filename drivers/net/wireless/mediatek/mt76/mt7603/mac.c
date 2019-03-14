@@ -1691,9 +1691,11 @@ out:
 
 void mt7603_mac_work(struct work_struct *work)
 {
-	struct mt7603_dev *dev = container_of(work, struct mt7603_dev,
-					      mac_work.work);
+	struct mt7603_dev *dev;
 	bool reset = false;
+
+	dev = (struct mt7603_dev *)container_of(work, struct mt76_dev,
+						mac_work.work);
 
 	mt76_tx_status_check(&dev->mt76, NULL, false);
 
@@ -1745,6 +1747,6 @@ void mt7603_mac_work(struct work_struct *work)
 	if (reset)
 		mt7603_mac_watchdog_reset(dev);
 
-	ieee80211_queue_delayed_work(mt76_hw(dev), &dev->mac_work,
+	ieee80211_queue_delayed_work(mt76_hw(dev), &dev->mt76.mac_work,
 				     msecs_to_jiffies(MT7603_WATCHDOG_TIME));
 }
