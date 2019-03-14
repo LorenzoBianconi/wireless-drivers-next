@@ -85,7 +85,6 @@ struct mt76x02_dev {
 	struct tasklet_struct tx_tasklet;
 	struct tasklet_struct pre_tbtt_tasklet;
 	struct delayed_work cal_work;
-	struct delayed_work mac_work;
 	struct delayed_work wdt_work;
 
 	u32 aggr_stats[32];
