@@ -738,6 +738,9 @@ mt76u_tx_queue_skb(struct mt76_dev *dev, enum mt76_txq_id qid,
 		   struct ieee80211_sta *sta)
 {
 	struct mt76_queue *q = dev->q_tx[qid].q;
+	struct mt76_tx_info tx_info = {
+		.skb = skb,
+	};
 	struct mt76u_buf *buf;
 	u16 idx = q->tail;
 	int err;
@@ -746,16 +749,16 @@ mt76u_tx_queue_skb(struct mt76_dev *dev, enum mt76_txq_id qid,
 		return -ENOSPC;
 
 	skb->prev = skb->next = NULL;
-	err = dev->drv->tx_prepare_skb(dev, NULL, skb, qid, wcid, sta, NULL);
+	err = dev->drv->tx_prepare_skb(dev, NULL, qid, wcid, sta, &tx_info);
 	if (err < 0)
 		return err;
 
 	buf = &q->entry[idx].ubuf;
-	buf->buf = skb->data;
-	buf->len = skb->len;
+	buf->buf = tx_info.skb->data;
+	buf->len = tx_info.skb->len;
 	buf->done = false;
 
-	err = mt76u_tx_build_sg(dev, skb, buf->urb);
+	err = mt76u_tx_build_sg(dev, tx_info.skb, buf->urb);
 	if (err < 0)
 		return err;
 
@@ -763,7 +766,7 @@ mt76u_tx_queue_skb(struct mt76_dev *dev, enum mt76_txq_id qid,
 			    buf, mt76u_complete_tx, buf);
 
 	q->tail = (q->tail + 1) % q->ndesc;
-	q->entry[idx].skb = skb;
+	q->entry[idx].skb = tx_info.skb;
 	q->queued++;
 
 	return idx;
