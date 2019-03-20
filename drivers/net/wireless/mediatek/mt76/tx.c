@@ -32,6 +32,7 @@ mt76_alloc_txwi(struct mt76_dev *dev)
 	addr = dma_map_single(dev->dev, txwi, dev->drv->txwi_size,
 			      DMA_TO_DEVICE);
 	t = (struct mt76_txwi_cache *)(txwi + dev->drv->txwi_size);
+	t->flags = dev->drv->txwi_flags;
 	t->dma_addr = addr;
 
 	return t;
@@ -74,6 +75,7 @@ mt76_put_txwi(struct mt76_dev *dev, struct mt76_txwi_cache *t)
 	list_add(&t->list, &dev->txwi_cache);
 	spin_unlock_bh(&dev->lock);
 }
+EXPORT_SYMBOL_GPL(mt76_put_txwi);
 
 void mt76_tx_free(struct mt76_dev *dev)
 {

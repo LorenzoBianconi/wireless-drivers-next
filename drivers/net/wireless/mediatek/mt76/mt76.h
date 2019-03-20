@@ -231,9 +231,13 @@ struct mt76_txq {
 	bool aggr;
 };
 
+#define MT_TXWI_NO_FREE			BIT(0)
 struct mt76_txwi_cache {
 	struct list_head list;
 	dma_addr_t dma_addr;
+
+	struct sk_buff *skb;
+	u32 flags;
 };
 
 struct mt76_rx_tid {
@@ -289,6 +293,7 @@ struct mt76_hw_cap {
 
 struct mt76_driver_ops {
 	bool tx_aligned4_skbs;
+	u32 txwi_flags;
 	u16 txwi_size;
 
 	void (*update_survey)(struct mt76_dev *dev);
