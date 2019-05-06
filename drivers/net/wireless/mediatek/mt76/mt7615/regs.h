@@ -37,6 +37,7 @@
 #define MT_INT_RX_DONE_ALL		GENMASK(1, 0)
 #define MT_INT_TX_DONE_ALL		GENMASK(7, 4)
 #define MT_INT_TX_DONE(_n)		BIT((_n) + 4)
+#define MT_INT_MAC_IRQ3			BIT(27)
 
 #define MT_WPDMA_GLO_CFG		MT_HIF(0x208)
 #define MT_WPDMA_GLO_CFG_TX_DMA_EN	BIT(0)
@@ -100,6 +101,20 @@
 #define MT_AGG_SCR			MT_WF_AGG(0x0fc)
 #define MT_AGG_SCR_NLNAV_MID_PTEC_DIS	BIT(3)
 
+#define MT_ARB_BASE			0x20c00
+#define MT_ARB(ofs)			(MT_ARB_BASE + (ofs))
+
+#define MT_ARB_SCR			MT_ARB(0x080)
+#define MT_ARB_SCR_OPMODE_MASK		GENMASK(1, 0)
+#define MT_ARB_SCR_TXDIS		BIT(8)
+#define MT_ARB_SCR_RXDIS		BIT(9)
+#define MT_ARB_SCR_TX1DIS		BIT(10)
+#define MT_ARB_SCR_RX1DIS		BIT(11)
+#define MT_ARB_SCR_BCN_EMPTY		BIT(28)
+#define MT_ARB_SCR_BTIM_CTRL		BIT(30)
+#define MT_ARB_SCR_BCN_CTRL		BIT(30)
+#define MT_ARB_SCR_BM_CTRL		BIT(31)
+
 #define MT_WF_TMAC_BASE			0x21000
 #define MT_WF_TMAC(ofs)			(MT_WF_TMAC_BASE + (ofs))
 
@@ -141,6 +156,52 @@
 #define MT_DMA_DCR0			MT_WF_DMA(0x000)
 #define MT_DMA_DCR0_MAX_RX_LEN		GENMASK(15, 2)
 #define MT_DMA_DCR0_RX_VEC_DROP		BIT(17)
+
+#define MT_LPON_TOP_BASE		0x24200
+#define MT_LPON_TOP(ofs)		(MT_LPON_TOP_BASE + (ofs))
+
+#define MT_LPON_TCR(n)			MT_LPON_TOP(0x10 + 4 * ((n) % 2) + \
+						    0xe8 * ((n) / 2))
+#define MT_TSF_TIMER_HW_MODE_FULL_ADHOC	GENMASK(3, 2)
+#define MT_TSF_TIMER_HW_MODE_RX_ONLY	BIT(3)
+#define MT_TSF_TIMER_HW_MODE_TICK_ONLY	BIT(2)
+
+#define MT_LPON_PISR			MT_LPON_TOP(0x030)
+
+#define MT_LPON_MPTCR(n)		MT_LPON_TOP(0x5c + 4 * ((n) % 2) + \
+						    0xb4 * ((n) / 2))
+#define MT_TBTT_PERIOD_TIMER_EN		BIT(0)
+#define MT_PRETBTT_TRIG_EN		BIT(1)
+#define MT_PREDTIM_TRIG_EN		BIT(2)
+#define MT_TBTT_TIMEUP_EN		BIT(3)
+#define MT_PRETBTT_TIMEUP_EN		BIT(4)
+#define MT_BCN_TIMEOUT_EN		BIT(5)
+#define MT_BMC_TIMEOUT_EN		BIT(6)
+#define MT_PRETBTT_INT_EN		BIT(7)
+#define MT_TBTT_CAL_EN			BIT(31)
+
+#define MT_LPON_TTPCR(n)		MT_LPON_TOP(0x34 + 4 * ((n) % 2) + \
+						    0xd4 * ((n) / 2))
+#define MT_TBTT_PERIOD			GENMASK(15, 0)
+#define MT_TBTT_DTIM_PERIOD		GENMASK(23, 16)
+#define MT_TBTT_TBTT_WAKE_PERIOD	GENMASK(27, 24)
+#define MT_TBTT_DTIM_WAKE_PERIOD	GENMASK(30, 28)
+#define MT_TBTT_CAL_ENABLE		BIT(31)
+
+#define MT_INT_WAKEUP_BASE		0x24600
+#define MT_INT_WAKEUP(n)		(MT_INT_WAKEUP_BASE + (n))
+
+#define MT_HW_INT0_TBTT1		BIT(20)
+#define MT_HW_INT0_PRETBTT1		BIT(23)
+#define MT_HW_INT0_TBTT2		BIT(21)
+#define MT_HW_INT0_PRETBTT2		BIT(24)
+#define MT_HW_INT0_TBTT3		BIT(22)
+#define MT_HW_INT0_PRETBTT3		BIT(25)
+#define MT_HW_INT3_TBTT0		BIT(15)
+#define MT_HW_INT3_PRE_TBTT0		BIT(31)
+
+#define MT_HW_INT_STATUS(n)		MT_INT_WAKEUP(0x3c + (n) * 8)
+#define MT_HW_INT_MASK(n)		MT_INT_WAKEUP(0x40 + (n) * 8)
 
 #define MT_WTBL_BASE			0x30000
 #define MT_WTBL_ENTRY_SIZE		256

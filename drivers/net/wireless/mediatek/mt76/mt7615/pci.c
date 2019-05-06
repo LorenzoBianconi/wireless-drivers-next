@@ -62,6 +62,10 @@ irqreturn_t mt7615_irq_handler(int irq, void *dev_instance)
 		napi_schedule(&dev->mt76.napi[1]);
 	}
 
+	if (intr & MT_INT_MAC_IRQ3) {
+		;
+	}
+
 	return IRQ_HANDLED;
 }
 
