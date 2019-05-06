@@ -122,6 +122,7 @@ static void mt7615_remove_interface(struct ieee80211_hw *hw,
 
 	rcu_assign_pointer(dev->mt76.wcid[idx], NULL);
 	mt76_txq_remove(&dev->mt76, vif->txq);
+	mt7615_beacon_set_timer(dev, mvif->idx, 0);
 
 	mutex_lock(&dev->mt76.mutex);
 	dev->vif_mask &= ~BIT(mvif->idx);
@@ -135,20 +136,25 @@ static int mt7615_set_channel(struct mt7615_dev *dev,
 	int ret;
 
 	cancel_delayed_work_sync(&dev->mt76.mac_work);
+	tasklet_disable(&dev->mt76.pre_tbtt_tasklet);
+
+	mt7615_beacon_set_timer(dev, -1, 0);
 	set_bit(MT76_RESET, &dev->mt76.state);
 
 	mt76_set_channel(&dev->mt76);
 
 	ret = mt7615_mcu_set_channel(dev);
-	if (ret)
-		return ret;
-
 	clear_bit(MT76_RESET, &dev->mt76.state);
 
+	if (!(mt76_hw(dev)->conf.flags & IEEE80211_CONF_OFFCHANNEL))
+		mt7615_beacon_set_timer(dev, -1, dev->mt76.beacon_int);
+
 	mt76_txq_schedule_all(&dev->mt76);
+	tasklet_enable(&dev->mt76.pre_tbtt_tasklet);
+
 	ieee80211_queue_delayed_work(mt76_hw(dev), &dev->mt76.mac_work,
 				     MT7615_WATCHDOG_TIME);
-	return 0;
+	return ret;
 }
 
 static int mt7615_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
@@ -278,6 +284,7 @@ static void mt7615_bss_info_changed(struct ieee80211_hw *hw,
 				    struct ieee80211_bss_conf *info,
 				    u32 changed)
 {
+	struct mt7615_vif *mvif = (struct mt7615_vif *)vif->drv_priv;
 	struct mt7615_dev *dev = hw->priv;
 
 	mutex_lock(&dev->mt76.mutex);
@@ -290,11 +297,21 @@ static void mt7615_bss_info_changed(struct ieee80211_hw *hw,
 	 * BSS_CHANGED_BEACON
 	 */
 
-	if (changed & BSS_CHANGED_BEACON_ENABLED) {
+	if (changed & (BSS_CHANGED_BEACON_ENABLED |
+		       BSS_CHANGED_BEACON_INT)) {
+		int beacon_int = !!info->enable_beacon * info->beacon_int;
+
+		tasklet_disable(&dev->mt76.pre_tbtt_tasklet);
+
 		mt7615_mcu_set_bss_info(dev, vif, info->enable_beacon);
 		mt7615_mcu_wtbl_bmc(dev, vif, info->enable_beacon);
 		mt7615_mcu_set_sta_rec_bmc(dev, vif, info->enable_beacon);
+#if 0
 		mt7615_mcu_set_bcn(dev, vif, info->enable_beacon);
+#endif
+		mt7615_beacon_set_timer(dev, mvif->idx, beacon_int);
+
+		tasklet_enable(&dev->mt76.pre_tbtt_tasklet);
 	}
 
 	mutex_unlock(&dev->mt76.mutex);

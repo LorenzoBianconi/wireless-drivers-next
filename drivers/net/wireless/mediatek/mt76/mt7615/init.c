@@ -212,6 +212,7 @@ void mt7615_unregister_device(struct mt7615_dev *dev)
 	struct mt76_txwi_cache *txwi;
 	int id;
 
+	tasklet_disable(&dev->mt76.pre_tbtt_tasklet);
 	mt76_unregister_device(&dev->mt76);
 	mt7615_dma_cleanup(dev);
 	mt7615_mcu_exit(dev);

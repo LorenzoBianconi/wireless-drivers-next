@@ -335,9 +335,9 @@ int mt7615_mac_write_txwi(struct mt7615_dev *dev, __le32 *txwi,
 	struct ieee80211_tx_rate *rate = &info->control.rates[0];
 	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)skb->data;
 	struct ieee80211_vif *vif = info->control.vif;
-	int tx_count = 8;
-	u8 fc_type, fc_stype, p_fmt, q_idx, omac_idx = 0;
+	u8 fc_type, fc_stype, q_idx, omac_idx = 0;
 	__le16 fc = hdr->frame_control;
+	int tx_count = 8;
 	u16 seqno = 0;
 	u32 val;
 
@@ -356,16 +356,12 @@ int mt7615_mac_write_txwi(struct mt7615_dev *dev, __le32 *txwi,
 	fc_type = (le16_to_cpu(fc) & IEEE80211_FCTL_FTYPE) >> 2;
 	fc_stype = (le16_to_cpu(fc) & IEEE80211_FCTL_STYPE) >> 4;
 
-	if (ieee80211_is_data(fc)) {
+	if (ieee80211_is_data(fc))
 		q_idx = skb_get_queue_mapping(skb);
-		p_fmt = MT_TX_TYPE_CT;
-	} else if (ieee80211_is_beacon(fc)) {
+	else if (ieee80211_is_beacon(fc))
 		q_idx = MT_LMAC_BCN0;
-		p_fmt = MT_TX_TYPE_FW;
-	} else {
+	else
 		q_idx = MT_LMAC_ALTX0;
-		p_fmt = MT_TX_TYPE_CT;
-	}
 
 	val = FIELD_PREP(MT_TXD0_TX_BYTES, skb->len + MT_TXD_SIZE) |
 	      FIELD_PREP(MT_TXD0_P_IDX, MT_TX_PORT_IDX_LMAC) |
@@ -379,7 +375,7 @@ int mt7615_mac_write_txwi(struct mt7615_dev *dev, __le32 *txwi,
 			 ieee80211_get_hdrlen_from_skb(skb) / 2) |
 	      FIELD_PREP(MT_TXD1_TID,
 			 skb->priority & IEEE80211_QOS_CTL_TID_MASK) |
-	      FIELD_PREP(MT_TXD1_PKT_FMT, p_fmt) |
+	      FIELD_PREP(MT_TXD1_PKT_FMT, MT_TX_TYPE_CT) |
 	      FIELD_PREP(MT_TXD1_OWN_MAC, omac_idx);
 	txwi[1] = cpu_to_le32(val);
 

@@ -14,6 +14,14 @@
 static int
 mt7615_init_tx_queues(struct mt7615_dev *dev, int n_desc)
 {
+	const u8 queue_map[] = {
+		MT_TXQ_VO,
+		MT_TXQ_VI,
+		MT_TXQ_BE,
+		MT_TXQ_BK,
+		MT_TXQ_PSD,
+		MT_TXQ_BEACON,
+	};
 	struct mt76_sw_queue *q;
 	struct mt76_queue *hwq;
 	int err, i;
@@ -26,8 +34,8 @@ mt7615_init_tx_queues(struct mt7615_dev *dev, int n_desc)
 	if (err < 0)
 		return err;
 
-	for (i = 0; i < MT_TXQ_MCU; i++) {
-		q = &dev->mt76.q_tx[i];
+	for (i = 0; i < ARRAY_SIZE(queue_map); i++) {
+		q = &dev->mt76.q_tx[queue_map[i]];
 		INIT_LIST_HEAD(&q->swq);
 		q->q = hwq;
 	}
@@ -128,6 +136,8 @@ int mt7615_dma_init(struct mt7615_dev *dev)
 
 	mt76_dma_attach(&dev->mt76);
 
+	tasklet_init(&dev->mt76.pre_tbtt_tasklet, mt7615_pre_tbtt_tasklet,
+		     (unsigned long)dev);
 	tasklet_init(&dev->mt76.tx_tasklet, mt7615_tx_tasklet,
 		     (unsigned long)dev);
 

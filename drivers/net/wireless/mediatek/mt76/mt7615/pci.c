@@ -63,6 +63,14 @@ static irqreturn_t mt7615_irq_handler(int irq, void *dev_instance)
 		napi_schedule(&dev->mt76.napi[1]);
 	}
 
+	if (intr & MT_INT_MAC_IRQ3) {
+		u32 hwintr = mt76_rr(dev, MT_HW_INT_STATUS(3));
+
+		mt76_wr(dev, MT_HW_INT_STATUS(3), hwintr);
+		if (hwintr & MT_HW_INT3_PRE_TBTT0)
+			tasklet_schedule(&dev->mt76.pre_tbtt_tasklet);
+	}
+
 	return IRQ_HANDLED;
 }
 
