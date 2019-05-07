@@ -122,35 +122,10 @@ static int mt7615_poll_tx(struct napi_struct *napi, int budget)
 	return 0;
 }
 
-static void
-mt7615_get_beacon_irq_mask(int hw_idx, u32 *reg, u32 *mask)
+int mt7615_beacon_set_timer(struct mt7615_dev *dev, int idx,
+			    int intval)
 {
-	switch (hw_idx) {
-	case HW_BSSID_1:
-		*mask = MT_HW_INT0_TBTT1 | MT_HW_INT0_PRETBTT1;
-		break;
-	case HW_BSSID_2:
-		*mask = MT_HW_INT0_TBTT2 | MT_HW_INT0_PRETBTT2;
-		break;
-	case HW_BSSID_3:
-		*mask = MT_HW_INT0_TBTT3 | MT_HW_INT0_PRETBTT3;
-		break;
-	case HW_BSSID_0:
-	default:
-		*mask = MT_HW_INT3_TBTT0 | MT_HW_INT3_PRE_TBTT0;
-		break;
-	}
-	*reg = hw_idx ? MT_HW_INT_MASK(0) : MT_HW_INT_MASK(3);
-}
-
-int mt7615_beacon_set_timer(struct mt7615_dev *dev,
-			    struct ieee80211_vif *vif,
-			    int idx, int hw_idx, int intval)
-{
-	u32 reg, mask, val, opmode = 0;
-
-	if (hw_idx >= HW_BSSID_MAX)
-		return -EINVAL;
+	u32 opmode = 1; /* XXX: support mesh/ad-hoc */
 
 	if (idx >= 0) {
 		if (intval)
@@ -159,41 +134,35 @@ int mt7615_beacon_set_timer(struct mt7615_dev *dev,
 			dev->mt76.beacon_mask &= ~BIT(idx);
 	}
 
-	mt7615_get_beacon_irq_mask(hw_idx, &reg, &mask);
 	if (!dev->mt76.beacon_mask || (!intval && idx < 0)) {
 		mt7615_irq_disable(dev, MT_INT_MAC_IRQ3);
-		mt76_clear(dev, reg, mask);
+		mt76_clear(dev, MT_HW_INT_MASK(3),
+			   MT_HW_INT3_TBTT0 | MT_HW_INT3_PRE_TBTT0);
 		return 0;
 	}
 
 	/* set ARB opmode */
-	val = mt76_rr(dev, MT_ARB_SCR);
-	if (vif->type == NL80211_IFTYPE_AP) {
-		val |= MT_ARB_SCR_BM_CTRL | MT_ARB_SCR_BCN_CTRL |
-		       MT_ARB_SCR_BCN_EMPTY;
-		opmode = 1;
+	mt76_set(dev, MT_ARB_SCR,
+		 MT_ARB_SCR_BM_CTRL | MT_ARB_SCR_BCN_CTRL |
+		 MT_ARB_SCR_BCN_EMPTY | opmode);
 
-		mt76_set(dev, MT_LPON_TCR(hw_idx),
-			 MT_TSF_TIMER_HW_MODE_TICK_ONLY);
-	}
-	val |= (opmode << (hw_idx * 2));
-	mt76_wr(dev, MT_ARB_SCR, val);
+	mt76_set(dev, MT_LPON_TCR(0), MT_TSF_TIMER_HW_MODE_TICK_ONLY);
 
 	/* pre-tbtt 5ms */
-	mt76_set(dev, MT_LPON_PISR, 0x50 << (8 * hw_idx));
+	mt76_set(dev, MT_LPON_PISR, 0x50);
 
 	/* MPTCR */
-	val = (MT_TBTT_TIMEUP_EN | MT_TBTT_PERIOD_TIMER_EN |
-	       MT_PRETBTT_TIMEUP_EN |
-	       MT_PRETBTT_TIMEUP_EN) << ((hw_idx % 2) << 8);
-	mt76_set(dev, MT_LPON_MPTCR(2 * (hw_idx / 2)), val);
+	mt76_set(dev, MT_LPON_MPTCR(0),
+		 MT_TBTT_TIMEUP_EN | MT_TBTT_PERIOD_TIMER_EN |
+		 MT_PRETBTT_TIMEUP_EN | MT_PRETBTT_TIMEUP_EN);
 
 	/* beacon period */
-	mt76_wr(dev, MT_LPON_TTPCR(hw_idx),
+	mt76_wr(dev, MT_LPON_TTPCR(0),
 		FIELD_PREP(MT_TBTT_PERIOD, intval) | MT_TBTT_CAL_ENABLE);
 
 	/* host irq pin */
-	mt76_set(dev, reg, mask);
+	mt76_set(dev, MT_HW_INT_MASK(3),
+		 MT_HW_INT3_TBTT0 | MT_HW_INT3_PRE_TBTT0);
 	mt7615_irq_enable(dev, MT_INT_MAC_IRQ3);
 
 	return 0;

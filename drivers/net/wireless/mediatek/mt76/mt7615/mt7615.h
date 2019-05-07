@@ -170,6 +170,9 @@ int mt7615_mcu_set_rts_thresh(struct mt7615_dev *dev, u32 val);
 int mt7615_mcu_ctrl_pm_state(struct mt7615_dev *dev, int enter);
 void mt7615_mcu_exit(struct mt7615_dev *dev);
 
+int mt7615_beacon_set_timer(struct mt7615_dev *dev, int idx,
+			    int intval);
+
 int mt7615_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 			  enum mt76_txq_id qid, struct mt76_wcid *wcid,
 			  struct ieee80211_sta *sta,
