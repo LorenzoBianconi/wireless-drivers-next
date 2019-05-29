@@ -776,6 +776,11 @@ int mt7615_mcu_set_bss_info(struct mt7615_dev *dev,
 		rcu_read_unlock();
 		break;
 	}
+	case NL80211_IFTYPE_ADHOC:
+		conn_type = CONNECTION_IBSS_ADHOC;
+		tx_wlan_idx = mvif->sta.wcid.idx;
+		net_type = NETWORK_IBSS;
+		break;
 	default:
 		WARN_ON(1);
 		break;

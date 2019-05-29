@@ -36,6 +36,7 @@ static int get_omac_idx(enum nl80211_iftype type, u32 mask)
 	int i;
 
 	switch (type) {
+	case NL80211_IFTYPE_ADHOC:
 	case NL80211_IFTYPE_AP:
 		/* ap use hw bssid 0 and ext bssid */
 		if (~mask & BIT(HW_BSSID_0))
