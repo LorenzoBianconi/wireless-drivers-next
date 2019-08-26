@@ -104,6 +104,7 @@ struct mt76_queue_regs {
 	u32 dma_idx;
 } __packed __aligned(4);
 
+#define MT76_QUEUED_BATCH_TH	8
 struct mt76_queue {
 	struct mt76_queue_regs __iomem *regs;
 
@@ -121,6 +122,11 @@ struct mt76_queue {
 
 	u8 buf_offset;
 	u8 hw_idx;
+
+	struct {
+		int queued;
+		int id;
+	} batch;
 
 	dma_addr_t desc_dma;
 	struct sk_buff *rx_head;

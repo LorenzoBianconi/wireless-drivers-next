@@ -31,7 +31,8 @@
 #define MT7615_ROM_PATCH		"mt7615_rom_patch.bin"
 
 #define MT7615_EEPROM_SIZE		1024
-#define MT7615_PACKET_ID_SIZE		4096
+#define MT7615_PACKET_ID_SIZE		2048
+#define MT7615_BATCH_SIZE		32
 
 #define MT_FRAC_SCALE		12
 #define MT_FRAC(val, div)	(((val) << MT_FRAC_SCALE) / (div))
@@ -68,6 +69,18 @@ struct mt7615_sta {
 	u8 n_rates;
 
 	u8 rate_probe;
+
+	u32 batch_q[MT7615_BATCH_SIZE];
+
+	struct {
+		int hwq_bid;
+		u16 bid;
+
+		struct {
+			bool first_pkt;
+			u32 depth;
+		} batch_q[MT7615_BATCH_SIZE];
+	} b_hwq;
 };
 
 struct mt7615_vif {
@@ -106,6 +119,7 @@ struct mt7615_dev {
 	bool scs_en;
 
 	spinlock_t token_lock;
+	struct idr batch;
 	struct idr id;
 };
 
@@ -225,6 +239,9 @@ static inline u8 mt7615_rx_hwq_to_ac(u8 hwq)
 	return hw_queue_map[hwq];
 }
 
+void __mt7615_mac_sta_remove_batch(struct mt7615_dev *dev,
+				   struct mt7615_sta *msta);
+
 static inline bool is_mt7622(struct mt76_dev *dev)
 {
 	return mt76_chip(dev) == 0x7622;
@@ -249,6 +266,22 @@ static inline void mt7615_irq_enable(struct mt7615_dev *dev, u32 mask)
 static inline void mt7615_irq_disable(struct mt7615_dev *dev, u32 mask)
 {
 	mt76_set_irq_mask(&dev->mt76, MT_INT_MASK_CSR, mask, 0);
+}
+
+#define MT7615_BATCH_MASK		GENMASK(4, 0)
+static inline int mt7615_get_packet_id(__le16 token)
+{
+	return (le16_to_cpu(token) & ~MT7615_BATCH_MASK) >> 5;
+}
+
+static inline int mt7615_get_packet_batch(__le16 token)
+{
+	return le16_to_cpu(token) & MT7615_BATCH_MASK;
+}
+
+static inline int mt7615_get_packet_token(u16 id, u16 batch)
+{
+	return id << 5 | batch;
 }
 
 void mt7615_update_channel(struct mt76_dev *mdev);

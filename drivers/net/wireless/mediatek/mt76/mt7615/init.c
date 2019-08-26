@@ -102,6 +102,7 @@ static int mt7615_init_hardware(struct mt7615_dev *dev)
 	mt76_wr(dev, MT_INT_SOURCE_CSR, ~0);
 
 	spin_lock_init(&dev->token_lock);
+	idr_init(&dev->batch);
 	idr_init(&dev->id);
 
 	ret = mt7615_eeprom_init(dev);
@@ -330,6 +331,7 @@ void mt7615_unregister_device(struct mt7615_dev *dev)
 	}
 	spin_unlock_bh(&dev->token_lock);
 	idr_destroy(&dev->id);
+	idr_destroy(&dev->batch);
 
 	mt76_free_device(&dev->mt76);
 }

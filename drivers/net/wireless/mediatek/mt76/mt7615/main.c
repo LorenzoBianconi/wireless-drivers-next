@@ -361,6 +361,8 @@ int mt7615_sta_add(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 	mt7615_mac_wtbl_update(dev, idx,
 			       MT_WTBL_UPDATE_ADM_COUNT_CLEAR);
 
+	msta->b_hwq.hwq_bid = -1;
+
 	mt7615_mcu_add_wtbl(dev, vif, sta);
 	mt7615_mcu_set_sta_rec(dev, vif, sta, 1);
 
@@ -392,6 +394,10 @@ void mt7615_sta_remove(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 	if (!list_empty(&msta->poll_list))
 		list_del_init(&msta->poll_list);
 	spin_unlock_bh(&dev->sta_poll_lock);
+
+	spin_lock_bh(&dev->token_lock);
+	__mt7615_mac_sta_remove_batch(dev, msta);
+	spin_unlock_bh(&dev->token_lock);
 }
 
 static void mt7615_sta_rate_tbl_update(struct ieee80211_hw *hw,

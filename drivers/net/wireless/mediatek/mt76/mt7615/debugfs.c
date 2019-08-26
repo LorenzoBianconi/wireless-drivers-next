@@ -148,9 +148,9 @@ mt7615_queues_read(struct seq_file *s, void *data)
 			continue;
 
 		seq_printf(s,
-			   "%s:	queued=%d head=%d tail=%d\n",
+			   "%s:	queued=%d head=%d tail=%d batch_queued=%d\n",
 			   queue_map[i].queue, q->q->queued, q->q->head,
-			   q->q->tail);
+			   q->q->tail, q->q->batch.queued);
 	}
 
 	return 0;

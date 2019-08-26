@@ -294,7 +294,11 @@ static struct sk_buff *
 mt76_txq_dequeue(struct mt76_dev *dev, struct mt76_txq *mtxq, bool ps)
 {
 	struct ieee80211_txq *txq = mtxq_to_txq(mtxq);
+	struct mt76_queue *q = mtxq->swq->q;
 	struct sk_buff *skb;
+
+	if (READ_ONCE(q->batch.queued) > MT76_QUEUED_BATCH_TH)
+		return NULL;
 
 	skb = skb_dequeue(&mtxq->retry_q);
 	if (skb) {

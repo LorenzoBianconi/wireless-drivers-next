@@ -261,6 +261,116 @@ void mt7615_sta_ps(struct mt76_dev *mdev, struct ieee80211_sta *sta, bool ps)
 {
 }
 
+static int
+mt7615_mac_get_batch(struct mt7615_dev *dev, struct ieee80211_sta *sta,
+		     int nbuf)
+{
+	struct mt76_queue *q = dev->mt76.q_tx[MT_TXQ_BE].q;
+	struct mt7615_sta *msta;
+
+	lockdep_assert_held(&dev->token_lock);
+
+	if (!sta)
+		return 0;
+
+	msta = (struct mt7615_sta *)sta->drv_priv;
+	if (msta->b_hwq.hwq_bid != q->batch.id) {
+		int bid;
+
+		/* brand new batch */
+		bid = idr_alloc(&dev->batch, msta, 1, MT7615_BATCH_SIZE,
+				GFP_ATOMIC);
+		if (bid < 0)
+			return bid;
+
+		msta->b_hwq.batch_q[bid].first_pkt = true;
+		msta->b_hwq.hwq_bid = q->batch.id;
+		msta->b_hwq.bid = bid;
+
+		q->batch.queued++;
+	}
+	msta->b_hwq.batch_q[msta->b_hwq.bid].depth += nbuf;
+
+	return msta->b_hwq.bid;
+}
+
+static void
+mt7615_mac_remove_batch(struct mt7615_dev *dev, struct mt7615_txp *txp,
+			u16 bid)
+{
+	struct mt7615_sta *msta;
+
+	lockdep_assert_held(&dev->token_lock);
+
+	if (bid < 0)
+		return;
+
+	msta = idr_find(&dev->batch, bid);
+	if (!msta)
+		return;
+
+	if (msta->b_hwq.batch_q[bid].first_pkt) {
+		struct mt76_queue *q = dev->mt76.q_tx[MT_TXQ_BE].q;
+
+		msta->b_hwq.batch_q[bid].first_pkt = false;
+		q->batch.queued--;
+	}
+
+	if (txp) {
+		msta->b_hwq.batch_q[bid].depth -= txp->nbuf;
+		if (!msta->b_hwq.batch_q[bid].depth)
+			idr_remove(&dev->batch, bid);
+	}
+}
+
+void __mt7615_mac_sta_remove_batch(struct mt7615_dev *dev,
+				   struct mt7615_sta *msta)
+{
+	int i;
+
+	lockdep_assert_held(&dev->token_lock);
+
+	for (i = 0; i < MT7615_BATCH_SIZE; i++) {
+		if (!msta->b_hwq.batch_q[i].depth)
+			continue;
+
+		if (msta->b_hwq.batch_q[i].first_pkt) {
+			struct mt76_queue *q = dev->mt76.q_tx[MT_TXQ_BE].q;
+
+			msta->b_hwq.batch_q[i].first_pkt = false;
+			q->batch.queued--;
+		}
+		msta->b_hwq.batch_q[i].depth = 0;
+		idr_remove(&dev->batch, i);
+	}
+}
+
+static int
+mt7615_mac_get_token(struct mt7615_dev *dev, struct ieee80211_sta *sta,
+		     struct mt76_txwi_cache *t, int nbuf)
+{
+	int token, bid;
+
+	spin_lock_bh(&dev->token_lock);
+	token = idr_alloc(&dev->id, t, 0, MT7615_PACKET_ID_SIZE,
+			  GFP_ATOMIC);
+	if (token < 0)
+		goto out;
+
+	bid = mt7615_mac_get_batch(dev, sta, nbuf);
+	if (bid < 0) {
+		idr_remove(&dev->id, token);
+		token = bid;
+		goto out;
+	}
+
+	token = mt7615_get_packet_token(token, bid);
+
+out:
+	spin_unlock_bh(&dev->token_lock);
+	return token;
+}
+
 void mt7615_tx_complete_skb(struct mt76_dev *mdev, enum mt76_txq_id qid,
 			    struct mt76_queue_entry *e)
 {
@@ -279,7 +389,9 @@ void mt7615_tx_complete_skb(struct mt76_dev *mdev, enum mt76_txq_id qid,
 		txp = mt7615_txwi_to_txp(mdev, e->txwi);
 
 		spin_lock_bh(&dev->token_lock);
-		t = idr_remove(&dev->id, le16_to_cpu(txp->token));
+		mt7615_mac_remove_batch(dev, txp,
+					mt7615_get_packet_batch(txp->token));
+		t = idr_remove(&dev->id, mt7615_get_packet_id(txp->token));
 		spin_unlock_bh(&dev->token_lock);
 		e->skb = t ? t->skb : NULL;
 	}
@@ -869,7 +981,7 @@ int mt7615_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(tx_info->skb);
 	struct ieee80211_key_conf *key = info->control.hw_key;
 	struct ieee80211_vif *vif = info->control.vif;
-	int i, pid, id, nbuf = tx_info->nbuf - 1;
+	int i, pid, token, nbuf = tx_info->nbuf - 1;
 	u8 *txwi = (u8 *)txwi_ptr;
 	struct mt76_txwi_cache *t;
 	struct mt7615_txp *txp;
@@ -918,13 +1030,11 @@ int mt7615_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 	t = (struct mt76_txwi_cache *)(txwi + mdev->drv->txwi_size);
 	t->skb = tx_info->skb;
 
-	spin_lock_bh(&dev->token_lock);
-	id = idr_alloc(&dev->id, t, 0, MT7615_PACKET_ID_SIZE, GFP_ATOMIC);
-	spin_unlock_bh(&dev->token_lock);
-	if (id < 0)
-		return id;
+	token = mt7615_mac_get_token(dev, sta, t, nbuf);
+	if (token < 0)
+		return token;
 
-	txp->token = cpu_to_le16(id);
+	txp->token = cpu_to_le16(token);
 	txp->rept_wds_wcid = 0xff;
 	tx_info->skb = DMA_DUMMY_DATA;
 
@@ -1146,20 +1256,28 @@ out:
 void mt7615_mac_tx_free(struct mt7615_dev *dev, struct sk_buff *skb)
 {
 	struct mt7615_tx_free *free = (struct mt7615_tx_free *)skb->data;
-	struct mt76_dev *mdev = &dev->mt76;
-	struct mt76_txwi_cache *txwi;
-	u8 i, count;
+	int i;
 
-	count = FIELD_GET(MT_TX_FREE_MSDU_ID_CNT, le16_to_cpu(free->ctrl));
-	for (i = 0; i < count; i++) {
+	for (i = 0; i < FIELD_GET(MT_TX_FREE_MSDU_ID_CNT,
+				  le16_to_cpu(free->ctrl)); i++) {
+		struct mt76_dev *mdev = &dev->mt76;
+		struct mt76_txwi_cache *txwi;
+		struct mt7615_txp *txp;
+		u16 bid;
+
 		spin_lock_bh(&dev->token_lock);
-		txwi = idr_remove(&dev->id, le16_to_cpu(free->token[i]));
+		txwi = idr_remove(&dev->id,
+				  mt7615_get_packet_id(free->token[i]));
+		txp = mt7615_txwi_to_txp(mdev, txwi);
+
+		bid = mt7615_get_packet_batch(free->token[i]);
+		mt7615_mac_remove_batch(dev, txp, bid);
 		spin_unlock_bh(&dev->token_lock);
 
 		if (!txwi)
 			continue;
 
-		mt7615_txp_skb_unmap(mdev, mt7615_txwi_to_txp(mdev, txwi));
+		mt7615_txp_skb_unmap(mdev, txp);
 		if (txwi->skb) {
 			mt76_tx_complete_skb(mdev, txwi->skb);
 			txwi->skb = NULL;
