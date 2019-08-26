@@ -279,7 +279,7 @@ void mt7615_tx_complete_skb(struct mt76_dev *mdev, enum mt76_txq_id qid,
 		txp = mt7615_txwi_to_txp(mdev, e->txwi);
 
 		spin_lock_bh(&dev->token_lock);
-		t = idr_remove(&dev->token, le16_to_cpu(txp->token));
+		t = idr_remove(&dev->id, le16_to_cpu(txp->token));
 		spin_unlock_bh(&dev->token_lock);
 		e->skb = t ? t->skb : NULL;
 	}
@@ -931,7 +931,7 @@ int mt7615_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 	t->skb = tx_info->skb;
 
 	spin_lock_bh(&dev->token_lock);
-	id = idr_alloc(&dev->token, t, 0, MT7615_TOKEN_SIZE, GFP_ATOMIC);
+	id = idr_alloc(&dev->id, t, 0, MT7615_PACKET_ID_SIZE, GFP_ATOMIC);
 	spin_unlock_bh(&dev->token_lock);
 	if (id < 0)
 		return id;
@@ -1165,7 +1165,7 @@ void mt7615_mac_tx_free(struct mt7615_dev *dev, struct sk_buff *skb)
 	count = FIELD_GET(MT_TX_FREE_MSDU_ID_CNT, le16_to_cpu(free->ctrl));
 	for (i = 0; i < count; i++) {
 		spin_lock_bh(&dev->token_lock);
-		txwi = idr_remove(&dev->token, le16_to_cpu(free->token[i]));
+		txwi = idr_remove(&dev->id, le16_to_cpu(free->token[i]));
 		spin_unlock_bh(&dev->token_lock);
 
 		if (!txwi)

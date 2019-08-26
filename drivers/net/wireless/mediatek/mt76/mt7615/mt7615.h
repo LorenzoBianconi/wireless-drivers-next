@@ -31,7 +31,7 @@
 #define MT7615_ROM_PATCH		"mt7615_rom_patch.bin"
 
 #define MT7615_EEPROM_SIZE		1024
-#define MT7615_TOKEN_SIZE		4096
+#define MT7615_PACKET_ID_SIZE		4096
 
 #define MT_FRAC_SCALE		12
 #define MT_FRAC(val, div)	(((val) << MT_FRAC_SCALE) / (div))
@@ -106,7 +106,7 @@ struct mt7615_dev {
 	bool scs_en;
 
 	spinlock_t token_lock;
-	struct idr token;
+	struct idr id;
 };
 
 enum {
