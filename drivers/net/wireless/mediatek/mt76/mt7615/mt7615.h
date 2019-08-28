@@ -294,8 +294,6 @@ void mt7615_sta_assoc(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 void mt7615_sta_remove(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 		       struct ieee80211_sta *sta);
 void mt7615_mac_work(struct work_struct *work);
-void mt7615_txp_skb_unmap(struct mt76_dev *dev,
-			  struct mt76_txwi_cache *txwi);
 int mt76_dfs_start_rdd(struct mt7615_dev *dev, bool force);
 int mt7615_dfs_init_radar_detector(struct mt7615_dev *dev);
 

@@ -485,18 +485,6 @@ int mt7615_mac_write_txwi(struct mt7615_dev *dev, __le32 *txwi,
 	return 0;
 }
 
-void mt7615_txp_skb_unmap(struct mt76_dev *dev,
-			  struct mt76_txwi_cache *t)
-{
-	struct mt7615_txp *txp;
-	int i;
-
-	txp = mt7615_txwi_to_txp(dev, t);
-	for (i = 1; i < txp->nbuf; i++)
-		dma_unmap_single(dev->dev, le32_to_cpu(txp->buf[i]),
-				 le16_to_cpu(txp->len[i]), DMA_TO_DEVICE);
-}
-
 static u32 mt7615_mac_wtbl_addr(int wcid)
 {
 	return MT_WTBL_BASE + wcid * MT_WTBL_ENTRY_SIZE;
@@ -1171,7 +1159,7 @@ void mt7615_mac_tx_free(struct mt7615_dev *dev, struct sk_buff *skb)
 		if (!txwi)
 			continue;
 
-		mt7615_txp_skb_unmap(mdev, txwi);
+		mt7615_txp_skb_unmap(mdev, mt7615_txwi_to_txp(mdev, txwi));
 		if (txwi->skb) {
 			mt76_tx_complete_skb(mdev, txwi->skb);
 			txwi->skb = NULL;
