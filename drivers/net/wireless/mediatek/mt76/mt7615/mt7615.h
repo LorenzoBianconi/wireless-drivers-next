@@ -72,6 +72,8 @@ struct mt7615_sta {
 
 	u32 batch_q[MT7615_BATCH_SIZE];
 
+	bool ps;
+
 	struct {
 		int hwq_bid;
 		u16 bid;

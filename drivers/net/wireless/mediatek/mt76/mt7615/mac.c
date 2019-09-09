@@ -306,7 +306,7 @@ mt7615_mac_remove_batch(struct mt7615_dev *dev, struct mt7615_txp *txp,
 		return;
 
 	msta = idr_find(&dev->batch, bid);
-	if (!msta)
+	if (!msta || msta->ps)
 		return;
 
 	if (msta->b_hwq.batch_q[bid].first_pkt) {

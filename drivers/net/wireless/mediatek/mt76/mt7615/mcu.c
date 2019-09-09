@@ -186,6 +186,35 @@ mt7615_mcu_csa_finish(void *priv, u8 *mac, struct ieee80211_vif *vif)
 }
 
 static void
+mt7615_mcu_sta_ps_event(struct mt7615_dev *dev, struct sk_buff *skb)
+{
+	struct mt7615_mcu_ps_event *ps_event;
+	struct mt7615_sta *msta;
+	struct mt76_wcid *wcid;
+
+	skb_pull(skb, sizeof(struct mt7615_mcu_rxd));
+	ps_event = (struct mt7615_mcu_ps_event *)skb->data;
+
+	wcid = rcu_dereference(dev->mt76.wcid[ps_event->wcid]);
+	if (!wcid)
+		return;
+
+	msta = (struct mt7615_sta *)wcid_to_sta(wcid);
+
+	spin_lock_bh(&dev->token_lock);
+
+	msta->ps = ps_event->ps;
+	if (msta->ps) {
+		__mt7615_mac_sta_remove_batch(dev, msta);
+		set_bit(MT_WCID_FLAG_PS, &wcid->flags);
+	} else {
+		clear_bit(MT_WCID_FLAG_PS, &wcid->flags);
+	}
+
+	spin_unlock_bh(&dev->token_lock);
+}
+
+static void
 mt7615_mcu_rx_ext_event(struct mt7615_dev *dev, struct sk_buff *skb)
 {
 	struct mt7615_mcu_rxd *rxd = (struct mt7615_mcu_rxd *)skb->data;
@@ -199,6 +228,9 @@ mt7615_mcu_rx_ext_event(struct mt7615_dev *dev, struct sk_buff *skb)
 		ieee80211_iterate_active_interfaces_atomic(dev->mt76.hw,
 				IEEE80211_IFACE_ITER_RESUME_ALL,
 				mt7615_mcu_csa_finish, dev);
+		break;
+	case MCU_EXT_EVENT_PS_SYNC:
+		mt7615_mcu_sta_ps_event(dev, skb);
 		break;
 	default:
 		break;

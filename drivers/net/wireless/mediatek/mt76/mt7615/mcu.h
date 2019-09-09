@@ -23,6 +23,12 @@ struct mt7615_mcu_txd {
 	u32 reserved[5];
 } __packed __aligned(4);
 
+struct mt7615_mcu_ps_event {
+	u8 wcid;
+	u8 ps;
+	u8 rsv[2];
+} __packed;
+
 /* event table */
 enum {
 	MCU_EVENT_TARGET_ADDRESS_LEN = 0x01,
