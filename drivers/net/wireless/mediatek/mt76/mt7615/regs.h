@@ -191,6 +191,13 @@
 #define MT_WF_RFCR_DROP_NDPA		BIT(20)
 #define MT_WF_RFCR_DROP_UNWANTED_CTL	BIT(21)
 
+#define MT_WF_RMAC_MIB_TIME0		MT_WF_RMAC(0x03c4)
+#define MT_WF_RMAC_MIB_RXTIME_CLR	BIT(31)
+#define MT_WF_RMAC_MIB_RXTIME_EN	BIT(30)
+
+#define MT_WF_RMAC_MIB_TIME5		MT_WF_RMAC(0x03d8)
+#define MT_MIB_OBSSTIME_MASK		GENMASK(23, 0)
+
 #define MT_WF_DMA_BASE			0x21800
 #define MT_WF_DMA(ofs)			(MT_WF_DMA_BASE + (ofs))
 
@@ -272,6 +279,11 @@
 
 #define MT_MIB_SDR16(n)			MT_WF_MIB(0x48 + ((n) << 9))
 #define MT_MIB_BUSY_MASK		GENMASK(23, 0)
+
+#define MT_MIB_M0SDR36			MT_WF_MIB(0x098)
+#define MT_MIB_TXTIME_MASK		GENMASK(23, 0)
+#define MT_MIB_M0SDR37			MT_WF_MIB(0x09c)
+#define MT_MIB_RXTIME_MASK		GENMASK(23, 0)
 
 #define MT_TX_AGG_CNT(n)		MT_WF_MIB(0xa8 + ((n) << 2))
 

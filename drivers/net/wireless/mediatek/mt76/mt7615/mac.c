@@ -49,6 +49,13 @@ void mt7615_mac_reset_counters(struct mt7615_dev *dev)
 		mt76_rr(dev, MT_TX_AGG_CNT(i));
 
 	memset(dev->mt76.aggr_stats, 0, sizeof(dev->mt76.aggr_stats));
+
+	/* TODO: add DBDC support */
+
+	/* reset airtime counters */
+	mt76_rr(dev, MT_MIB_M0SDR36);
+	mt76_rr(dev, MT_MIB_M0SDR37);
+	mt76_set(dev, MT_WF_RMAC_MIB_TIME0, MT_WF_RMAC_MIB_RXTIME_CLR);
 }
 
 int mt7615_mac_fill_rx(struct mt7615_dev *dev, struct sk_buff *skb)
@@ -1263,11 +1270,25 @@ void mt7615_update_channel(struct mt76_dev *mdev)
 {
 	struct mt7615_dev *dev = container_of(mdev, struct mt7615_dev, mt76);
 	struct mt76_channel_state *state;
+	u64 tx_time, rx_time, obss_time;
 
 	/* TODO: add DBDC support */
 	state = mdev->chan_state;
-	state->cc_busy += mt76_get_field(dev, MT_MIB_SDR16(0),
-					 MT_MIB_BUSY_MASK);
+
+	tx_time = mt76_get_field(dev, MT_MIB_M0SDR36,
+				 MT_MIB_TXTIME_MASK);
+	state->cc_tx += tx_time;
+
+	rx_time = mt76_get_field(dev, MT_MIB_M0SDR37,
+				 MT_MIB_RXTIME_MASK);
+	state->cc_bss_rx += rx_time;
+
+	obss_time = mt76_get_field(dev, MT_WF_RMAC_MIB_TIME5,
+				   MT_MIB_OBSSTIME_MASK);
+	state->cc_busy += tx_time + rx_time + obss_time;
+
+	/* reset obss airtime */
+	mt76_set(dev, MT_WF_RMAC_MIB_TIME0, MT_WF_RMAC_MIB_RXTIME_CLR);
 }
 
 void mt7615_mac_work(struct work_struct *work)

@@ -73,6 +73,7 @@ static int mt7615_pci_probe(struct pci_dev *pdev,
 		/* txwi_size = txd size + txp size */
 		.txwi_size = MT_TXD_SIZE + sizeof(struct mt7615_txp),
 		.drv_flags = MT_DRV_TXWI_NO_FREE,
+		.survey_flags = SURVEY_INFO_TIME_TX,
 		.tx_prepare_skb = mt7615_tx_prepare_skb,
 		.tx_complete_skb = mt7615_tx_complete_skb,
 		.rx_skb = mt7615_queue_rx_skb,
