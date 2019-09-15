@@ -21,6 +21,7 @@ static void mt7615_phy_init(struct mt7615_dev *dev)
 static void mt7615_mac_init(struct mt7615_dev *dev)
 {
 	u32 val;
+	int i;
 
 	/* enable band 0/1 clk */
 	mt76_set(dev, MT_CFG_CCR,
@@ -86,7 +87,12 @@ static void mt7615_mac_init(struct mt7615_dev *dev)
 		 FIELD_PREP(MT_AGG_ARCR_RATE_DOWN_RATIO, 1) |
 		 FIELD_PREP(MT_AGG_ARCR_RATE_UP_EXTRA_TH, 4)));
 
+	for (i = 0; i < MT7615_WTBL_SIZE; i++)
+		mt7615_mac_wtbl_update(dev, i,
+				       MT_WTBL_UPDATE_ADM_COUNT_CLEAR);
+
 	mt76_set(dev, MT_WF_RMAC_MIB_TIME0, MT_WF_RMAC_MIB_RXTIME_EN);
+	mt76_set(dev, MT_WF_RMAC_MIB_AIRTIME0, MT_WF_RMAC_MIB_RXTIME_EN);
 }
 
 static int mt7615_init_hardware(struct mt7615_dev *dev)
@@ -251,11 +257,13 @@ int mt7615_register_device(struct mt7615_dev *dev)
 	struct wiphy *wiphy = hw->wiphy;
 	int ret;
 
+	INIT_DELAYED_WORK(&dev->mt76.mac_work, mt7615_mac_work);
+	INIT_LIST_HEAD(&dev->sta_poll_list);
+	spin_lock_init(&dev->sta_poll_lock);
+
 	ret = mt7615_init_hardware(dev);
 	if (ret)
 		return ret;
-
-	INIT_DELAYED_WORK(&dev->mt76.mac_work, mt7615_mac_work);
 
 	hw->queues = 4;
 	hw->max_rates = 3;

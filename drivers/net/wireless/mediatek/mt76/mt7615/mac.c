@@ -56,6 +56,7 @@ void mt7615_mac_reset_counters(struct mt7615_dev *dev)
 	mt76_rr(dev, MT_MIB_M0SDR36);
 	mt76_rr(dev, MT_MIB_M0SDR37);
 	mt76_set(dev, MT_WF_RMAC_MIB_TIME0, MT_WF_RMAC_MIB_RXTIME_CLR);
+	mt76_set(dev, MT_WF_RMAC_MIB_AIRTIME0, MT_WF_RMAC_MIB_RXTIME_CLR);
 }
 
 int mt7615_mac_fill_rx(struct mt7615_dev *dev, struct sk_buff *skb)
@@ -78,6 +79,16 @@ int mt7615_mac_fill_rx(struct mt7615_dev *dev, struct sk_buff *skb)
 	unicast = (rxd1 & MT_RXD1_NORMAL_ADDR_TYPE) == MT_RXD1_NORMAL_U2M;
 	idx = FIELD_GET(MT_RXD2_NORMAL_WLAN_IDX, rxd2);
 	status->wcid = mt7615_rx_get_wcid(dev, idx, unicast);
+
+	if (status->wcid) {
+		struct mt7615_sta *msta;
+
+		msta = container_of(status->wcid, struct mt7615_sta, wcid);
+		spin_lock_bh(&dev->sta_poll_lock);
+		if (list_empty(&msta->poll_list))
+			list_add_tail(&msta->poll_list, &dev->sta_poll_list);
+		spin_unlock_bh(&dev->sta_poll_lock);
+	}
 
 	/* TODO: properly support DBDC */
 	status->freq = dev->mt76.chandef.chan->center_freq;
@@ -498,6 +509,69 @@ bool mt7615_mac_wtbl_update(struct mt7615_dev *dev, int idx, u32 mask)
 
 	return mt76_poll(dev, MT_WTBL_UPDATE, MT_WTBL_UPDATE_BUSY,
 			 0, 5000);
+}
+
+void mt7615_mac_sta_poll(struct mt7615_dev *dev)
+{
+	rcu_read_lock();
+	while (true) {
+		struct ieee80211_sta *sta;
+		struct mt7615_sta *msta;
+		u32 addr, airtime[8];
+		bool clear = false;
+		int i;
+
+		spin_lock_bh(&dev->sta_poll_lock);
+		if (list_empty(&dev->sta_poll_list)) {
+			spin_unlock_bh(&dev->sta_poll_lock);
+			break;
+		}
+		msta = list_first_entry(&dev->sta_poll_list,
+					struct mt7615_sta, poll_list);
+		list_del_init(&msta->poll_list);
+		spin_unlock_bh(&dev->sta_poll_lock);
+
+		addr = mt7615_mac_wtbl_addr(msta->wcid.idx) + 19 * 4;
+		for (i = 0; i < ARRAY_SIZE(airtime); i++) {
+			u32 airtime_last = msta->airtime_ac[i];
+
+			msta->airtime_ac[i] = mt76_rr(dev, addr + i * 4);
+			airtime[i] = msta->airtime_ac[i] - airtime_last;
+			if (msta->airtime_ac[i] & BIT(30))
+				clear = true;
+		}
+
+		if (clear) {
+			mt7615_mac_wtbl_update(dev, msta->wcid.idx,
+					       MT_WTBL_UPDATE_ADM_COUNT_CLEAR);
+			memset(msta->airtime_ac, 0, sizeof(msta->airtime_ac));
+		}
+
+		if (!msta->wcid.sta)
+			continue;
+
+		sta = container_of((void *)msta, struct ieee80211_sta,
+				   drv_priv);
+		for (i = 0; i < ARRAY_SIZE(airtime); i++) {
+			u32 txtime = 0, rxtime = 0;
+			u8 tid, index = i / 2;
+
+			if (!airtime[i])
+				continue;
+
+			if (i % 2) {
+				index = mt7615_rx_hwq_to_ac(index);
+				rxtime = airtime[i];
+			} else {
+				txtime = airtime[i];
+			}
+
+			tid = mt76_ac_to_tid(index);
+			ieee80211_sta_register_airtime(sta, tid, txtime,
+						       rxtime);
+		}
+	}
+	rcu_read_unlock();
 }
 
 void mt7615_mac_set_rates(struct mt7615_dev *dev, struct mt7615_sta *sta,
@@ -1062,6 +1136,11 @@ void mt7615_mac_add_txs(struct mt7615_dev *dev, void *data)
 
 	msta = container_of(wcid, struct mt7615_sta, wcid);
 	sta = wcid_to_sta(wcid);
+
+	spin_lock_bh(&dev->sta_poll_lock);
+	if (list_empty(&msta->poll_list))
+		list_add_tail(&msta->poll_list, &dev->sta_poll_list);
+	spin_unlock_bh(&dev->sta_poll_lock);
 
 	if (mt7615_mac_add_txs_skb(dev, msta, pid, txs_data))
 		goto out;
