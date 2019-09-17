@@ -384,12 +384,6 @@ void mt7603_mac_tx_ba_reset(struct mt7603_dev *dev, int wcid, int tid,
 
 void mt7603_mac_sta_poll(struct mt7603_dev *dev)
 {
-	static const u8 ac_to_tid[4] = {
-		[IEEE80211_AC_BE] = 0,
-		[IEEE80211_AC_BK] = 1,
-		[IEEE80211_AC_VI] = 4,
-		[IEEE80211_AC_VO] = 6
-	};
 	struct ieee80211_sta *sta;
 	struct mt7603_sta *msta;
 	u32 total_airtime = 0;
@@ -435,7 +429,7 @@ void mt7603_mac_sta_poll(struct mt7603_dev *dev)
 		for (i = 0; i < 4; i++) {
 			struct mt76_queue *q = dev->mt76.q_tx[i].q;
 			u8 qidx = q->hw_idx;
-			u8 tid = ac_to_tid[i];
+			u8 tid = mt76_ac_to_tid(i);
 			u32 txtime = airtime[qidx];
 
 			if (!txtime)

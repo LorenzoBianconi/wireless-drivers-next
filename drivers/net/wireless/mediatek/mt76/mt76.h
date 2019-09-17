@@ -653,6 +653,7 @@ static inline int mt76_decr(int val, int size)
 	return (val - 1) & (size - 1);
 }
 
+u8 mt76_ac_to_tid(u8 ac);
 u8 mt76_ac_to_hwq(u8 ac);
 
 static inline struct ieee80211_txq *

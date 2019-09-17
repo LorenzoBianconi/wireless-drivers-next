@@ -612,6 +612,22 @@ void mt76_txq_init(struct mt76_dev *dev, struct ieee80211_txq *txq)
 }
 EXPORT_SYMBOL_GPL(mt76_txq_init);
 
+u8 mt76_ac_to_tid(u8 ac)
+{
+	static const u8 ac_to_tid[4] = {
+		[IEEE80211_AC_BE] = 0,
+		[IEEE80211_AC_BK] = 1,
+		[IEEE80211_AC_VI] = 4,
+		[IEEE80211_AC_VO] = 6
+	};
+
+	if (WARN_ON(ac >= IEEE80211_NUM_ACS))
+		return IEEE80211_AC_BE;
+
+	return ac_to_tid[ac];
+}
+EXPORT_SYMBOL_GPL(mt76_ac_to_tid);
+
 u8 mt76_ac_to_hwq(u8 ac)
 {
 	static const u8 wmm_queue_map[] = {
