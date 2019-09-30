@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: GPL-2.0-only
+config MT7663E
+	tristate "MediaTek MT7663E (PCIE) support"
+	select MT76_CORE
+	depends on MAC80211
+	depends on PCI
+	help
+	  This adds support for MT7663E wireless devices.
+
+	  To compile this driver as a module, choose M here.
