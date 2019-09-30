@@ -893,12 +893,18 @@ void mt76u_single_wr(struct mt76_dev *dev, const u8 req,
 void mt76u_deinit(struct mt76_dev *dev);
 int mt76u_init(struct mt76_dev *dev, struct usb_interface *intf,
 	       bool ext);
+int mt7663u_init(struct mt76_dev *dev,
+		 struct usb_interface *intf,
+		 const struct mt76_bus_ops *bus_ops);
+
 int mt76u_alloc_mcu_queue(struct mt76_dev *dev);
 int mt76u_alloc_queues(struct mt76_dev *dev);
+int mt7663u_alloc_queues(struct mt76_dev *dev);
 void mt76u_stop_tx(struct mt76_dev *dev);
 void mt76u_stop_rx(struct mt76_dev *dev);
 int mt76u_resume_rx(struct mt76_dev *dev);
 void mt76u_queues_deinit(struct mt76_dev *dev);
+void mt7663u_queues_deinit(struct mt76_dev *dev);
 
 struct sk_buff *
 mt76_mcu_msg_alloc(const void *data, int head_len,
