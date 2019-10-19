@@ -901,9 +901,9 @@ int connac_usb_mcu_init(struct connac_dev *dev)
 				   MT_TOP_MISC2_FW_PWR_ON, 0, 500))
 			return -EIO;
 
-		ret = connac_usb_vendor_request(&dev->mt76, CONNAC_VEND_POWERON,
-						USB_DIR_OUT | USB_TYPE_VENDOR,
-						0x0, 0x1, NULL, 0);
+		ret = mt76u_vendor_request(&dev->mt76, MT_VEND_POWER_ON,
+					   USB_DIR_OUT | USB_TYPE_VENDOR,
+					   0x0, 0x1, NULL, 0);
 		if (ret)
 			return ret;
 
