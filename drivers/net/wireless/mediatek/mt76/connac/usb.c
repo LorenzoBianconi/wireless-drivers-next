@@ -57,21 +57,6 @@ static int __connac_usb_vendor_request(struct mt76_dev *dev, u8 req,
 	return ret;
 }
 
-int connac_usb_vendor_request(struct mt76_dev *dev, u8 req,
-			      u8 req_type, u16 val, u16 offset,
-			      void *buf, size_t len)
-{
-	int ret;
-
-	mutex_lock(&dev->usb.usb_ctrl_mtx);
-	ret = __connac_usb_vendor_request(dev, req, req_type, val, offset, buf,
-					  len);
-	trace_usb_reg_wr(dev, offset, val);
-	mutex_unlock(&dev->usb.usb_ctrl_mtx);
-
-	return ret;
-}
-
 /* should be called with usb_ctrl_mtx locked */
 static u32 __connac_usb_rr(struct mt76_dev *dev, u32 addr)
 {
@@ -242,9 +227,9 @@ static int connac_usb_probe(struct usb_interface *usb_intf,
 		goto skip_poweron;
 	}
 
-	ret = connac_usb_vendor_request(&dev->mt76, CONNAC_VEND_POWERON,
-					USB_DIR_OUT | USB_TYPE_VENDOR,
-					0x0, 0x1, NULL, 0);
+	ret = mt76u_vendor_request(&dev->mt76, MT_VEND_POWER_ON,
+			           USB_DIR_OUT | USB_TYPE_VENDOR,
+				   0x0, 0x1, NULL, 0);
 	if (ret)
 		goto error;
 
