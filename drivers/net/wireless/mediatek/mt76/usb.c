@@ -1081,59 +1081,6 @@ static void mt76u_tx_tasklet(unsigned long data)
 	}
 }
 
-static void mt7663u_tx_tasklet(unsigned long data)
-{
-	struct mt76_dev *dev = (struct mt76_dev *)data;
-	struct mt76_queue_entry entry;
-	struct mt76_sw_queue *sq;
-	struct mt76_queue *q;
-	bool wake;
-	int i;
-
-	for (i = 0; i < IEEE80211_NUM_ACS; i++) {
-		u32 n_dequeued = 0, n_sw_dequeued = 0;
-
-		sq = &dev->q_tx[i];
-		q = sq->q;
-
-		while (q->queued > n_dequeued) {
-			if (!q->entry[q->head].done)
-				break;
-
-			if (q->entry[q->head].schedule) {
-				q->entry[q->head].schedule = false;
-				n_sw_dequeued++;
-			}
-
-			entry = q->entry[q->head];
-			q->entry[q->head].done = false;
-			q->head = (q->head + 1) % q->ndesc;
-			n_dequeued++;
-
-			dev->drv->tx_complete_skb(dev, i, &entry);
-		}
-
-		spin_lock_bh(&q->lock);
-
-		sq->swq_queued -= n_sw_dequeued;
-		q->queued -= n_dequeued;
-
-		wake = q->stopped && q->queued < q->ndesc - 8;
-		if (wake)
-			q->stopped = false;
-
-		if (!q->queued)
-			wake_up(&dev->tx_wait);
-
-		spin_unlock_bh(&q->lock);
-
-		mt76_txq_schedule(&dev->phy, i);
-
-		if (wake)
-			ieee80211_wake_queue(dev->hw, i);
-	}
-}
-
 static void mt76u_tx_status_data(struct work_struct *work)
 {
 	struct mt76_usb *usb;
@@ -1531,7 +1478,7 @@ int mt7663u_init(struct mt76_dev *dev,
 	int err;
 
 	tasklet_init(&usb->rx_tasklet, mt7663u_rx_tasklet, (unsigned long)dev);
-	tasklet_init(&dev->tx_tasklet, mt7663u_tx_tasklet, (unsigned long)dev);
+	tasklet_init(&dev->tx_tasklet, mt76u_tx_tasklet, (unsigned long)dev);
 	skb_queue_head_init(&dev->rx_skb[MT_RXQ_MAIN]);
 
 	mutex_init(&usb->mcu.mutex);
