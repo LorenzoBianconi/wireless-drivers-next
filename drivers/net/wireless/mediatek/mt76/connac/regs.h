@@ -98,6 +98,8 @@ static const u32 connac_abs_regs_base[] = {
 
 #define MT_TOP_MISC2(dev)		((dev)->regs[TOPCFG_BASE] + 0x134)
 #define MT_TOP_MISC2_FW_STATE		GENMASK(3, 1)
+#define MT_TOP_MISC2_FW_PWR_ON		BIT(1)
+#define MT_TOP_MISC2_FW_N9_RDY		BIT(2)
 #define MT_CONN_ON_MISC(dev)		((dev)->regs[TOPMISC_BASE] + 0x1140)
 
 #define MT_MCU(dev, ofs)		((dev)->regs[MCU_BASE] + (ofs))
