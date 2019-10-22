@@ -233,18 +233,26 @@ static int connac_usb_probe(struct usb_interface *usb_intf,
 		    (mt76_rr(dev, MT_HW_REV(dev)) & 0xff);
 	dev_dbg(mdev->dev, "ASIC revision: %04x\n", mdev->rev);
 
+	if (mt76_poll_msec(dev, MT_CONN_ON_MISC(dev), MT_TOP_MISC2_FW_PWR_ON,
+			   FW_STATE_PWR_ON << 1, 500)) {
+		dev_dbg(dev->mt76.dev, "Dongle have been powered on\n");
+		dev->required_poweroff = true;
+		goto skip_poweron;
+	}
+
 	ret = connac_usb_vendor_request(&dev->mt76, CONNAC_VEND_POWERON,
 					USB_DIR_OUT | USB_TYPE_VENDOR,
 					0x0, 0x1, NULL, 0);
 	if (ret)
 		goto error;
 
-	if (!mt76_poll_msec(dev, MT_CONN_ON_MISC(dev), MT_TOP_MISC2_FW_STATE,
-			    FW_STATE_FW_DOWNLOAD << 1, 500)) {
-		dev_err(dev->mt76.dev, "Timeout for poewr on\n");
+	if (!mt76_poll_msec(dev, MT_CONN_ON_MISC(dev), MT_TOP_MISC2_FW_PWR_ON,
+			    FW_STATE_PWR_ON << 1, 500)) {
+		dev_err(dev->mt76.dev, "Timeout for power on\n");
 		return -EIO;
 	}
 
+skip_poweron:
 	ret = mt7663u_alloc_queues(&dev->mt76);
 	if (ret)
 		goto error;
