@@ -138,6 +138,7 @@ struct connac_dev {
 	struct work_struct	rc_work;     /* deferred rate tuning */
 	struct list_head	rc_processing;
 	const u32 *regs;
+	bool required_poweroff;
 };
 
 struct connac_rate_desc {
@@ -320,10 +321,19 @@ int connac_dfs_init_radar_detector(struct connac_dev *dev);
 
 int connac_init_debugfs(struct connac_dev *dev);
 
+#ifdef CONFIG_MT7663U
 int connac_usb_vendor_request(struct mt76_dev *dev, u8 req,
 			      u8 req_type, u16 val, u16 offset,
 			      void *buf, size_t len);
-
+#else
+static inline int
+connac_usb_vendor_request(struct mt76_dev *dev, u8 req,
+			  u8 req_type, u16 val, u16 offset,
+			  void *buf, size_t len)
+{
+	return -ENOSYS;
+}
+#endif
 void connac_usb_tx_complete_skb(struct mt76_dev *mdev, enum mt76_txq_id qid,
 				struct mt76_queue_entry *e);
 
