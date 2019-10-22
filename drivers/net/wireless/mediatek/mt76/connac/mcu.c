@@ -825,9 +825,9 @@ static int connac_load_firmware(struct connac_dev *dev)
 	if (dev->flag & CONNAC_MMIO)
 		fwdl_datapath_setup(dev, true);
 
-	val = mt76_get_field(dev, MT_CONN_ON_MISC(dev), MT_TOP_MISC2_FW_STATE);
-	if (val != FW_STATE_FW_DOWNLOAD) {
-		dev_err(dev->mt76.dev, "Firmware is not ready for download\n");
+	val = mt76_get_field(dev, MT_CONN_ON_MISC(dev), MT_TOP_MISC2_FW_N9_RDY);
+	if (val) {
+		dev_dbg(dev->mt76.dev, "Firmware is already download\n");
 		return -EIO;
 	}
 
@@ -839,8 +839,8 @@ static int connac_load_firmware(struct connac_dev *dev)
 	if (ret)
 		return ret;
 
-	if (!mt76_poll_msec(dev, MT_CONN_ON_MISC(dev), MT_TOP_MISC2_FW_STATE,
-			    (FW_STATE_NORMAL_TRX << 1), 1500)) {
+	if (!mt76_poll_msec(dev, MT_CONN_ON_MISC(dev), MT_TOP_MISC2_FW_N9_RDY,
+			    (FW_STATE_N9_RDY << 1), 1500)) {
 		val = mt76_get_field(dev, MT_CONN_ON_MISC(dev),
 				     MT_TOP_MISC2_FW_STATE);
 		dev_err(dev->mt76.dev, "Timeout for initializing firmware\n");
@@ -902,6 +902,27 @@ int connac_usb_mcu_init(struct connac_dev *dev)
 	val = mt76_rr(dev, UDMA_TX_QSEL(dev));
 	val |= FW_DL_EN;
 	mt76_wr(dev, UDMA_TX_QSEL(dev), val);
+
+	if (dev->required_poweroff) {
+		connac_mcu_restart(&dev->mt76);
+
+		if (!mt76_poll_msec(dev, MT_CONN_ON_MISC(dev),
+				   MT_TOP_MISC2_FW_PWR_ON, 0, 500))
+			return -EIO;
+
+		ret = connac_usb_vendor_request(&dev->mt76, CONNAC_VEND_POWERON,
+						USB_DIR_OUT | USB_TYPE_VENDOR,
+						0x0, 0x1, NULL, 0);
+		if (ret)
+			return ret;
+
+		if (!mt76_poll_msec(dev, MT_CONN_ON_MISC(dev),
+				    MT_TOP_MISC2_FW_PWR_ON,
+				    FW_STATE_PWR_ON << 1, 500)) {
+			dev_err(dev->mt76.dev, "Timeout for power on\n");
+			return -EIO;
+		}
+	}
 
 	ret = connac_load_firmware(dev);
 	if (ret)

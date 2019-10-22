@@ -121,11 +121,8 @@ enum {
 };
 
 enum {
-	FW_STATE_INITIAL          = 0,
-	FW_STATE_FW_DOWNLOAD      = 1,
-	FW_STATE_NORMAL_OPERATION = 2,
-	FW_STATE_NORMAL_TRX       = 3,
-	FW_STATE_CR4_RDY          = 7
+	FW_STATE_PWR_ON      = 1,
+	FW_STATE_N9_RDY	     = 2,
 };
 
 #define STA_TYPE_STA		BIT(0)
