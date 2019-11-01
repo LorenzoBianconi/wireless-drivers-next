@@ -786,7 +786,7 @@ static int mt7663u_submit_rx_buffers(struct mt76_dev *dev)
 
 	spin_lock_irqsave(&q->lock, flags);
 	for (i = 0; i < q->ndesc; i++) {
-		err = mt76u_submit_rx_buf(dev, q->entry[i].urb);
+		err = mt76u_submit_rx_buf(dev, MT_RXQ_MAIN, q->entry[i].urb);
 		if (err < 0)
 			break;
 	}
