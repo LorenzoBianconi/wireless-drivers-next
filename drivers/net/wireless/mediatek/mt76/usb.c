@@ -795,6 +795,33 @@ static void mt76u_rx_tasklet(unsigned long data)
 	rcu_read_unlock();
 }
 
+static void mt7663u_rx_tasklet(unsigned long data)
+{
+	struct mt76_dev *dev = (struct mt76_dev *)data;
+	struct mt76_queue *q = &dev->q_rx[MT_RXQ_MAIN];
+	struct urb *urb;
+	int err, count;
+
+	rcu_read_lock();
+
+	mt76u_process_rx_queue(dev, q);
+	while (true) {
+		urb = mt76u_get_next_rx_entry_mcu(dev);
+		if (!urb)
+			break;
+
+		count = mt7663u_process_rx_entry(dev, urb, MT_RXQ_MCU);
+		if (count > 0) {
+			err = mt76u_refill_rx_mcu(dev, urb, count, GFP_ATOMIC);
+			if (err < 0)
+				break;
+		}
+		mt76u_submit_rx_buf_mcu(dev, urb);
+	}
+
+	rcu_read_unlock();
+}
+
 static int
 mt76u_submit_rx_buffers(struct mt76_dev *dev, enum mt76_rxq_id qid)
 {
