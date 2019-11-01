@@ -1570,6 +1570,7 @@ int mt7663u_init(struct mt76_dev *dev,
 		 struct usb_interface *intf,
 		 const struct mt76_bus_ops *bus_ops)
 {
+	struct usb_device *udev = interface_to_usbdev(intf);
 	struct mt76_usb *usb = &dev->usb;
 	int err;
 
@@ -1583,6 +1584,7 @@ int mt7663u_init(struct mt76_dev *dev,
 	dev->bus = bus_ops;
 	dev->queue_ops = &usb_queue_ops;
 
+	dev_set_drvdata(&udev->dev, dev);
 	usb->sg_en = mt76u_check_sg(dev);
 
 	skb_queue_head_init(&dev->usb.mcu.res_q);

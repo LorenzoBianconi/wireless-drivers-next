@@ -32,7 +32,8 @@ static int __connac_usb_vendor_request(struct mt76_dev *dev, u8 req,
 				       u8 req_type, u16 val, u16 offset,
 				       void *buf, size_t len)
 {
-	struct usb_device *udev = to_usb_device(dev->dev);
+	struct usb_interface *uintf = to_usb_interface(dev->dev);
+	struct usb_device *udev = interface_to_usbdev(uintf);
 	unsigned int pipe;
 	int i, ret;
 
@@ -211,7 +212,7 @@ static int connac_usb_probe(struct usb_interface *usb_intf,
 	struct mt76_dev *mdev;
 	int ret;
 
-	mdev = mt76_alloc_device(&udev->dev, sizeof(*dev), &connac_ops,
+	mdev = mt76_alloc_device(&usb_intf->dev, sizeof(*dev), &connac_ops,
 				 &drv_ops);
 	if (!mdev)
 		return -ENOMEM;
