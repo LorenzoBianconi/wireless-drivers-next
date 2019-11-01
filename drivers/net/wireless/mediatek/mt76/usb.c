@@ -387,20 +387,6 @@ mt76u_refill_rx(struct mt76_dev *dev, struct mt76_queue *q,
 }
 
 static int
-mt76u_refill_rx_mcu(struct mt76_dev *dev, struct urb *urb, int nsgs, gfp_t gfp)
-{
-	struct mt76_queue *q = &dev->q_rx[MT_RXQ_MCU];
-
-	if (dev->usb.sg_en)
-		return mt76u_fill_rx_sg(dev, q, urb, nsgs, gfp);
-
-	urb->transfer_buffer_length = q->buf_size;
-	urb->transfer_buffer = page_frag_alloc(&q->rx_page, q->buf_size, gfp);
-
-	return urb->transfer_buffer ? 0 : -ENOMEM;
-}
-
-static int
 mt76u_urb_alloc(struct mt76_dev *dev, struct mt76_queue_entry *e,
 		int sg_max_size)
 {
@@ -439,13 +425,14 @@ mt76u_rx_urb_alloc(struct mt76_dev *dev, struct mt76_queue *q,
 static int
 mt76u_rx_urb_alloc_mcu(struct mt76_dev *dev, struct mt76_queue_entry *e)
 {
+	struct mt76_queue *q = &dev->q_rx[MT_RXQ_MCU];
 	int err;
 
 	err = mt76u_urb_alloc(dev, e, MT_RX_SG_MAX_SIZE);
 	if (err)
 		return err;
 
-	return mt76u_refill_rx_mcu(dev, e->urb, MT_RX_SG_MAX_SIZE,
+	return mt76u_refill_rx(dev, q, e->urb, MT_RX_SG_MAX_SIZE,
 			       GFP_KERNEL);
 }
 
@@ -761,7 +748,7 @@ static void mt7663u_rx_tasklet(unsigned long data)
 
 		count = mt7663u_process_rx_entry(dev, urb, MT_RXQ_MCU);
 		if (count > 0) {
-			err = mt76u_refill_rx_mcu(dev, urb, count, GFP_ATOMIC);
+			err = mt76u_refill_rx(dev, q, urb, count, GFP_ATOMIC);
 			if (err < 0)
 				break;
 		}
