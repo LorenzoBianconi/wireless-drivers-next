@@ -615,70 +615,10 @@ mt76u_process_rx_entry(struct mt76_dev *dev, struct urb *urb,
 	return nsgs;
 }
 
-static int
-mt7663u_process_rx_entry(struct mt76_dev *dev, struct urb *urb, int _q)
-{
-	struct mt76_queue *q = &dev->q_rx[_q];
-	u8 *data = urb->num_sgs ? sg_virt(&urb->sg[0]) : urb->transfer_buffer;
-	int data_len = urb->num_sgs ? urb->sg[0].length : urb->actual_length;
-	int len, nsgs = 1;
-	struct sk_buff *skb;
-	u16 dma_len = get_unaligned_le16(data);
-
-	if (!test_bit(MT76_STATE_INITIALIZED, &dev->phy.state))
-		return 0;
-
-	len = urb->actual_length;
-	data_len = dma_len;
-
-	skb = build_skb(data, q->buf_size);
-	if (!skb)
-		return 0;
-
-	__skb_put(skb, data_len);
-	len -= data_len;
-
-	dev->drv->rx_skb(dev, MT_RXQ_MAIN, skb);
-
-	return nsgs;
-}
-
 static void mt76u_complete_rx(struct urb *urb)
 {
 	struct mt76_dev *dev = dev_get_drvdata(&urb->dev->dev);
 	struct mt76_queue *q = urb->context;
-	unsigned long flags;
-
-	trace_rx_urb(dev, urb);
-
-	switch (urb->status) {
-	case -ECONNRESET:
-	case -ESHUTDOWN:
-	case -ENOENT:
-		return;
-	default:
-		dev_err_ratelimited(dev->dev, "rx urb failed: %d\n",
-				    urb->status);
-		/* fall through */
-	case 0:
-		break;
-	}
-
-	spin_lock_irqsave(&q->lock, flags);
-	if (WARN_ONCE(q->entry[q->tail].urb != urb, "rx urb mismatch"))
-		goto out;
-
-	q->tail = (q->tail + 1) % q->ndesc;
-	q->queued++;
-	tasklet_schedule(&dev->usb.rx_tasklet);
-out:
-	spin_unlock_irqrestore(&q->lock, flags);
-}
-
-static void mt76u_complete_rx_mcu(struct urb *urb)
-{
-	struct mt76_dev *dev = urb->context;
-	struct mt76_queue *q = &dev->q_rx[MT_RXQ_MCU];
 	unsigned long flags;
 
 	trace_rx_urb(dev, urb);
@@ -715,16 +655,6 @@ mt76u_submit_rx_buf(struct mt76_dev *dev, enum mt76_rxq_id qid,
 
 	mt76u_fill_bulk_urb(dev, USB_DIR_IN, ep, urb,
 			    mt76u_complete_rx, &dev->q_rx[qid]);
-	trace_submit_urb(dev, urb);
-
-	return usb_submit_urb(urb, GFP_ATOMIC);
-}
-
-static int
-mt76u_submit_rx_buf_mcu(struct mt76_dev *dev, struct urb *urb)
-{
-	mt76u_fill_bulk_urb(dev, USB_DIR_IN, MT_EP_IN_CMD_RESP, urb,
-			    mt76u_complete_rx_mcu, dev);
 	trace_submit_urb(dev, urb);
 
 	return usb_submit_urb(urb, GFP_ATOMIC);
@@ -767,28 +697,11 @@ static void mt76u_rx_tasklet(unsigned long data)
 static void mt7663u_rx_tasklet(unsigned long data)
 {
 	struct mt76_dev *dev = (struct mt76_dev *)data;
-	struct mt76_queue *q = &dev->q_rx[MT_RXQ_MAIN];
-	struct urb *urb;
-	int err, count;
+	int i;
 
 	rcu_read_lock();
-	mt76u_process_rx_queue(dev, q);
-
-	q = &dev->q_rx[MT_RXQ_MCU];
-	while (true) {
-		urb = mt76u_get_next_rx_entry(q);
-		if (!urb)
-			break;
-
-		count = mt7663u_process_rx_entry(dev, urb, MT_RXQ_MCU);
-		if (count > 0) {
-			err = mt76u_refill_rx(dev, q, urb, count, GFP_ATOMIC);
-			if (err < 0)
-				break;
-		}
-		mt76u_submit_rx_buf_mcu(dev, urb);
-	}
-
+	for (i = 0; i < __MT_RXQ_MAX; i++)
+		mt76u_process_rx_queue(dev, &dev->q_rx[i]);
 	rcu_read_unlock();
 }
 
@@ -832,7 +745,7 @@ static int mt7663u_submit_rx_buffers(struct mt76_dev *dev)
 
 	spin_lock_irqsave(&q->lock, flags);
 	for (i = 0; i < q->ndesc; i++) {
-		err = mt76u_submit_rx_buf_mcu(dev, q->entry[i].urb);
+		err = mt76u_submit_rx_buf(dev, MT_RXQ_MCU, q->entry[i].urb);
 		if (err < 0)
 			break;
 	}
