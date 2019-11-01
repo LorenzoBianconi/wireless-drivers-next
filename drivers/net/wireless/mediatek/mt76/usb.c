@@ -687,21 +687,17 @@ mt76u_process_rx_queue(struct mt76_dev *dev, struct mt76_queue *q)
 static void mt76u_rx_tasklet(unsigned long data)
 {
 	struct mt76_dev *dev = (struct mt76_dev *)data;
-	struct mt76_queue *q = &dev->q_rx[MT_RXQ_MAIN];
-
-	rcu_read_lock();
-	mt76u_process_rx_queue(dev, q);
-	rcu_read_unlock();
-}
-
-static void mt7663u_rx_tasklet(unsigned long data)
-{
-	struct mt76_dev *dev = (struct mt76_dev *)data;
+	struct mt76_queue *q;
 	int i;
 
 	rcu_read_lock();
-	for (i = 0; i < __MT_RXQ_MAX; i++)
-		mt76u_process_rx_queue(dev, &dev->q_rx[i]);
+	for (i = 0; i < __MT_RXQ_MAX; i++) {
+		q = &dev->q_rx[i];
+		if (!q->ndesc)
+			continue;
+
+		mt76u_process_rx_queue(dev, q);
+	}
 	rcu_read_unlock();
 }
 
@@ -1431,7 +1427,7 @@ int mt7663u_init(struct mt76_dev *dev,
 	struct mt76_usb *usb = &dev->usb;
 	int err;
 
-	tasklet_init(&usb->rx_tasklet, mt7663u_rx_tasklet, (unsigned long)dev);
+	tasklet_init(&usb->rx_tasklet, mt76u_rx_tasklet, (unsigned long)dev);
 	tasklet_init(&dev->tx_tasklet, mt76u_tx_tasklet, (unsigned long)dev);
 	skb_queue_head_init(&dev->rx_skb[MT_RXQ_MAIN]);
 
