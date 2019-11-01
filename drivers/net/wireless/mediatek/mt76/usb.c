@@ -500,24 +500,6 @@ mt76u_get_next_rx_entry(struct mt76_queue *q)
 	return urb;
 }
 
-static inline struct urb *
-mt76u_get_next_rx_entry_mcu(struct mt76_dev *dev)
-{
-	struct mt76_queue *q = &dev->q_rx[MT_RXQ_MCU];
-	struct urb *urb = NULL;
-	unsigned long flags;
-
-	spin_lock_irqsave(&q->lock, flags);
-	if (q->queued > 0) {
-		urb = q->entry[q->head].urb;
-		q->head = (q->head + 1) % q->ndesc;
-		q->queued--;
-	}
-	spin_unlock_irqrestore(&q->lock, flags);
-
-	return urb;
-}
-
 static int
 mt76u_get_rx_entry_len(struct mt76_dev *dev, u8 *data,
 		       u32 data_len)
@@ -769,10 +751,11 @@ static void mt7663u_rx_tasklet(unsigned long data)
 	int err, count;
 
 	rcu_read_lock();
-
 	mt76u_process_rx_queue(dev, q);
+
+	q = &dev->q_rx[MT_RXQ_MCU];
 	while (true) {
-		urb = mt76u_get_next_rx_entry_mcu(dev);
+		urb = mt76u_get_next_rx_entry(q);
 		if (!urb)
 			break;
 
