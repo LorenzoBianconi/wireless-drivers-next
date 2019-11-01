@@ -188,6 +188,7 @@ static int connac_usb_probe(struct usb_interface *usb_intf,
 {
 	static const struct mt76_driver_ops drv_ops = {
 		.txwi_size = CONNAC_USB_TXD_SIZE,
+		.drv_flags = MT_DRV_RX_DMA_HDR,
 		.tx_prepare_skb = connac_usb_tx_prepare_skb,
 		.tx_complete_skb = connac_usb_tx_complete_skb,
 		.rx_skb = connac_queue_rx_skb,
