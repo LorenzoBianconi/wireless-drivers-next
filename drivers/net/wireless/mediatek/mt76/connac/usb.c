@@ -26,6 +26,14 @@ static void connac_usb_cleanup(struct connac_dev *dev)
 	mt76u_queues_deinit(&dev->mt76);
 }
 
+static void
+connac_usb_tx_complete_skb(struct mt76_dev *mdev, enum mt76_txq_id qid,
+				struct mt76_queue_entry *e)
+{
+	skb_pull(e->skb, CONNAC_USB_TXD_SIZE);
+	mt76_tx_complete_skb(mdev, e->skb);
+}
+
 static int
 connac_usb_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 			  enum mt76_txq_id qid, struct mt76_wcid *wcid,
