@@ -9,12 +9,6 @@
 #include "../mt76.h"
 #include "regs.h"
 
-enum connac_vendor_req {
-	CONNAC_VEND_POWERON =	0x4,
-	CONNAC_VEND_READ =	0x63,
-	CONNAC_VEND_WRITE =	0x66,
-};
-
 #define CONNAC_USB_TXD_EXTRA_SIZE	(8 * 4)
 #define CONNAC_USB_TXD_SIZE		(MT_TXD_SIZE + \
 					 CONNAC_USB_TXD_EXTRA_SIZE)
