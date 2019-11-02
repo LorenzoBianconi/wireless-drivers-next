@@ -1198,35 +1198,5 @@ int mt76u_init(struct mt76_dev *dev,
 }
 EXPORT_SYMBOL_GPL(mt76u_init);
 
-int mt7663u_init(struct mt76_dev *dev,
-		 struct usb_interface *intf,
-		 const struct mt76_bus_ops *bus_ops)
-{
-	struct usb_device *udev = interface_to_usbdev(intf);
-	struct mt76_usb *usb = &dev->usb;
-	int err;
-
-	INIT_WORK(&usb->stat_work, mt76u_tx_status_data);
-	tasklet_init(&usb->rx_tasklet, mt76u_rx_tasklet, (unsigned long)dev);
-	tasklet_init(&dev->tx_tasklet, mt76u_tx_tasklet, (unsigned long)dev);
-	skb_queue_head_init(&dev->rx_skb[MT_RXQ_MAIN]);
-
-	mutex_init(&usb->mcu.mutex);
-
-	mutex_init(&usb->usb_ctrl_mtx);
-	dev->bus = bus_ops;
-	dev->queue_ops = &usb_queue_ops;
-
-	dev_set_drvdata(&udev->dev, dev);
-	usb->sg_en = mt76u_check_sg(dev);
-
-	skb_queue_head_init(&dev->usb.mcu.res_q);
-	init_waitqueue_head(&dev->usb.mcu.wait);
-	mutex_init(&dev->usb.mcu.mutex);
-
-	return mt76u_set_endpoints(intf, usb);
-}
-EXPORT_SYMBOL_GPL(mt7663u_init);
-
 MODULE_AUTHOR("Lorenzo Bianconi <lorenzo.bianconi83@gmail.com>");
 MODULE_LICENSE("Dual BSD/GPL");
