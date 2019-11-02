@@ -15,152 +15,10 @@
 #include "mcu.h"
 #include "../usb_trace.h"
 
-#define MT_VEND_REQ_MAX_RETRY	10
-#define MT_VEND_REQ_TOUT_MS	300
-
-static bool disable_usb_sg = true;
-module_param_named(disable_usb_sg, disable_usb_sg, bool, 0644);
-MODULE_PARM_DESC(disable_usb_sg, "Disable usb scatter-gather support");
-
 static const struct usb_device_id connac_device_table[] = {
 	{ USB_DEVICE_AND_INTERFACE_INFO(0x0e8d, 0x7663, 0xff, 0xff, 0xff)},
 	{ },
 };
-
-/* should be called with usb_ctrl_mtx locked */
-static int __connac_usb_vendor_request(struct mt76_dev *dev, u8 req,
-				       u8 req_type, u16 val, u16 offset,
-				       void *buf, size_t len)
-{
-	struct usb_interface *uintf = to_usb_interface(dev->dev);
-	struct usb_device *udev = interface_to_usbdev(uintf);
-	unsigned int pipe;
-	int i, ret;
-
-	pipe = (req_type & USB_DIR_IN) ? usb_rcvctrlpipe(udev, 0)
-				       : usb_sndctrlpipe(udev, 0);
-	for (i = 0; i < MT_VEND_REQ_MAX_RETRY; i++) {
-		if (test_bit(MT76_REMOVED, &dev->phy.state))
-			return -EIO;
-
-		ret = usb_control_msg(udev, pipe, req, req_type, val,
-				      offset, buf, len, MT_VEND_REQ_TOUT_MS);
-		if (ret == -ENODEV)
-			set_bit(MT76_REMOVED, &dev->phy.state);
-		if (ret >= 0 || ret == -ENODEV)
-			return ret;
-		usleep_range(5000, 10000);
-	}
-
-	dev_err(dev->dev, "vendor request req:%02x off:%04x failed:%d\n",
-		req, offset, ret);
-	return ret;
-}
-
-/* should be called with usb_ctrl_mtx locked */
-static u32 __connac_usb_rr(struct mt76_dev *dev, u32 addr)
-{
-	struct mt76_usb *usb = &dev->usb;
-	u32 data = ~0;
-	u16 offset[2];
-	int ret;
-	u8 req;
-
-	req = CONNAC_VEND_READ;
-	offset[0] = (addr & 0xffff0000) >> 16;
-	offset[1] = addr & 0xffff;
-
-	ret = __connac_usb_vendor_request(dev, req,
-					  USB_DIR_IN | USB_TYPE_VENDOR,
-					  offset[0], offset[1], usb->data,
-					  sizeof(__le32));
-	if (ret == sizeof(__le32))
-		data = get_unaligned_le32(usb->data);
-	trace_usb_reg_rr(dev, addr, data);
-
-	return data;
-}
-
-static u32 connac_usb_rr(struct mt76_dev *dev, u32 addr)
-{
-	u32 ret;
-
-	mutex_lock(&dev->usb.usb_ctrl_mtx);
-	ret = __connac_usb_rr(dev, addr);
-	mutex_unlock(&dev->usb.usb_ctrl_mtx);
-
-	return ret;
-}
-
-/* should be called with usb_ctrl_mtx locked */
-static void __connac_usb_wr(struct mt76_dev *dev, u32 addr, u32 val)
-{
-	struct mt76_usb *usb = &dev->usb;
-	u16 offset[2];
-	u8 req;
-
-	req = CONNAC_VEND_WRITE;
-	offset[0] = (addr & 0xffff0000) >> 16;
-	offset[1] = addr & 0xffff;
-
-	put_unaligned_le32(val, usb->data);
-	__connac_usb_vendor_request(dev, req,
-				    USB_DIR_OUT | USB_TYPE_VENDOR, offset[0],
-				    offset[1], usb->data, sizeof(__le32));
-	trace_usb_reg_wr(dev, addr, val);
-}
-
-static void connac_usb_wr(struct mt76_dev *dev, u32 addr, u32 val)
-{
-	mutex_lock(&dev->usb.usb_ctrl_mtx);
-	__connac_usb_wr(dev, addr, val);
-	mutex_unlock(&dev->usb.usb_ctrl_mtx);
-}
-
-static u32 connac_usb_rmw(struct mt76_dev *dev, u32 addr,
-			  u32 mask, u32 val)
-{
-	mutex_lock(&dev->usb.usb_ctrl_mtx);
-	val |= __connac_usb_rr(dev, addr) & ~mask;
-	__connac_usb_wr(dev, addr, val);
-	mutex_unlock(&dev->usb.usb_ctrl_mtx);
-
-	return val;
-}
-
-
-static void
-connac_usb_write_copy(struct mt76_dev *dev, u32 offset, const void *data,
-		      int len)
-{
-	mutex_lock(&dev->usb.usb_ctrl_mtx);
-
-	while (len) {
-		__connac_usb_wr(dev, offset, *(u32 *)data);
-
-		offset += sizeof(u32);
-		data += sizeof(u32);
-		len -= sizeof(u32);
-	}
-
-	mutex_unlock(&dev->usb.usb_ctrl_mtx);
-}
-
-static void
-connac_usb_read_copy(struct mt76_dev *dev, u32 offset, void *data, int len)
-{
-	mutex_lock(&dev->usb.usb_ctrl_mtx);
-
-	while (len) {
-		*(u32 *)data = __connac_usb_rr(dev, offset);
-
-		offset += sizeof(u32);
-		data += sizeof(u32);
-		len -= sizeof(u32);
-	}
-
-	mutex_unlock(&dev->usb.usb_ctrl_mtx);
-}
 
 static void connac_usb_cleanup(struct connac_dev *dev)
 {
@@ -183,16 +41,6 @@ static int connac_usb_probe(struct usb_interface *usb_intf,
 		.sta_remove = connac_sta_remove,
 		.update_survey = connac_update_channel,
 	};
-
-	static const struct mt76_bus_ops connac_usb_bus_ops = {
-		.rr = connac_usb_rr,
-		.wr = connac_usb_wr,
-		.rmw = connac_usb_rmw,
-		.read_copy = connac_usb_read_copy,
-		.write_copy = connac_usb_write_copy,
-		.type = MT76_BUS_USB,
-	};
-
 	struct usb_device *udev = interface_to_usbdev(usb_intf);
 	struct connac_dev *dev;
 	struct mt76_dev *mdev;
@@ -212,7 +60,7 @@ static int connac_usb_probe(struct usb_interface *usb_intf,
 	dev->flag |= CONNAC_USB;
 	dev->regs = connac_abs_regs_base;
 
-	ret = mt7663u_init(mdev, usb_intf, &connac_usb_bus_ops);
+	ret = mt76u_init(mdev, usb_intf, true);
 	if (ret < 0)
 		goto error;
 
