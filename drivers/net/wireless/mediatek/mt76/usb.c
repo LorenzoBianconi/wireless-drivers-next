@@ -776,23 +776,6 @@ int mt76u_resume_rx(struct mt76_dev *dev)
 }
 EXPORT_SYMBOL_GPL(mt76u_resume_rx);
 
-int mt7663u_resume_rx(struct mt76_dev *dev)
-{
-	struct mt76_queue *q = &dev->q_rx[MT_RXQ_MAIN];
-	int i;
-
-	for (i = 0; i < q->ndesc; i++)
-		usb_unpoison_urb(q->entry[i].urb);
-
-	q = &dev->q_rx[MT_RXQ_MCU];
-
-	for (i = 0; i < q->ndesc; i++)
-		usb_unpoison_urb(q->entry[i].urb);
-
-	return mt76u_submit_rx_buffers(dev, MT_RXQ_MAIN);
-}
-EXPORT_SYMBOL_GPL(mt7663u_resume_rx);
-
 static void mt76u_tx_tasklet(unsigned long data)
 {
 	struct mt76_dev *dev = (struct mt76_dev *)data;
