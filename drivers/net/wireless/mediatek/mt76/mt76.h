@@ -904,7 +904,6 @@ void mt76u_stop_tx(struct mt76_dev *dev);
 void mt76u_stop_rx(struct mt76_dev *dev);
 int mt76u_resume_rx(struct mt76_dev *dev);
 void mt76u_queues_deinit(struct mt76_dev *dev);
-void mt7663u_queues_deinit(struct mt76_dev *dev);
 
 struct sk_buff *
 mt76_mcu_msg_alloc(const void *data, int head_len,

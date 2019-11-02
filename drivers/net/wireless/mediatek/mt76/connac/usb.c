@@ -180,7 +180,7 @@ connac_usb_read_copy(struct mt76_dev *dev, u32 offset, void *data, int len)
 static void connac_usb_cleanup(struct connac_dev *dev)
 {
 	clear_bit(MT76_STATE_INITIALIZED, &dev->mphy.state);
-	mt7663u_queues_deinit(&dev->mt76);
+	mt76u_queues_deinit(&dev->mt76);
 }
 
 static int connac_usb_probe(struct usb_interface *usb_intf,
@@ -265,7 +265,7 @@ skip_poweron:
 
 	return 0;
 error_freeq:
-	mt7663u_queues_deinit(&dev->mt76);
+	mt76u_queues_deinit(&dev->mt76);
 error:
 	usb_set_intfdata(usb_intf, NULL);
 	usb_put_dev(interface_to_usbdev(usb_intf));

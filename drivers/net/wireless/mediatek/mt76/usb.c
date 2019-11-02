@@ -1186,50 +1186,6 @@ void mt76u_stop_tx(struct mt76_dev *dev)
 }
 EXPORT_SYMBOL_GPL(mt76u_stop_tx);
 
-void mt7663u_stop_tx(struct mt76_dev *dev)
-{
-	struct mt76_queue_entry entry;
-	struct mt76_queue *q;
-	int i, j, ret;
-
-	ret = wait_event_timeout(dev->tx_wait, !mt76_has_tx_pending(&dev->phy),
-				 HZ / 5);
-	if (!ret) {
-		dev_err(dev->dev, "timed out waiting for pending tx\n");
-
-		for (i = 0; i < IEEE80211_NUM_ACS; i++) {
-			q = dev->q_tx[i].q;
-			for (j = 0; j < q->ndesc; j++)
-				usb_kill_urb(q->entry[j].urb);
-		}
-
-		tasklet_kill(&dev->tx_tasklet);
-
-		/* On device removal we maight queue skb's, but mt76u_tx_kick()
-		 * will fail to submit urb, cleanup those skb's manually.
-		 */
-		for (i = 0; i < IEEE80211_NUM_ACS; i++) {
-			q = dev->q_tx[i].q;
-
-			/* Assure we are in sync with killed tasklet. */
-			spin_lock_bh(&q->lock);
-			while (q->queued) {
-				entry = q->entry[q->head];
-				q->head = (q->head + 1) % q->ndesc;
-				q->queued--;
-
-				dev->drv->tx_complete_skb(dev, i, &entry);
-			}
-			spin_unlock_bh(&q->lock);
-		}
-	}
-
-	clear_bit(MT76_READING_STATS, &dev->phy.state);
-
-	mt76_tx_status_check(dev, NULL, true);
-}
-EXPORT_SYMBOL_GPL(mt7663u_stop_tx);
-
 void mt76u_queues_deinit(struct mt76_dev *dev)
 {
 	mt76u_stop_rx(dev);
@@ -1239,16 +1195,6 @@ void mt76u_queues_deinit(struct mt76_dev *dev)
 	mt76u_free_tx(dev);
 }
 EXPORT_SYMBOL_GPL(mt76u_queues_deinit);
-
-void mt7663u_queues_deinit(struct mt76_dev *dev)
-{
-	mt76u_stop_rx(dev);
-	mt7663u_stop_tx(dev);
-
-	mt76u_free_rx(dev);
-	mt76u_free_tx(dev);
-}
-EXPORT_SYMBOL_GPL(mt7663u_queues_deinit);
 
 int mt76u_alloc_queues(struct mt76_dev *dev)
 {
@@ -1337,6 +1283,7 @@ int mt7663u_init(struct mt76_dev *dev,
 	struct mt76_usb *usb = &dev->usb;
 	int err;
 
+	INIT_WORK(&usb->stat_work, mt76u_tx_status_data);
 	tasklet_init(&usb->rx_tasklet, mt76u_rx_tasklet, (unsigned long)dev);
 	tasklet_init(&dev->tx_tasklet, mt76u_tx_tasklet, (unsigned long)dev);
 	skb_queue_head_init(&dev->rx_skb[MT_RXQ_MAIN]);
