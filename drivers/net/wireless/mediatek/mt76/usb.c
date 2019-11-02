@@ -813,35 +813,6 @@ mt76u_free_rx_queue(struct mt76_dev *dev, struct mt76_queue *q)
 	memset(&q->rx_page, 0, sizeof(q->rx_page));
 }
 
-static void mt7663u_free_rx(struct mt76_dev *dev)
-{
-	struct mt76_queue *q = &dev->q_rx[MT_RXQ_MAIN];
-	struct page *page;
-	int i;
-
-	for (i = 0; i < q->ndesc; i++)
-		mt76u_urb_free(q->entry[i].urb);
-
-	if (!q->rx_page.va)
-		return;
-
-	page = virt_to_page(q->rx_page.va);
-	__page_frag_cache_drain(page, q->rx_page.pagecnt_bias);
-	memset(&q->rx_page, 0, sizeof(q->rx_page));
-
-	q = &dev->q_rx[MT_RXQ_MCU];
-
-	for (i = 0; i < q->ndesc; i++)
-		mt76u_urb_free(q->entry[i].urb);
-
-	if (!q->rx_page.va)
-		return;
-
-	page = virt_to_page(q->rx_page.va);
-	__page_frag_cache_drain(page, q->rx_page.pagecnt_bias);
-	memset(&q->rx_page, 0, sizeof(q->rx_page));
-}
-
 static void mt76u_free_rx(struct mt76_dev *dev)
 {
 	struct mt76_queue *q;
@@ -873,23 +844,6 @@ void mt76u_stop_rx(struct mt76_dev *dev)
 	tasklet_kill(&dev->usb.rx_tasklet);
 }
 EXPORT_SYMBOL_GPL(mt76u_stop_rx);
-
-void mt7663u_stop_rx(struct mt76_dev *dev)
-{
-	struct mt76_queue *q = &dev->q_rx[MT_RXQ_MAIN];
-	int i;
-
-	for (i = 0; i < q->ndesc; i++)
-		usb_poison_urb(q->entry[i].urb);
-
-	q = &dev->q_rx[MT_RXQ_MCU];
-
-	for (i = 0; i < q->ndesc; i++)
-		usb_poison_urb(q->entry[i].urb);
-
-	tasklet_kill(&dev->usb.rx_tasklet);
-}
-EXPORT_SYMBOL_GPL(mt7663u_stop_rx);
 
 int mt76u_resume_rx(struct mt76_dev *dev)
 {
@@ -1288,10 +1242,10 @@ EXPORT_SYMBOL_GPL(mt76u_queues_deinit);
 
 void mt7663u_queues_deinit(struct mt76_dev *dev)
 {
-	mt7663u_stop_rx(dev);
+	mt76u_stop_rx(dev);
 	mt7663u_stop_tx(dev);
 
-	mt7663u_free_rx(dev);
+	mt76u_free_rx(dev);
 	mt76u_free_tx(dev);
 }
 EXPORT_SYMBOL_GPL(mt7663u_queues_deinit);
