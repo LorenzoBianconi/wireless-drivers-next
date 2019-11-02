@@ -255,7 +255,11 @@ static int connac_usb_probe(struct usb_interface *usb_intf,
 	}
 
 skip_poweron:
-	ret = mt7663u_alloc_queues(&dev->mt76);
+	ret = mt76u_alloc_mcu_queue(&dev->mt76);
+	if (ret)
+		goto error;
+
+	ret = mt76u_alloc_queues(&dev->mt76);
 	if (ret)
 		goto error;
 

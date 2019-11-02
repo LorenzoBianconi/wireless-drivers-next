@@ -456,20 +456,6 @@ mt76u_rx_urb_alloc(struct mt76_dev *dev, struct mt76_queue *q,
 	return mt76u_refill_rx(dev, q, e->urb, sg_size, GFP_KERNEL);
 }
 
-static int
-mt76u_rx_urb_alloc_mcu(struct mt76_dev *dev, struct mt76_queue_entry *e)
-{
-	struct mt76_queue *q = &dev->q_rx[MT_RXQ_MCU];
-	int err;
-
-	err = mt76u_urb_alloc(dev, e, MT_RX_SG_MAX_SIZE);
-	if (err)
-		return err;
-
-	return mt76u_refill_rx(dev, q, e->urb, MT_RX_SG_MAX_SIZE,
-			       GFP_KERNEL);
-}
-
 static void mt76u_urb_free(struct urb *urb)
 {
 	int i;
@@ -721,37 +707,6 @@ mt76u_submit_rx_buffers(struct mt76_dev *dev, enum mt76_rxq_id qid)
 	return err;
 }
 
-static int mt7663u_submit_rx_buffers(struct mt76_dev *dev)
-{
-	struct mt76_queue *q = &dev->q_rx[MT_RXQ_MAIN];
-	unsigned long flags;
-	int i, err = 0;
-
-	spin_lock_irqsave(&q->lock, flags);
-	for (i = 0; i < q->ndesc; i++) {
-		err = mt76u_submit_rx_buf(dev, MT_RXQ_MAIN, q->entry[i].urb);
-		if (err < 0)
-			break;
-	}
-	q->head = q->tail = 0;
-	q->queued = 0;
-	spin_unlock_irqrestore(&q->lock, flags);
-
-	q = &dev->q_rx[MT_RXQ_MCU];
-
-	spin_lock_irqsave(&q->lock, flags);
-	for (i = 0; i < q->ndesc; i++) {
-		err = mt76u_submit_rx_buf(dev, MT_RXQ_MCU, q->entry[i].urb);
-		if (err < 0)
-			break;
-	}
-	q->head = q->tail = 0;
-	q->queued = 0;
-	spin_unlock_irqrestore(&q->lock, flags);
-
-	return err;
-}
-
 static int
 mt76u_alloc_rx_queue(struct mt76_dev *dev, enum mt76_rxq_id qid)
 {
@@ -782,53 +737,6 @@ int mt76u_alloc_mcu_queue(struct mt76_dev *dev)
 	return mt76u_alloc_rx_queue(dev, MT_RXQ_MCU);
 }
 EXPORT_SYMBOL_GPL(mt76u_alloc_mcu_queue);
-
-static int mt7663u_alloc_rx(struct mt76_dev *dev)
-{
-	struct mt76_usb *usb = &dev->usb;
-	struct mt76_queue *q = &dev->q_rx[MT_RXQ_MAIN];
-	int i, err;
-
-	usb->mcu.data = devm_kmalloc(dev->dev, MCU_RESP_URB_SIZE, GFP_KERNEL);
-	if (!usb->mcu.data)
-		return -ENOMEM;
-
-	spin_lock_init(&q->lock);
-	q->entry = devm_kcalloc(dev->dev,
-				MT_NUM_RX_ENTRIES, sizeof(*q->entry),
-				GFP_KERNEL);
-	if (!q->entry)
-		return -ENOMEM;
-
-	q->ndesc = MT_NUM_RX_ENTRIES;
-	q->buf_size = PAGE_SIZE;
-
-	for (i = 0; i < q->ndesc; i++) {
-		err = mt76u_rx_urb_alloc(dev, q, &q->entry[i]);
-		if (err < 0)
-			return err;
-	}
-
-	q = &dev->q_rx[MT_RXQ_MCU];
-
-	spin_lock_init(&q->lock);
-	q->entry = devm_kcalloc(dev->dev,
-				MT_NUM_RX_ENTRIES, sizeof(*q->entry),
-				GFP_KERNEL);
-	if (!q->entry)
-		return -ENOMEM;
-
-	q->ndesc = MT_NUM_RX_ENTRIES;
-	q->buf_size = PAGE_SIZE;
-
-	for (i = 0; i < q->ndesc; i++) {
-		err = mt76u_rx_urb_alloc_mcu(dev, &q->entry[i]);
-		if (err < 0)
-			return err;
-	}
-
-	return mt7663u_submit_rx_buffers(dev);
-}
 
 static void
 mt76u_free_rx_queue(struct mt76_dev *dev, struct mt76_queue *q)
@@ -1241,18 +1149,6 @@ int mt76u_alloc_queues(struct mt76_dev *dev)
 	return mt76u_alloc_tx(dev);
 }
 EXPORT_SYMBOL_GPL(mt76u_alloc_queues);
-
-int mt7663u_alloc_queues(struct mt76_dev *dev)
-{
-	int err;
-
-	err = mt7663u_alloc_rx(dev);
-	if (err < 0)
-		return err;
-
-	return mt76u_alloc_tx(dev);
-}
-EXPORT_SYMBOL_GPL(mt7663u_alloc_queues);
 
 static const struct mt76_queue_ops usb_queue_ops = {
 	.tx_queue_skb = mt76u_tx_queue_skb,
