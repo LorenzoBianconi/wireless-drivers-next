@@ -54,98 +54,12 @@ connac_dma_sched_init(struct connac_dev *dev)
 	return 0;
 }
 
-static int
-connac_usb_dma_sched_init(struct connac_dev *dev)
-{
-	u32 val;
-
-	val = mt76_rr(dev, DMASHDL_PKT_MAX_SIZE(dev));
-	val &= ~(PLE_PACKET_MAX_SIZE | PSE_PACKET_MAX_SIZE);
-	val |= FIELD_PREP(PLE_PACKET_MAX_SIZE, 0x1) |
-	      FIELD_PREP(PSE_PACKET_MAX_SIZE, 0x8);
-	mt76_wr(dev, DMASHDL_PKT_MAX_SIZE(dev), val);
-
-	/* disable refill group 5 - group 15 and raise group 2
-	 * and 3 as high priority.
-	 */
-	val = 0xffe00010;
-	mt76_wr(dev, DMASHDL_REFILL_CONTROL(dev), val);
-
-	val = mt76_rr(dev, DMASHDL_PAGE_SETTING(dev));
-	val &= ~GROUP_SEQUENCE_ORDER_TYPE;
-	mt76_wr(dev, DMASHDL_PAGE_SETTING(dev), val);
-
-	val = FIELD_PREP(MIN_QUOTA, 0x3) |
-	      FIELD_PREP(MAX_QUOTA, 0x1ff);
-	mt76_wr(dev, DMASHDL_GROUP1_CONTROL(dev), val);
-	mt76_wr(dev, DMASHDL_GROUP0_CONTROL(dev), val);
-	mt76_wr(dev, DMASHDL_GROUP2_CONTROL(dev), val);
-	mt76_wr(dev, DMASHDL_GROUP3_CONTROL(dev), val);
-	mt76_wr(dev, DMASHDL_GROUP4_CONTROL(dev), val);
-
-	val = FIELD_PREP(QUEUE0_MAP, 0x4) | /* ac0 group 0 */
-	      FIELD_PREP(QUEUE1_MAP, 0x4) | /* ac1 group 1 */
-	      FIELD_PREP(QUEUE2_MAP, 0x4) | /* ac2 group 2 */
-	      FIELD_PREP(QUEUE3_MAP, 0x4) | /* ac3 group 3 */
-	      FIELD_PREP(QUEUE4_MAP, 0x4) | /* ac10 group 4*/
-	      FIELD_PREP(QUEUE5_MAP, 0x4) | /* ac11 */
-	      FIELD_PREP(QUEUE6_MAP, 0x4) |
-	      FIELD_PREP(QUEUE7_MAP, 0x4);
-	mt76_wr(dev, DMASHDL_QUEUE_MAPPING0(dev), val);
-
-	val = FIELD_PREP(QUEUE8_MAP, 0x4) | /* ac20 group 4*/
-	      FIELD_PREP(QUEUE9_MAP, 0x4) |
-	      FIELD_PREP(QUEUE10_MAP, 0x4) |
-	      FIELD_PREP(QUEUE11_MAP, 0x4) |
-	      FIELD_PREP(QUEUE12_MAP, 0x4) | /* ac30 group 4*/
-	      FIELD_PREP(QUEUE13_MAP, 0x4) |
-	      FIELD_PREP(QUEUE14_MAP, 0x4) |
-	      FIELD_PREP(QUEUE15_MAP, 0x4);
-	mt76_wr(dev, DMASHDL_QUEUE_MAPPING1(dev), val);
-
-	val = FIELD_PREP(QUEUE16_MAP, 0x4) | /* altx group 4*/
-	      FIELD_PREP(QUEUE17_MAP, 0x4) | /* bmc */
-	      FIELD_PREP(QUEUE18_MAP, 0x4) | /* bcn */
-	      FIELD_PREP(QUEUE19_MAP, 0x4);  /* psmp */
-	mt76_wr(dev, DMASHDL_QUEUE_MAPPING2(dev), val);
-
-	/* group pririority from high to low:
-	 * 15 (cmd groups) > 4 > 3 > 2 > 1 > 0.
-	 */
-	mt76_wr(dev, DMASHDL_SCHED_SETTING0(dev), 0x6501234f);
-	mt76_wr(dev, DMASHDL_SCHED_SETTING1(dev), 0xedcba987);
-	mt76_wr(dev, DMASHDL_OPTIONAL_CONTROL(dev), 0x7004801c);
-
-	/* setup UDMA Tx timeout */
-	val = mt76_rr(dev, UDMA_WLCFG_1(dev));
-	val &= ~WL_TX_TMOUT_LMT;
-	val |= FIELD_PREP(WL_TX_TMOUT_LMT, 500);
-	/* do we need to setup WL_RX_AGG_PKT_LMT? */
-	mt76_wr(dev, UDMA_WLCFG_1(dev), val);
-
-	val = mt76_rr(dev, UDMA_WLCFG_0(dev));
-	val |= WL_TX_TMOUT_FUNC_EN;
-	mt76_wr(dev, UDMA_WLCFG_0(dev), val);
-
-	/* setup UDMA Rx Flush */
-	val = mt76_rr(dev, UDMA_WLCFG_0(dev));
-	val &= ~WL_RX_FLUSH;
-	mt76_wr(dev, UDMA_WLCFG_0(dev), val);
-
-	/* hif reset */
-	val = mt76_rr(dev, PDMA_HIF_RST);
-	val |= CONN_HIF_LOGIC_RST_N;
-	mt76_wr(dev, PDMA_HIF_RST, val);
-
-	return 0;
-}
-
 static void connac_phy_init(struct connac_dev *dev)
 {
 	/* CONNAC : no need */
 }
 
-static void connac_mac_init(struct connac_dev *dev)
+void connac_mac_init(struct connac_dev *dev)
 {
 	u32 val;
 	bool init_mac1 = false;
@@ -199,7 +113,7 @@ static void connac_mac_init(struct connac_dev *dev)
 	mt76_wr(dev, MT_WF_AGG(dev, 0x164), 0x70708040);
 }
 
-static int connac_init_hardware(struct connac_dev *dev)
+int connac_init_hardware(struct connac_dev *dev)
 {
 	int ret, idx;
 	bool init_dbdc = true;
@@ -275,74 +189,6 @@ static int connac_init_hardware(struct connac_dev *dev)
 	return 0;
 }
 
-static int connac_usb_init_hardware(struct connac_dev *dev)
-{
-	int ret, idx;
-	u32 val;
-
-	ret = connac_eeprom_init(dev);
-	if (ret < 0)
-		return ret;
-
-	ret = connac_usb_dma_sched_init(dev);
-	if (ret)
-		return ret;
-
-	val = mt76_rr(dev, UDMA_WLCFG_0(dev));
-	val &= ~(WL_RX_AGG_EN | WL_RX_AGG_LMT |  WL_RX_AGG_TO);
-	val |=  WL_RX_AGG_EN | FIELD_PREP(WL_RX_AGG_LMT, 32) |
-		FIELD_PREP(WL_RX_AGG_TO, 100);
-	mt76_wr(dev, UDMA_WLCFG_0(dev), val);
-
-	val = mt76_rr(dev, UDMA_WLCFG_0(dev));
-	val |= WL_RX_EN | WL_TX_EN | WL_RX_MPSZ_PAD0 | TICK_1US_EN;
-	mt76_wr(dev, UDMA_WLCFG_0(dev), val);
-
-	val = mt76_rr(dev, UDMA_WLCFG_1(dev));
-	val &= ~(WL_RX_AGG_PKT_LMT);
-	val |= FIELD_PREP(WL_RX_AGG_PKT_LMT, 1);
-	mt76_wr(dev, UDMA_WLCFG_1(dev), val);
-
-	set_bit(MT76_STATE_INITIALIZED, &dev->mphy.state);
-
-	ret = connac_usb_mcu_init(dev);
-	if (ret)
-		return ret;
-
-	connac_mcu_set_eeprom(dev);
-	connac_mac_init(dev);
-	connac_phy_init(dev);
-#if MTK_REBB
-	connac_mcu_ctrl_pm_state(dev, 0);
-#endif
-	/* MT7663e : F/W halWtblClearAllWtbl() will do this in init. */
-	/* mt7663u_mcu_del_wtbl_all(dev); */
-
-	/* Beacon and mgmt frames should occupy wcid 0 */
-	idx = mt76_wcid_alloc(dev->mt76.wcid_mask, CONNAC_WTBL_STA - 1);
-	if (idx)
-		return -ENOSPC;
-
-	dev->mt76.global_wcid.idx = idx;
-	dev->mt76.global_wcid.hw_key_idx = -1;
-	rcu_assign_pointer(dev->mt76.wcid[idx], &dev->mt76.global_wcid);
-
-/* sean test */
-//      eth_random_addr(dev->mt76.macaddr);
-	dev->mt76.macaddr[0] = 0x1a;
-	dev->mt76.macaddr[1] = 0xed;
-	dev->mt76.macaddr[2] = 0x8f;
-	dev->mt76.macaddr[3] = 0x7a;
-	dev->mt76.macaddr[4] = 0x97;
-	dev->mt76.macaddr[5] = 0x9e;
-
-	dev_info(dev->mt76.dev,
-		 "Force to use mac address %pM to test\n",
-		 dev->mt76.macaddr);
-
-	return 0;
-}
-
 #define CCK_RATE(_idx, _rate) {						\
 	.bitrate = _rate,						\
 	.flags = IEEE80211_RATE_SHORT_PREAMBLE,				\
@@ -405,19 +251,6 @@ int connac_register_device(struct connac_dev *dev)
 	struct ieee80211_hw *hw = mt76_hw(dev);
 	struct wiphy *wiphy = hw->wiphy;
 	int ret;
-
-	if (mt76_is_usb(&dev->mt76)) {
-		ret = connac_usb_init_hardware(dev);
-		if (ret)
-			return ret;
-
-		INIT_WORK(&dev->rc_work, connac_usb_rc_work);
-		INIT_LIST_HEAD(&dev->rc_processing);
-	} else {
-		ret = connac_init_hardware(dev);
-		if (ret)
-			return ret;
-	}
 
 	INIT_DELAYED_WORK(&dev->mt76.mac_work, connac_mac_work);
 
