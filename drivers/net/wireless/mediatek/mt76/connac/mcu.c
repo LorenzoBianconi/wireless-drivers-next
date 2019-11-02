@@ -482,7 +482,7 @@ void connac_mcu_rx_event(struct connac_dev *dev, struct sk_buff *skb)
 	    !rxd->seq) {
 		connac_mcu_rx_unsolicited_event(dev, skb);
 	} else {
-		if (dev->flag & CONNAC_MMIO)
+		if (mt76_is_mmio(&dev->mt76))
 			mt76_mcu_rx_event(&dev->mt76, skb);
 		else
 			__connac_usb_mcu_rx_event(&dev->mt76, skb);
@@ -523,7 +523,7 @@ static int connac_mcu_send_firmware(struct connac_dev *dev, const void *data,
 		data += cur_len;
 		len -= cur_len;
 
-		if (dev->flag & CONNAC_MMIO)
+		if (mt76_is_mmio(&dev->mt76))
 			mt76_queue_tx_cleanup(dev, MT_TXQ_FWDL, false);
 	}
 
@@ -813,7 +813,7 @@ static int connac_load_firmware(struct connac_dev *dev)
 			return ret;
 	}
 
-	if (dev->flag & CONNAC_MMIO)
+	if (mt76_is_mmio(&dev->mt76))
 		fwdl_datapath_setup(dev, true);
 
 	val = mt76_get_field(dev, MT_CONN_ON_MISC(dev), MT_TOP_MISC2_FW_N9_RDY);
@@ -838,12 +838,12 @@ static int connac_load_firmware(struct connac_dev *dev)
 		return -EIO;
 	}
 
-	if (dev->flag & CONNAC_MMIO)
+	if (mt76_is_mmio(&dev->mt76))
 		mt76_queue_tx_cleanup(dev, MT_TXQ_FWDL, false);
 
 	dev_dbg(dev->mt76.dev, "Firmware init done\n");
 
-	if (dev->flag & CONNAC_MMIO)
+	if (mt76_is_mmio(&dev->mt76))
 		fwdl_datapath_setup(dev, false);
 
 	return 0;
