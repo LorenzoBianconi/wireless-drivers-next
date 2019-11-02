@@ -406,7 +406,7 @@ int connac_register_device(struct connac_dev *dev)
 	struct wiphy *wiphy = hw->wiphy;
 	int ret;
 
-	if (dev->flag & CONNAC_USB) {
+	if (mt76_is_usb(&dev->mt76)) {
 		ret = connac_usb_init_hardware(dev);
 		if (ret)
 			return ret;
