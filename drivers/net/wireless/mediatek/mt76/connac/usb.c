@@ -57,7 +57,6 @@ static int connac_usb_probe(struct usb_interface *usb_intf,
 
 	usb_set_intfdata(usb_intf, dev);
 
-	dev->flag |= CONNAC_USB;
 	dev->regs = connac_abs_regs_base;
 
 	ret = mt76u_init(mdev, usb_intf, true);

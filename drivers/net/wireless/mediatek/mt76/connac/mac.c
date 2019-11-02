@@ -355,7 +355,7 @@ int connac_mac_write_txwi(struct connac_dev *dev, __le32 *txwi,
 	if (ieee80211_is_beacon(fc)) {
 		p_fmt = MT_TX_TYPE_FW;
 	} else {
-		if (dev->flag & CONNAC_USB)
+		if (mt76_is_usb(&dev->mt76))
 			p_fmt = MT_TX_TYPE_SF;
 		else
 			p_fmt = MT_TX_TYPE_CT;
@@ -366,7 +366,7 @@ int connac_mac_write_txwi(struct connac_dev *dev, __le32 *txwi,
 	else
 		q_idx = wmm_queue_map[qid];
 
-	if (dev->flag & CONNAC_USB)
+	if (mt76_is_usb(&dev->mt76))
 		sz_txd = CONNAC_USB_TXD_SIZE;
 	else
 		sz_txd = MT_TXD_SIZE;
@@ -466,7 +466,7 @@ int connac_mac_write_txwi(struct connac_dev *dev, __le32 *txwi,
 		  FIELD_PREP(MT_TXD7_SUB_TYPE, fc_stype) |
 		  FIELD_PREP(MT_TXD7_HW_AMSDU_CAP, 1);
 
-	if (dev->flag & CONNAC_USB) {
+	if (mt76_is_usb(&dev->mt76)) {
 		for (i = 8 ; i <= 15 ; i++)
 			txwi[i] = 0;
 	}
@@ -1176,7 +1176,7 @@ static bool connac_fill_txs(struct connac_dev *dev, struct connac_sta *sta,
 
 		spin_lock_bh(&dev->mt76.lock);
 		if (sta->rate_probe) {
-			if (dev->flag & CONNAC_USB)
+			if (mt76_is_usb(&dev->mt76))
 				connac_usb_mac_set_rates(dev, sta, NULL,
 							 sta->rates);
 			else
@@ -1369,7 +1369,7 @@ void connac_update_channel(struct mt76_dev *mdev)
 	u64 busy_time, tx_time, rx_time, obss_time;
 
 	/* Todo for USB for fixing up scheduling while atomic */
-	if (dev->flag & CONNAC_USB)
+	if (mt76_is_usb(mdev))
 		return;
 
 	/* TODO: add DBDC support */

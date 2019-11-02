@@ -131,9 +131,6 @@ struct connac_dev {
 	int pid_tmp;
 	u32 amsdu_en;
 
-#define CONNAC_USB	BIT(0)
-#define CONNAC_MMIO	BIT(1)
-	u32 flag;
 	struct work_struct	rc_work;     /* deferred rate tuning */
 	struct list_head	rc_processing;
 	const u32 *regs;

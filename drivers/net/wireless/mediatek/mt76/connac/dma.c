@@ -31,7 +31,7 @@ connac_init_tx_queue(struct connac_dev *dev, struct mt76_sw_queue *q,
 	INIT_LIST_HEAD(&q->swq);
 	q->q = hwq;
 
-	if (dev->flag & CONNAC_MMIO)
+	if (mt76_is_mmio(&dev->mt76))
 		connac_irq_enable(dev, MT_INT_TX_DONE(idx));
 
 	return 0;

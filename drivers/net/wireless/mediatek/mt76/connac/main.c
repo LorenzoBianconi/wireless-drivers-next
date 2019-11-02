@@ -402,7 +402,7 @@ static void connac_sta_rate_tbl_update(struct ieee80211_hw *hw,
 			break;
 	}
 	msta->n_rates = i;
-	if (dev->flag & CONNAC_USB)
+	if (mt76_is_usb(&dev->mt76))
 		connac_usb_mac_set_rates(dev, msta, NULL, msta->rates);
 	else
 		connac_mac_set_rates(dev, msta, NULL, msta->rates);
