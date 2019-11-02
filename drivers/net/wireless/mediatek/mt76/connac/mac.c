@@ -1057,63 +1057,6 @@ int connac_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 	return 0;
 }
 
-int connac_usb_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
-			      enum mt76_txq_id qid, struct mt76_wcid *wcid,
-			      struct ieee80211_sta *sta,
-			      struct mt76_tx_info *tx_info)
-{
-	struct connac_dev *dev = container_of(mdev, struct connac_dev, mt76);
-	struct connac_sta *msta = container_of(wcid, struct connac_sta, wcid);
-	int pid, err, nhead = CONNAC_USB_HDR_SIZE + CONNAC_USB_TXD_SIZE;
-	struct sk_buff *skb = tx_info->skb;
-	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
-	struct ieee80211_key_conf *key = info->control.hw_key;
-	__le32 *usb_hdr;
-	u32 pad;
-
-	if (unlikely(skb_headroom(skb) < nhead)) {
-		err = pskb_expand_head(skb, nhead, 0, GFP_ATOMIC);
-		if (err < 0) {
-			pr_err("err@%s %d\n", __func__, __LINE__);
-			return err;
-		}
-	}
-
-	txwi_ptr = (void *)(skb->data - CONNAC_USB_TXD_SIZE);
-
-	if (!wcid)
-		wcid = &dev->mt76.global_wcid;
-
-	pid = mt76_tx_status_skb_add(mdev, wcid, skb);
-
-	if (info->flags & IEEE80211_TX_CTL_RATE_CTRL_PROBE) {
-		spin_lock_bh(&dev->mt76.lock);
-		connac_usb_mac_set_rates(dev, msta, &info->control.rates[0],
-					 msta->rates);
-		msta->rate_probe = true;
-		spin_unlock_bh(&dev->mt76.lock);
-	}
-
-	connac_mac_write_txwi(dev, txwi_ptr, skb, qid, wcid, sta, pid, key);
-
-	/* Add MAC TXD */
-	skb_push(skb, CONNAC_USB_TXD_SIZE);
-
-	/* Add USB header in the front */
-	usb_hdr = (__le32 *)(skb->data - CONNAC_USB_HDR_SIZE);
-	*usb_hdr = cpu_to_le32(skb->len);
-	skb_push(skb, CONNAC_USB_HDR_SIZE);
-
-	/* Add padding for 4-bytes alignment and USB trailer at the end */
-	pad = (round_up(skb->len, 4) - skb->len) + CONNAC_USB_TAIL_SIZE;
-
-	if (skb_pad(skb, pad))
-		return -ENOMEM;
-	__skb_put(skb, pad);
-
-	return 0;
-}
-
 static bool connac_fill_txs(struct connac_dev *dev, struct connac_sta *sta,
 			    struct ieee80211_tx_info *info, __le32 *txs_data)
 {
