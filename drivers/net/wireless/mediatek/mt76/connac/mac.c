@@ -241,18 +241,6 @@ void connac_tx_complete_skb(struct mt76_dev *mdev, enum mt76_txq_id qid,
 		mt76_tx_complete_skb(mdev, e->skb);
 }
 
-static void connac_usb_remove_dma_hdr(struct sk_buff *skb)
-{
-	skb_pull(skb, CONNAC_USB_TXD_SIZE);
-}
-
-void connac_usb_tx_complete_skb(struct mt76_dev *mdev, enum mt76_txq_id qid,
-				struct mt76_queue_entry *e)
-{
-	connac_usb_remove_dma_hdr(e->skb);
-	mt76_tx_complete_skb(mdev, e->skb);
-}
-
 static u16
 connac_mac_tx_rate_val(struct connac_dev *dev,
 		       const struct ieee80211_tx_rate *rate,

@@ -317,9 +317,6 @@ int connac_dfs_init_radar_detector(struct connac_dev *dev);
 
 int connac_init_debugfs(struct connac_dev *dev);
 
-void connac_usb_tx_complete_skb(struct mt76_dev *mdev, enum mt76_txq_id qid,
-				struct mt76_queue_entry *e);
-
 int connac_usb_mcu_init(struct connac_dev *dev);
 
 void connac_usb_mac_set_rates(struct connac_dev *dev, struct connac_sta *sta,
