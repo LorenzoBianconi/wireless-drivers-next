@@ -41,9 +41,11 @@ struct sk_buff *mt76_mcu_get_response(struct mt76_dev *dev,
 }
 EXPORT_SYMBOL_GPL(mt76_mcu_get_response);
 
-void mt76_mcu_rx_event(struct mt76_dev *dev, struct sk_buff *skb)
+void mt76_mcu_rx_event(void *data, struct sk_buff *skb)
 {
-	skb_queue_tail(&dev->mmio.mcu.res_q, skb);
-	wake_up(&dev->mmio.mcu.wait);
+	struct mt76_mcu *mcu = (struct mt76_mcu *)data;
+
+	skb_queue_tail(&mcu->res_q, skb);
+	wake_up(&mcu->wait);
 }
 EXPORT_SYMBOL_GPL(mt76_mcu_rx_event);
