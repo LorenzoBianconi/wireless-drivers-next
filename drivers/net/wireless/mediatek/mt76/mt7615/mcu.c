@@ -245,7 +245,7 @@ void mt7615_mcu_rx_event(struct mt7615_dev *dev, struct sk_buff *skb)
 	    !rxd->seq)
 		mt7615_mcu_rx_unsolicited_event(dev, skb);
 	else
-		mt76_mcu_rx_event(&dev->mt76, skb);
+		mt76_mcu_rx_event(&dev->mt76.mcu, skb);
 }
 
 static int mt7615_mcu_init_download(struct mt7615_dev *dev, u32 addr,
