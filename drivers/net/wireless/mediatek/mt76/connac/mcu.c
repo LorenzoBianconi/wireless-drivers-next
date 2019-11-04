@@ -270,9 +270,9 @@ static int __connac_usb_mcu_msg_send(struct connac_dev *dev,
 	struct connac_mcu_txd *mcu_txd;
 	u8 seq, q_idx, pkt_fmt;
 	enum mt76_txq_id qid;
-	u32 val;
-	__le32 *txd, *usb_hdr;
+	__le32 *txd;
 	int ret, ep;
+	u32 val;
 
 	seq = ++dev->mt76.usb.mcu.common.msg_seq & 0xf;
 	if (!seq)
@@ -328,14 +328,9 @@ static int __connac_usb_mcu_msg_send(struct connac_dev *dev,
 	else
 		qid = MT_TXQ_FWDL;
 
-	usb_hdr = (__le32 *)(skb->data - CONNAC_USB_HDR_SIZE);
-	*usb_hdr = cpu_to_le32(skb->len);
-	skb_push(skb, CONNAC_USB_HDR_SIZE);
-
-	if (skb_pad(skb, CONNAC_USB_TAIL_SIZE))
-		return -ENOMEM;
-
-	__skb_put(skb, CONNAC_USB_TAIL_SIZE);
+	ret = mt76u_skb_dma_info(skb, skb->len);
+	if (ret < 0)
+		return ret;
 
 	ret = mt76u_bulk_msg(&dev->mt76, skb->data, skb->len, NULL,
 			     1000, ep);
