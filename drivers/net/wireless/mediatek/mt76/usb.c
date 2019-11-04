@@ -1167,13 +1167,16 @@ int mt76u_init(struct mt76_dev *dev,
 	usb->data_len = usb_maxpacket(udev, usb_sndctrlpipe(udev, 0), 1);
 	if (usb->data_len < 32)
 		usb->data_len = 32;
+
 	usb->data = devm_kmalloc(dev->dev, usb->data_len, GFP_KERNEL);
 	if (!usb->data) {
 		mt76u_deinit(dev);
 		return -ENOMEM;
 	}
 
-	mutex_init(&usb->mcu.mutex);
+	skb_queue_head_init(&usb->mcu.common.res_q);
+	init_waitqueue_head(&usb->mcu.common.wait);
+	mutex_init(&usb->mcu.common.mutex);
 
 	mutex_init(&usb->usb_ctrl_mtx);
 	dev->bus = &mt76u_ops;
