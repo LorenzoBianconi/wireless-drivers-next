@@ -159,7 +159,7 @@ mt7615_mcu_msg_send(struct mt76_dev *mdev, int cmd, const void *data,
 		goto out;
 
 	while (wait_resp) {
-		skb = mt76_mcu_get_response(mdev, expires);
+		skb = mt76_mcu_get_response(&mdev->mcu, expires);
 		if (!skb) {
 			dev_err(mdev->dev, "Message %d (seq %d) timeout\n",
 				cmd, seq);

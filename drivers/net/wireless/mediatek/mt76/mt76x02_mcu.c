@@ -44,7 +44,7 @@ int mt76x02_mcu_msg_send(struct mt76_dev *mdev, int cmd, const void *data,
 		u32 *rxfce;
 		bool check_seq = false;
 
-		skb = mt76_mcu_get_response(&dev->mt76, expires);
+		skb = mt76_mcu_get_response(&mdev->mcu, expires);
 		if (!skb) {
 			dev_err(mdev->dev,
 				"MCU message %d (seq %d) timed out\n", cmd,
