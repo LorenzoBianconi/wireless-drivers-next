@@ -237,7 +237,7 @@ connac_mcu_msg_send(struct mt76_dev *mdev, int cmd, const void *data,
 		goto out;
 
 	while (wait_resp) {
-		skb = mt76_mcu_get_response(mdev, expires);
+		skb = mt76_mcu_get_response(&mdev->mcu, expires);
 		if (!skb) {
 			dev_err(mdev->dev, "Message %d (seq %d) timeout\n",
 				cmd, seq);
@@ -274,9 +274,9 @@ static int __connac_usb_mcu_msg_send(struct connac_dev *dev,
 	__le32 *txd, *usb_hdr;
 	int ret, ep;
 
-	seq = ++dev->mt76.usb.mcu.msg_seq & 0xf;
+	seq = ++dev->mt76.usb.mcu.common.msg_seq & 0xf;
 	if (!seq)
-		seq = ++dev->mt76.usb.mcu.msg_seq & 0xf;
+		seq = ++dev->mt76.usb.mcu.common.msg_seq & 0xf;
 
 	mcu_txd = (struct connac_mcu_txd *)skb_push(skb,
 		   sizeof(struct connac_mcu_txd));
@@ -347,29 +347,6 @@ static int __connac_usb_mcu_msg_send(struct connac_dev *dev,
 	return ret;
 }
 
-static struct sk_buff *
-connac_usb_mcu_get_response(struct mt76_dev *dev,
-			    unsigned long expires)
-{
-	unsigned long timeout;
-
-	if (!time_is_after_jiffies(expires))
-		return NULL;
-
-	timeout = expires - jiffies;
-	wait_event_timeout(dev->usb.mcu.wait,
-			   !skb_queue_empty(&dev->usb.mcu.res_q),
-			   timeout);
-	return skb_dequeue(&dev->usb.mcu.res_q);
-}
-
-static void
-__connac_usb_mcu_rx_event(struct mt76_dev *dev, struct sk_buff *skb)
-{
-	skb_queue_tail(&dev->usb.mcu.res_q, skb);
-	wake_up(&dev->usb.mcu.wait);
-}
-
 static int
 connac_usb_mcu_msg_send(struct mt76_dev *mdev, int cmd, const void *data,
 			int len, bool wait_resp)
@@ -384,14 +361,14 @@ connac_usb_mcu_msg_send(struct mt76_dev *mdev, int cmd, const void *data,
 	if (!skb)
 		return -ENOMEM;
 
-	mutex_lock(&mdev->usb.mcu.mutex);
+	mutex_lock(&mdev->usb.mcu.common.mutex);
 
 	ret = __connac_usb_mcu_msg_send(dev, skb, cmd, &seq);
 	if (ret)
 		goto out;
 
 	while (wait_resp) {
-		skb = connac_usb_mcu_get_response(mdev, expires);
+		skb = mt76_mcu_get_response(&mdev->mcu, expires);
 		if (!skb) {
 			dev_err(mdev->dev, "Message %d (seq %d) timeout\n",
 				cmd, seq);
@@ -412,7 +389,7 @@ connac_usb_mcu_msg_send(struct mt76_dev *mdev, int cmd, const void *data,
 	}
 
 out:
-	mutex_unlock(&mdev->usb.mcu.mutex);
+	mutex_unlock(&mdev->usb.mcu.common.mutex);
 
 	return ret;
 }
@@ -467,14 +444,10 @@ void connac_mcu_rx_event(struct connac_dev *dev, struct sk_buff *skb)
 	    rxd->ext_eid == MCU_EXT_EVENT_FW_LOG_2_HOST ||
 	    rxd->ext_eid == MCU_EXT_EVENT_ASSERT_DUMP ||
 	    rxd->ext_eid == MCU_EXT_EVENT_PS_SYNC ||
-	    !rxd->seq) {
+	    !rxd->seq)
 		connac_mcu_rx_unsolicited_event(dev, skb);
-	} else {
-		if (mt76_is_mmio(&dev->mt76))
-			mt76_mcu_rx_event(&dev->mt76, skb);
-		else
-			__connac_usb_mcu_rx_event(&dev->mt76, skb);
-	}
+	else
+		mt76_mcu_rx_event(&dev->mt76.mcu, skb);
 }
 
 static int connac_mcu_init_download(struct connac_dev *dev, u32 addr,
@@ -919,7 +892,7 @@ int connac_usb_mcu_init(struct connac_dev *dev)
 void connac_usb_mcu_exit(struct connac_dev *dev)
 {
 	__mt76_mcu_restart(&dev->mt76);
-	skb_queue_purge(&dev->mt76.usb.mcu.res_q);
+	skb_queue_purge(&dev->mt76.usb.mcu.common.res_q);
 }
 
 int connac_mcu_set_eeprom(struct connac_dev *dev)
