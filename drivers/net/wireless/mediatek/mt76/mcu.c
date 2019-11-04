@@ -24,20 +24,18 @@ mt76_mcu_msg_alloc(const void *data, int head_len,
 }
 EXPORT_SYMBOL_GPL(mt76_mcu_msg_alloc);
 
-/* mmio */
-struct sk_buff *mt76_mcu_get_response(struct mt76_dev *dev,
-				      unsigned long expires)
+struct sk_buff *mt76_mcu_get_response(void *data, unsigned long expires)
 {
+	struct mt76_mcu *mcu = (struct mt76_mcu *)data;
 	unsigned long timeout;
 
 	if (!time_is_after_jiffies(expires))
 		return NULL;
 
 	timeout = expires - jiffies;
-	wait_event_timeout(dev->mmio.mcu.wait,
-			   !skb_queue_empty(&dev->mmio.mcu.res_q),
+	wait_event_timeout(mcu->wait, !skb_queue_empty(&mcu->res_q),
 			   timeout);
-	return skb_dequeue(&dev->mmio.mcu.res_q);
+	return skb_dequeue(&mcu->res_q);
 }
 EXPORT_SYMBOL_GPL(mt76_mcu_get_response);
 
