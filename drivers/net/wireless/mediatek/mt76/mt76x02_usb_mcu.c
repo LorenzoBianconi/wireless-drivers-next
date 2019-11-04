@@ -92,9 +92,9 @@ __mt76x02u_mcu_send_msg(struct mt76_dev *dev, struct sk_buff *skb,
 		return 0;
 
 	if (wait_resp) {
-		seq = ++usb->mcu.msg_seq & 0xf;
+		seq = ++usb->mcu.common.msg_seq & 0xf;
 		if (!seq)
-			seq = ++usb->mcu.msg_seq & 0xf;
+			seq = ++usb->mcu.common.msg_seq & 0xf;
 	}
 
 	info = FIELD_PREP(MT_MCU_MSG_CMD_SEQ, seq) |
@@ -129,9 +129,9 @@ mt76x02u_mcu_send_msg(struct mt76_dev *dev, int cmd, const void *data,
 	if (!skb)
 		return -ENOMEM;
 
-	mutex_lock(&usb->mcu.mutex);
+	mutex_lock(&usb->mcu.common.mutex);
 	err = __mt76x02u_mcu_send_msg(dev, skb, cmd, wait_resp);
-	mutex_unlock(&usb->mcu.mutex);
+	mutex_unlock(&usb->mcu.common.mutex);
 
 	return err;
 }
@@ -166,9 +166,9 @@ mt76x02u_mcu_wr_rp(struct mt76_dev *dev, u32 base,
 		skb_put_le32(skb, data[i].value);
 	}
 
-	mutex_lock(&usb->mcu.mutex);
+	mutex_lock(&usb->mcu.common.mutex);
 	ret = __mt76x02u_mcu_send_msg(dev, skb, CMD_RANDOM_WRITE, cnt == n);
-	mutex_unlock(&usb->mcu.mutex);
+	mutex_unlock(&usb->mcu.common.mutex);
 	if (ret)
 		return ret;
 
@@ -202,7 +202,7 @@ mt76x02u_mcu_rd_rp(struct mt76_dev *dev, u32 base,
 		skb_put_le32(skb, data[i].value);
 	}
 
-	mutex_lock(&usb->mcu.mutex);
+	mutex_lock(&usb->mcu.common.mutex);
 
 	usb->mcu.rp = data;
 	usb->mcu.rp_len = n;
@@ -213,7 +213,7 @@ mt76x02u_mcu_rd_rp(struct mt76_dev *dev, u32 base,
 
 	usb->mcu.rp = NULL;
 
-	mutex_unlock(&usb->mcu.mutex);
+	mutex_unlock(&usb->mcu.common.mutex);
 
 	return ret;
 }

@@ -1121,7 +1121,9 @@ int mt76u_init(struct mt76_dev *dev,
 	if (!usb->wq)
 		return -ENOMEM;
 
-	mutex_init(&usb->mcu.mutex);
+	skb_queue_head_init(&usb->mcu.common.res_q);
+	init_waitqueue_head(&usb->mcu.common.wait);
+	mutex_init(&usb->mcu.common.mutex);
 
 	mutex_init(&usb->usb_ctrl_mtx);
 	dev->bus = &mt76u_ops;
