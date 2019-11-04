@@ -263,18 +263,6 @@ out:
 	return ret;
 }
 
-static int
-connac_usb_mcu_bulk_msg(struct mt76_dev *dev, void *data, int len,
-			int timeout, int ep)
-{
-	struct usb_interface *uintf = to_usb_interface(dev->dev);
-	struct usb_device *udev = interface_to_usbdev(uintf);
-	unsigned int pipe;
-
-	pipe = usb_sndbulkpipe(udev, dev->usb.out_ep[ep]);
-	return usb_bulk_msg(udev, pipe, data, len, NULL, timeout);
-}
-
 static int __connac_usb_mcu_msg_send(struct connac_dev *dev,
 				     struct sk_buff *skb, int cmd,
 				     int *wait_seq)
@@ -349,8 +337,8 @@ static int __connac_usb_mcu_msg_send(struct connac_dev *dev,
 
 	__skb_put(skb, CONNAC_USB_TAIL_SIZE);
 
-	ret = connac_usb_mcu_bulk_msg(&dev->mt76, skb->data, skb->len,
-				      1000, ep);
+	ret = mt76u_bulk_msg(&dev->mt76, skb->data, skb->len, NULL,
+			     1000, ep);
 	if (ret < 0)
 		return ret;
 
