@@ -814,6 +814,7 @@ void connac_usb_mac_set_rates(struct connac_dev *dev, struct connac_sta *sta,
 	list_add_tail(&rc_desc->node, &dev->rc_processing);
 
 	ieee80211_queue_work(mt76_hw(dev), &dev->rc_work);
+	queue_work(dev->mt76.usb.wq, &dev->rc_work);
 }
 
 static enum connac_cipher_type
