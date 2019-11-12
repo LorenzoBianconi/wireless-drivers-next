@@ -451,8 +451,7 @@ int connac_mac_write_txwi(struct connac_dev *dev, __le32 *txwi,
 		txwi[3] |= cpu_to_le32(MT_TXD3_NO_ACK);
 
 	txwi[7] = FIELD_PREP(MT_TXD7_TYPE, fc_type) |
-		  FIELD_PREP(MT_TXD7_SUB_TYPE, fc_stype) |
-		  FIELD_PREP(MT_TXD7_HW_AMSDU_CAP, 1);
+		  FIELD_PREP(MT_TXD7_SUB_TYPE, fc_stype);
 
 	if (mt76_is_usb(&dev->mt76)) {
 		for (i = 8 ; i <= 15 ; i++)
