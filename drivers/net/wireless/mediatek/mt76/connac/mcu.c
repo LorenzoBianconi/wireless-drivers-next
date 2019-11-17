@@ -152,22 +152,21 @@ out:
 	return ret;
 }
 
-static int __connac_mcu_msg_send(struct connac_dev *dev, struct sk_buff *skb,
-				 int cmd, int *wait_seq)
+static void
+connac_mcu_fill_msg(struct connac_dev *dev, struct sk_buff *skb,
+		    int cmd, int *wait_seq)
 {
 	struct connac_mcu_txd *mcu_txd;
 	u8 seq, q_idx, pkt_fmt;
-	enum mt76_txq_id qid;
-	u32 val;
 	__le32 *txd;
+	u32 val;
 
 	seq = ++dev->mt76.mcu.msg_seq & 0xf;
 	if (!seq)
 		seq = ++dev->mt76.mcu.msg_seq & 0xf;
 
-	mcu_txd = (struct connac_mcu_txd *)skb_push(skb,
-		   sizeof(struct connac_mcu_txd));
-	memset(mcu_txd, 0, sizeof(struct connac_mcu_txd));
+	mcu_txd = (struct connac_mcu_txd *)skb_push(skb, sizeof(*mcu_txd));
+	memset(mcu_txd, 0, sizeof(*mcu_txd));
 
 	if (cmd != -MCU_CMD_FW_SCATTER) {
 		q_idx = MT_TX_MCU_PORT_RX_Q0;
@@ -176,7 +175,6 @@ static int __connac_mcu_msg_send(struct connac_dev *dev, struct sk_buff *skb,
 		q_idx = MT_TX_MCU_PORT_RX_FWDL;
 		pkt_fmt = MT_TX_TYPE_FW;
 	}
-
 	txd = mcu_txd->txd;
 
 	val = FIELD_PREP(MT_TXD0_TX_BYTES, skb->len) |
@@ -207,13 +205,6 @@ static int __connac_mcu_msg_send(struct connac_dev *dev, struct sk_buff *skb,
 
 	if (wait_seq)
 		*wait_seq = seq;
-
-	if (test_bit(MT76_STATE_MCU_RUNNING, &dev->mphy.state))
-		qid = MT_TXQ_MCU;
-	else
-		qid = MT_TXQ_FWDL;
-
-	return mt76_tx_queue_skb_raw(dev, qid, skb, 0);
 }
 
 static int
@@ -223,6 +214,7 @@ connac_mcu_msg_send(struct mt76_dev *mdev, int cmd, const void *data,
 	struct connac_dev *dev = container_of(mdev, struct connac_dev, mt76);
 	unsigned long expires = jiffies + 10 * HZ;
 	struct connac_mcu_rxd *rxd;
+	enum mt76_txq_id qid;
 	struct sk_buff *skb;
 	int ret, seq;
 
@@ -232,7 +224,13 @@ connac_mcu_msg_send(struct mt76_dev *mdev, int cmd, const void *data,
 
 	mutex_lock(&mdev->mmio.mcu.mutex);
 
-	ret = __connac_mcu_msg_send(dev, skb, cmd, &seq);
+	connac_mcu_fill_msg(dev, skb, cmd, &seq);
+	if (test_bit(MT76_STATE_MCU_RUNNING, &dev->mphy.state))
+		qid = MT_TXQ_MCU;
+	else
+		qid = MT_TXQ_FWDL;
+
+	ret = mt76_tx_queue_skb_raw(dev, qid, skb, 0);
 	if (ret)
 		goto out;
 
@@ -263,85 +261,6 @@ out:
 	return ret;
 }
 
-static int __connac_usb_mcu_msg_send(struct connac_dev *dev,
-				     struct sk_buff *skb, int cmd,
-				     int *wait_seq)
-{
-	struct connac_mcu_txd *mcu_txd;
-	u8 seq, q_idx, pkt_fmt;
-	enum mt76_txq_id qid;
-	__le32 *txd;
-	int ret, ep;
-	u32 val;
-
-	seq = ++dev->mt76.mcu.msg_seq & 0xf;
-	if (!seq)
-		seq = ++dev->mt76.mcu.msg_seq & 0xf;
-
-	mcu_txd = (struct connac_mcu_txd *)skb_push(skb,
-		   sizeof(struct connac_mcu_txd));
-	memset(mcu_txd, 0, sizeof(struct connac_mcu_txd));
-
-	if (cmd != -MCU_CMD_FW_SCATTER) {
-		q_idx = MT_TX_MCU_PORT_RX_Q0;
-		pkt_fmt = MT_TX_TYPE_CMD;
-		ep = MT_EP_OUT_INBAND_CMD;
-	} else {
-		q_idx = MT_TX_MCU_PORT_RX_FWDL;
-		pkt_fmt = MT_TX_TYPE_FW;
-		ep = MT_EP_OUT_AC_BE;
-	}
-
-	txd = mcu_txd->txd;
-
-	val = FIELD_PREP(MT_TXD0_TX_BYTES, skb->len) |
-	      FIELD_PREP(MT_TXD0_P_IDX, MT_TX_PORT_IDX_MCU) |
-	      FIELD_PREP(MT_TXD0_Q_IDX, q_idx);
-	txd[0] = cpu_to_le32(val);
-
-	val = MT_TXD1_LONG_FORMAT |
-	      FIELD_PREP(MT_TXD1_HDR_FORMAT, MT_HDR_FORMAT_CMD) |
-	      FIELD_PREP(MT_TXD1_PKT_FMT, pkt_fmt);
-	txd[1] = cpu_to_le32(val);
-
-	mcu_txd->len = cpu_to_le16(skb->len - sizeof(mcu_txd->txd));
-	mcu_txd->pq_id = cpu_to_le16(MCU_PQ_ID(MT_TX_PORT_IDX_MCU, q_idx));
-	mcu_txd->pkt_type = MCU_PKT_ID;
-	mcu_txd->seq = seq;
-
-	if (cmd < 0) {
-		mcu_txd->set_query = MCU_Q_NA;
-		mcu_txd->cid = -cmd;
-	} else {
-		mcu_txd->cid = MCU_CMD_EXT_CID;
-		mcu_txd->set_query = MCU_Q_SET;
-		mcu_txd->ext_cid = cmd;
-		mcu_txd->ext_cid_ack = 1;
-	}
-	mcu_txd->s2d_index = MCU_S2D_H2N;
-
-	if (wait_seq)
-		*wait_seq = seq;
-
-	if (test_bit(MT76_STATE_MCU_RUNNING, &dev->mphy.state))
-		qid = MT_TXQ_MCU;
-	else
-		qid = MT_TXQ_FWDL;
-
-	ret = mt76u_skb_dma_info(skb, skb->len);
-	if (ret < 0)
-		return ret;
-
-	ret = mt76u_bulk_msg(&dev->mt76, skb->data, skb->len, NULL,
-			     1000, ep);
-	if (ret < 0)
-		return ret;
-
-	consume_skb(skb);
-
-	return ret;
-}
-
 static int
 connac_usb_mcu_msg_send(struct mt76_dev *mdev, int cmd, const void *data,
 			int len, bool wait_resp)
@@ -350,17 +269,30 @@ connac_usb_mcu_msg_send(struct mt76_dev *mdev, int cmd, const void *data,
 	unsigned long expires = jiffies + 10 * HZ;
 	struct connac_mcu_rxd *rxd;
 	struct sk_buff *skb;
-	int ret, seq;
+	int ret, seq, ep;
 
 	skb = connac_usb_mcu_msg_alloc(data, len);
 	if (!skb)
 		return -ENOMEM;
 
-	mutex_lock(&mdev->usb.mcu.common.mutex);
+	mutex_lock(&mdev->mcu.mutex);
 
-	ret = __connac_usb_mcu_msg_send(dev, skb, cmd, &seq);
-	if (ret)
+	connac_mcu_fill_msg(dev, skb, cmd, &seq);
+	if (cmd != -MCU_CMD_FW_SCATTER)
+		ep = MT_EP_OUT_INBAND_CMD;
+	else
+		ep = MT_EP_OUT_AC_BE;
+
+	ret = mt76u_skb_dma_info(skb, skb->len);
+	if (ret < 0)
 		goto out;
+
+	ret = mt76u_bulk_msg(&dev->mt76, skb->data, skb->len, NULL,
+			     1000, ep);
+	if (ret < 0)
+		goto out;
+
+	consume_skb(skb);
 
 	while (wait_resp) {
 		skb = mt76_mcu_get_response(&mdev->mcu, expires);
@@ -384,7 +316,7 @@ connac_usb_mcu_msg_send(struct mt76_dev *mdev, int cmd, const void *data,
 	}
 
 out:
-	mutex_unlock(&mdev->usb.mcu.common.mutex);
+	mutex_unlock(&mdev->mcu.mutex);
 
 	return ret;
 }
