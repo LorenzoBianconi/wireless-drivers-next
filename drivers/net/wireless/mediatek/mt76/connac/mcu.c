@@ -161,9 +161,9 @@ static int __connac_mcu_msg_send(struct connac_dev *dev, struct sk_buff *skb,
 	u32 val;
 	__le32 *txd;
 
-	seq = ++dev->mt76.mmio.mcu.msg_seq & 0xf;
+	seq = ++dev->mt76.mcu.msg_seq & 0xf;
 	if (!seq)
-		seq = ++dev->mt76.mmio.mcu.msg_seq & 0xf;
+		seq = ++dev->mt76.mcu.msg_seq & 0xf;
 
 	mcu_txd = (struct connac_mcu_txd *)skb_push(skb,
 		   sizeof(struct connac_mcu_txd));
@@ -274,9 +274,9 @@ static int __connac_usb_mcu_msg_send(struct connac_dev *dev,
 	int ret, ep;
 	u32 val;
 
-	seq = ++dev->mt76.usb.mcu.common.msg_seq & 0xf;
+	seq = ++dev->mt76.mcu.msg_seq & 0xf;
 	if (!seq)
-		seq = ++dev->mt76.usb.mcu.common.msg_seq & 0xf;
+		seq = ++dev->mt76.mcu.msg_seq & 0xf;
 
 	mcu_txd = (struct connac_mcu_txd *)skb_push(skb,
 		   sizeof(struct connac_mcu_txd));
@@ -832,7 +832,7 @@ void connac_mcu_exit(struct connac_dev *dev)
 {
 	__mt76_mcu_restart(&dev->mt76);
 	mt76_wr(dev, MT_CONN_HIF_ON_LPCTL(dev), MT_CFG_LPCR_HOST_FW_OWN);
-	skb_queue_purge(&dev->mt76.mmio.mcu.res_q);
+	skb_queue_purge(&dev->mt76.mcu.res_q);
 }
 
 int connac_usb_mcu_init(struct connac_dev *dev)
@@ -887,7 +887,7 @@ int connac_usb_mcu_init(struct connac_dev *dev)
 void connac_usb_mcu_exit(struct connac_dev *dev)
 {
 	__mt76_mcu_restart(&dev->mt76);
-	skb_queue_purge(&dev->mt76.usb.mcu.common.res_q);
+	skb_queue_purge(&dev->mt76.mcu.res_q);
 }
 
 int connac_mcu_set_eeprom(struct connac_dev *dev)
