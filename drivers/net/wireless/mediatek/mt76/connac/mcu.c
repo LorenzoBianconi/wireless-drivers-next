@@ -753,7 +753,9 @@ int connac_mcu_init(struct connac_dev *dev)
 void connac_mcu_exit(struct connac_dev *dev)
 {
 	__mt76_mcu_restart(&dev->mt76);
-	mt76_wr(dev, MT_CONN_HIF_ON_LPCTL(dev), MT_CFG_LPCR_HOST_FW_OWN);
+	if (mt76_is_mmio(&dev->mt76))
+		mt76_wr(dev, MT_CONN_HIF_ON_LPCTL(dev),
+			MT_CFG_LPCR_HOST_FW_OWN);
 	skb_queue_purge(&dev->mt76.mcu.res_q);
 }
 
@@ -804,12 +806,6 @@ int connac_usb_mcu_init(struct connac_dev *dev)
 	set_bit(MT76_STATE_MCU_RUNNING, &dev->mphy.state);
 
 	return 0;
-}
-
-void connac_usb_mcu_exit(struct connac_dev *dev)
-{
-	__mt76_mcu_restart(&dev->mt76);
-	skb_queue_purge(&dev->mt76.mcu.res_q);
 }
 
 int connac_mcu_set_eeprom(struct connac_dev *dev)
