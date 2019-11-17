@@ -208,12 +208,42 @@ connac_mcu_fill_msg(struct connac_dev *dev, struct sk_buff *skb,
 }
 
 static int
+connac_mcu_wait_response(struct connac_dev *dev, int cmd, int seq)
+{
+	unsigned long expires = jiffies + 10 * HZ;
+	struct connac_mcu_rxd *rxd;
+	struct sk_buff *skb;
+	int ret = 0;
+
+	while (true) {
+		skb = mt76_mcu_get_response(&dev->mt76.mcu, expires);
+		if (!skb) {
+			dev_err(dev->mt76.dev, "Message %d (seq %d) timeout\n",
+				cmd, seq);
+			return -ETIMEDOUT;
+		}
+
+		rxd = (struct connac_mcu_rxd *)skb->data;
+		if (seq != rxd->seq)
+			continue;
+
+		if (cmd == -MCU_CMD_PATCH_SEM_CONTROL) {
+			skb_pull(skb, sizeof(*rxd) - 4);
+			ret = *skb->data;
+		}
+
+		dev_kfree_skb(skb);
+		break;
+	}
+
+	return ret;
+}
+
+static int
 connac_mcu_msg_send(struct mt76_dev *mdev, int cmd, const void *data,
 		    int len, bool wait_resp)
 {
 	struct connac_dev *dev = container_of(mdev, struct connac_dev, mt76);
-	unsigned long expires = jiffies + 10 * HZ;
-	struct connac_mcu_rxd *rxd;
 	enum mt76_txq_id qid;
 	struct sk_buff *skb;
 	int ret, seq;
@@ -222,7 +252,7 @@ connac_mcu_msg_send(struct mt76_dev *mdev, int cmd, const void *data,
 	if (!skb)
 		return -ENOMEM;
 
-	mutex_lock(&mdev->mmio.mcu.mutex);
+	mutex_lock(&mdev->mcu.mutex);
 
 	connac_mcu_fill_msg(dev, skb, cmd, &seq);
 	if (test_bit(MT76_STATE_MCU_RUNNING, &dev->mphy.state))
@@ -234,29 +264,10 @@ connac_mcu_msg_send(struct mt76_dev *mdev, int cmd, const void *data,
 	if (ret)
 		goto out;
 
-	while (wait_resp) {
-		skb = mt76_mcu_get_response(&mdev->mcu, expires);
-		if (!skb) {
-			dev_err(mdev->dev, "Message %d (seq %d) timeout\n",
-				cmd, seq);
-			ret = -ETIMEDOUT;
-			break;
-		}
-
-		rxd = (struct connac_mcu_rxd *)skb->data;
-		if (seq != rxd->seq)
-			continue;
-
-		if (cmd == -MCU_CMD_PATCH_SEM_CONTROL) {
-			skb_pull(skb, sizeof(*rxd) - 4);
-			ret = *skb->data;
-		}
-		dev_kfree_skb(skb);
-		break;
-	}
-
+	if (wait_resp)
+		ret = connac_mcu_wait_response(dev, cmd, seq);
 out:
-	mutex_unlock(&mdev->mmio.mcu.mutex);
+	mutex_unlock(&mdev->mcu.mutex);
 
 	return ret;
 }
@@ -266,8 +277,6 @@ connac_usb_mcu_msg_send(struct mt76_dev *mdev, int cmd, const void *data,
 			int len, bool wait_resp)
 {
 	struct connac_dev *dev = container_of(mdev, struct connac_dev, mt76);
-	unsigned long expires = jiffies + 10 * HZ;
-	struct connac_mcu_rxd *rxd;
 	struct sk_buff *skb;
 	int ret, seq, ep;
 
@@ -293,27 +302,8 @@ connac_usb_mcu_msg_send(struct mt76_dev *mdev, int cmd, const void *data,
 		goto out;
 
 	consume_skb(skb);
-
-	while (wait_resp) {
-		skb = mt76_mcu_get_response(&mdev->mcu, expires);
-		if (!skb) {
-			dev_err(mdev->dev, "Message %d (seq %d) timeout\n",
-				cmd, seq);
-			ret = -ETIMEDOUT;
-			break;
-		}
-
-		rxd = (struct connac_mcu_rxd *)skb->data;
-		if (seq != rxd->seq)
-			continue;
-
-		if (cmd == -MCU_CMD_PATCH_SEM_CONTROL) {
-			skb_pull(skb, sizeof(*rxd) - 4);
-			ret = *skb->data;
-		}
-		dev_kfree_skb(skb);
-		break;
-	}
+	if (wait_resp)
+		ret = connac_mcu_wait_response(dev, cmd, seq);
 
 out:
 	mutex_unlock(&mdev->mcu.mutex);
