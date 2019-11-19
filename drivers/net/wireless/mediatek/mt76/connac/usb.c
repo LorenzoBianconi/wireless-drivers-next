@@ -63,8 +63,7 @@ connac_usb_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 	/* Add MAC TXD */
 	skb_push(tx_info->skb, CONNAC_USB_TXD_SIZE);
 
-	return mt76u_skb_dma_info(tx_info->skb,
-				  cpu_to_le32(tx_info->skb->len));
+	return mt76u_skb_dma_info(tx_info->skb, tx_info->skb->len);
 }
 
 static int
