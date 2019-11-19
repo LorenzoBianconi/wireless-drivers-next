@@ -42,21 +42,12 @@ connac_usb_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 {
 	struct connac_dev *dev = container_of(mdev, struct connac_dev, mt76);
 	struct connac_sta *msta = container_of(wcid, struct connac_sta, wcid);
-	int pid, headroom = CONNAC_USB_HDR_SIZE + CONNAC_USB_TXD_SIZE;
-	struct sk_buff *skb = tx_info->skb;
-	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
-
-	if (unlikely(skb_headroom(skb) < headroom)) {
-		int err;
-
-		err = pskb_expand_head(skb, headroom, 0, GFP_ATOMIC);
-		if (err < 0)
-			return err;
-	}
+	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(tx_info->skb);
+	int pid;
 
 	if (!wcid)
 		wcid = &dev->mt76.global_wcid;
-	pid = mt76_tx_status_skb_add(mdev, wcid, skb);
+	pid = mt76_tx_status_skb_add(mdev, wcid, tx_info->skb);
 
 	if (info->flags & IEEE80211_TX_CTL_RATE_CTRL_PROBE) {
 		spin_lock_bh(&dev->mt76.lock);
@@ -66,13 +57,14 @@ connac_usb_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 		spin_unlock_bh(&dev->mt76.lock);
 	}
 
-	txwi_ptr = (void *)(skb->data - CONNAC_USB_TXD_SIZE);
-	connac_mac_write_txwi(dev, txwi_ptr, skb, qid, wcid, sta, pid,
-			      info->control.hw_key);
+	txwi_ptr = (void *)(tx_info->skb->data - CONNAC_USB_TXD_SIZE);
+	connac_mac_write_txwi(dev, txwi_ptr, tx_info->skb, qid, wcid, sta,
+			      pid, info->control.hw_key);
 	/* Add MAC TXD */
-	skb_push(skb, CONNAC_USB_TXD_SIZE);
+	skb_push(tx_info->skb, CONNAC_USB_TXD_SIZE);
 
-	return mt76u_skb_dma_info(skb, cpu_to_le32(skb->len));
+	return mt76u_skb_dma_info(tx_info->skb,
+				  cpu_to_le32(tx_info->skb->len));
 }
 
 static int
@@ -231,6 +223,7 @@ static int connac_usb_init_hardware(struct connac_dev *dev)
 static int
 connac_usb_register_device(struct connac_dev *dev)
 {
+	struct ieee80211_hw *hw = mt76_hw(dev);
 	int err;
 
 	INIT_WORK(&dev->rc_work, connac_usb_rc_work);
@@ -239,6 +232,8 @@ connac_usb_register_device(struct connac_dev *dev)
 	err = connac_usb_init_hardware(dev);
 	if (err)
 		return err;
+
+	hw->extra_tx_headroom += CONNAC_USB_HDR_SIZE + CONNAC_USB_TXD_SIZE;
 
 	return connac_register_device(dev);
 }
