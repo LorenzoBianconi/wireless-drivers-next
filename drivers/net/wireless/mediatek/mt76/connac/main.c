@@ -18,8 +18,8 @@ static int connac_start(struct ieee80211_hw *hw)
 {
 	struct connac_dev *dev = hw->priv;
 
-	dev->mt76.survey_time = ktime_get_boottime();
-	set_bit(MT76_STATE_RUNNING, &dev->mt76.state);
+	dev->mphy.survey_time = ktime_get_boottime();
+	set_bit(MT76_STATE_RUNNING, &dev->mphy.state);
 	ieee80211_queue_delayed_work(mt76_hw(dev), &dev->mt76.mac_work,
 				     CONNAC_WATCHDOG_TIME);
 
@@ -30,7 +30,7 @@ static void connac_stop(struct ieee80211_hw *hw)
 {
 	struct connac_dev *dev = hw->priv;
 
-	clear_bit(MT76_STATE_RUNNING, &dev->mt76.state);
+	clear_bit(MT76_STATE_RUNNING, &dev->mphy.state);
 	cancel_delayed_work_sync(&dev->mt76.mac_work);
 }
 
@@ -140,11 +140,11 @@ static int connac_set_channel(struct connac_dev *dev)
 	cancel_delayed_work_sync(&dev->mt76.mac_work);
 
 	mutex_lock(&dev->mt76.mutex);
-	set_bit(MT76_RESET, &dev->mt76.state);
+	set_bit(MT76_RESET, &dev->mphy.state);
 
 	connac_dfs_check_channel(dev);
 
-	mt76_set_channel(&dev->mt76);
+	mt76_set_channel(&dev->mphy);
 
 	ret = connac_mcu_set_channel(dev);
 	if (ret)
@@ -152,15 +152,15 @@ static int connac_set_channel(struct connac_dev *dev)
 
 	ret = connac_dfs_init_radar_detector(dev);
 	connac_mac_cca_stats_reset(dev);
-	dev->mt76.survey_time = ktime_get_boottime();
+	dev->mphy.survey_time = ktime_get_boottime();
 	/* TODO: add DBDC support */
 	mt76_rr(dev, MT_MIB_SDR16(dev, 0));
 
 out:
-	clear_bit(MT76_RESET, &dev->mt76.state);
+	clear_bit(MT76_RESET, &dev->mphy.state);
 	mutex_unlock(&dev->mt76.mutex);
 
-	mt76_txq_schedule_all(&dev->mt76);
+	mt76_txq_schedule_all(&dev->mphy);
 	ieee80211_queue_delayed_work(mt76_hw(dev), &dev->mt76.mac_work,
 				     CONNAC_WATCHDOG_TIME);
 	return ret;
@@ -460,7 +460,7 @@ static void connac_tx(struct ieee80211_hw *hw,
 	}
 
 	if (wcid->idx != dev->mt76.global_wcid.idx)
-		mt76_tx(&dev->mt76, control->sta, wcid, skb);
+		mt76_tx(&dev->mphy, control->sta, wcid, skb);
 	else
 		connac_altx(&dev->mt76, control->sta, wcid, skb);
 }

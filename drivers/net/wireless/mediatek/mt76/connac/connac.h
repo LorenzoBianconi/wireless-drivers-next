@@ -103,7 +103,12 @@ struct connac_vif {
 };
 
 struct connac_dev {
-	struct mt76_dev mt76; /* must be first */
+	union { /* must be first */
+		struct mt76_dev mt76;
+		struct mt76_phy mphy;
+	};
+
+	u16 chainmask;
 	u32 vif_mask;
 	u32 omac_mask;
 
@@ -254,8 +259,8 @@ int connac_mcu_rdd_send_pattern(struct connac_dev *dev);
 
 static inline void connac_dfs_check_channel(struct connac_dev *dev)
 {
-	enum nl80211_chan_width width = dev->mt76.chandef.width;
-	u32 freq = dev->mt76.chandef.chan->center_freq;
+	enum nl80211_chan_width width = dev->mphy.chandef.width;
+	u32 freq = dev->mphy.chandef.chan->center_freq;
 	struct ieee80211_hw *hw = mt76_hw(dev);
 
 	if (hw->conf.chandef.chan->center_freq != freq ||
