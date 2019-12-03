@@ -55,7 +55,7 @@ int connac_mac_fill_rx(struct connac_dev *dev, struct sk_buff *skb)
 	bool unicast, remove_pad, insert_ccmp_hdr = false;
 	int i, idx;
 
-	if (!test_bit(MT76_STATE_RUNNING, &dev->mt76.state))
+	if (!test_bit(MT76_STATE_RUNNING, &dev->mphy.state))
 		return -EINVAL;
 
 	memset(status, 0, sizeof(*status));
@@ -65,12 +65,12 @@ int connac_mac_fill_rx(struct connac_dev *dev, struct sk_buff *skb)
 	status->wcid = connac_rx_get_wcid(dev, idx, unicast);
 
 	/* TODO: properly support DBDC */
-	status->freq = dev->mt76.chandef.chan->center_freq;
-	status->band = dev->mt76.chandef.chan->band;
+	status->freq = dev->mphy.chandef.chan->center_freq;
+	status->band = dev->mphy.chandef.chan->band;
 	if (status->band == NL80211_BAND_5GHZ)
-		sband = &dev->mt76.sband_5g.sband;
+		sband = &dev->mphy.sband_5g.sband;
 	else
-		sband = &dev->mt76.sband_2g.sband;
+		sband = &dev->mphy.sband_2g.sband;
 
 	if (rxd2 & MT_RXD2_NORMAL_FCS_ERR)
 		status->flag |= RX_FLAG_FAILED_FCS_CRC;
@@ -177,14 +177,14 @@ int connac_mac_fill_rx(struct connac_dev *dev, struct sk_buff *skb)
 
 		status->enc_flags |= RX_ENC_FLAG_STBC_MASK * stbc;
 
-		status->chains = dev->mt76.antenna_mask;
+		status->chains = dev->mphy.antenna_mask;
 		status->chain_signal[0] = to_rssi(MT_RXV4_RCPI0, rxdg3);
 		status->chain_signal[1] = to_rssi(MT_RXV4_RCPI1, rxdg3);
 		status->chain_signal[2] = to_rssi(MT_RXV4_RCPI2, rxdg3);
 		status->chain_signal[3] = to_rssi(MT_RXV4_RCPI3, rxdg3);
 		status->signal = status->chain_signal[0];
 
-		for (i = 1; i < hweight8(dev->mt76.antenna_mask); i++) {
+		for (i = 1; i < hweight8(dev->mphy.antenna_mask); i++) {
 			if (!(status->chains & BIT(i)))
 				continue;
 
@@ -283,7 +283,7 @@ connac_mac_tx_rate_val(struct connac_dev *dev,
 			*bw = 1;
 	} else {
 		const struct ieee80211_rate *r;
-		int band = dev->mt76.chandef.chan->band;
+		int band = dev->mphy.chandef.chan->band;
 		u16 val;
 
 		nss = 1;
@@ -1219,10 +1219,10 @@ out:
 		cck = true;
 		/* fall through */
 	case MT_PHY_TYPE_OFDM:
-		if (dev->mt76.chandef.chan->band == NL80211_BAND_5GHZ)
-			sband = &dev->mt76.sband_5g.sband;
+		if (dev->mphy.chandef.chan->band == NL80211_BAND_5GHZ)
+			sband = &dev->mphy.sband_5g.sband;
 		else
-			sband = &dev->mt76.sband_2g.sband;
+			sband = &dev->mphy.sband_2g.sband;
 		final_rate &= MT_TX_RATE_IDX;
 		final_rate = mt76_get_rate(&dev->mt76, sband, final_rate,
 					   cck);
@@ -1382,7 +1382,7 @@ void connac_update_channel(struct mt76_dev *mdev)
 	obss_time = mt76_get_field(dev, MT_WF_RMAC_MIB_TIME5(dev),
 				   MT_MIB_OBSSTIME_MASK);
 
-	state = mdev->chan_state;
+	state = mdev->phy.chan_state;
 	state->cc_busy += busy_time;
 	state->cc_tx += tx_time;
 	state->cc_rx += rx_time + obss_time;
@@ -1416,7 +1416,7 @@ void connac_mac_work(struct work_struct *work)
 
 int connac_dfs_stop_radar_detector(struct connac_dev *dev)
 {
-	struct cfg80211_chan_def *chandef = &dev->mt76.chandef;
+	struct cfg80211_chan_def *chandef = &dev->mphy.chandef;
 	int err;
 
 	err = connac_mcu_rdd_cmd(dev, RDD_STOP, MT_HW_RDD0,
@@ -1445,7 +1445,7 @@ static int connac_dfs_start_rdd(struct connac_dev *dev, int chain)
 
 int connac_dfs_start_radar_detector(struct connac_dev *dev)
 {
-	struct cfg80211_chan_def *chandef = &dev->mt76.chandef;
+	struct cfg80211_chan_def *chandef = &dev->mphy.chandef;
 	int err;
 
 	/* start CAC */
@@ -1472,13 +1472,13 @@ int connac_dfs_start_radar_detector(struct connac_dev *dev)
 
 int connac_dfs_init_radar_detector(struct connac_dev *dev)
 {
-	struct cfg80211_chan_def *chandef = &dev->mt76.chandef;
+	struct cfg80211_chan_def *chandef = &dev->mphy.chandef;
 	int err;
 
 	if (dev->mt76.region == NL80211_DFS_UNSET)
 		return 0;
 
-	if (test_bit(MT76_SCANNING, &dev->mt76.state))
+	if (test_bit(MT76_SCANNING, &dev->mphy.state))
 		return 0;
 
 	if (dev->dfs_state == chandef->chan->dfs_state)

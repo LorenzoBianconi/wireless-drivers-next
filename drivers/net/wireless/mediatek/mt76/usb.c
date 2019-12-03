@@ -622,7 +622,7 @@ mt7663u_process_rx_entry(struct mt76_dev *dev, struct urb *urb, int _q)
 	struct sk_buff *skb;
 	u16 dma_len = get_unaligned_le16(data);
 
-	if (!test_bit(MT76_STATE_INITIALIZED, &dev->state))
+	if (!test_bit(MT76_STATE_INITIALIZED, &dev->phy.state))
 		return 0;
 
 	len = urb->actual_length;
@@ -1127,7 +1127,7 @@ static void mt7663u_tx_tasklet(unsigned long data)
 
 		spin_unlock_bh(&q->lock);
 
-		mt76_txq_schedule(dev, i);
+		mt76_txq_schedule(&dev->phy, i);
 
 		if (wake)
 			ieee80211_wake_queue(dev->hw, i);
@@ -1385,7 +1385,7 @@ void mt7663u_stop_tx(struct mt76_dev *dev)
 	struct mt76_queue *q;
 	int i, j, ret;
 
-	ret = wait_event_timeout(dev->tx_wait, !mt76_has_tx_pending(dev),
+	ret = wait_event_timeout(dev->tx_wait, !mt76_has_tx_pending(&dev->phy),
 				 HZ / 5);
 	if (!ret) {
 		dev_err(dev->dev, "timed out waiting for pending tx\n");
@@ -1417,7 +1417,7 @@ void mt7663u_stop_tx(struct mt76_dev *dev)
 		}
 	}
 
-	clear_bit(MT76_READING_STATS, &dev->state);
+	clear_bit(MT76_READING_STATS, &dev->phy.state);
 
 	mt76_tx_status_check(dev, NULL, true);
 }

@@ -230,7 +230,7 @@ static int connac_init_hardware(struct connac_dev *dev)
 	if (ret)
 		return ret;
 
-	set_bit(MT76_STATE_INITIALIZED, &dev->mt76.state);
+	set_bit(MT76_STATE_INITIALIZED, &dev->mphy.state);
 
 	ret = connac_mcu_init(dev);
 	if (ret)
@@ -303,7 +303,7 @@ static int connac_usb_init_hardware(struct connac_dev *dev)
 	val |= FIELD_PREP(WL_RX_AGG_PKT_LMT, 1);
 	mt76_wr(dev, UDMA_WLCFG_1(dev), val);
 
-	set_bit(MT76_STATE_INITIALIZED, &dev->mt76.state);
+	set_bit(MT76_STATE_INITIALIZED, &dev->mphy.state);
 
 	ret = connac_usb_mcu_init(dev);
 	if (ret)
@@ -432,15 +432,15 @@ int connac_register_device(struct connac_dev *dev)
 	wiphy->iface_combinations = if_comb;
 	wiphy->n_iface_combinations = ARRAY_SIZE(if_comb);
 
-	dev->mt76.sband_2g.sband.ht_cap.cap |= IEEE80211_HT_CAP_LDPC_CODING;
-	dev->mt76.sband_5g.sband.ht_cap.cap |= IEEE80211_HT_CAP_LDPC_CODING;
-	dev->mt76.sband_5g.sband.vht_cap.cap |=
+	dev->mphy.sband_2g.sband.ht_cap.cap |= IEEE80211_HT_CAP_LDPC_CODING;
+	dev->mphy.sband_5g.sband.ht_cap.cap |= IEEE80211_HT_CAP_LDPC_CODING;
+	dev->mphy.sband_5g.sband.vht_cap.cap |=
 			IEEE80211_VHT_CAP_SHORT_GI_160 |
 			IEEE80211_VHT_CAP_MAX_MPDU_LENGTH_11454 |
 			IEEE80211_VHT_CAP_MAX_A_MPDU_LENGTH_EXPONENT_MASK |
 			IEEE80211_VHT_CAP_SUPP_CHAN_WIDTH_160_80PLUS80MHZ;
-	dev->mt76.chainmask = 0x03;
-	dev->mt76.antenna_mask = 0x7;
+	dev->chainmask = 0x03;
+	dev->mphy.antenna_mask = 0x7;
 
 	wiphy->interface_modes = BIT(NL80211_IFTYPE_STATION) |
 #ifdef CONFIG_MAC80211_MESH
