@@ -208,7 +208,7 @@ static int __connac_mcu_msg_send(struct connac_dev *dev, struct sk_buff *skb,
 	if (wait_seq)
 		*wait_seq = seq;
 
-	if (test_bit(MT76_STATE_MCU_RUNNING, &dev->mt76.state))
+	if (test_bit(MT76_STATE_MCU_RUNNING, &dev->mphy.state))
 		qid = MT_TXQ_MCU;
 	else
 		qid = MT_TXQ_FWDL;
@@ -310,7 +310,7 @@ static int __connac_usb_mcu_msg_send(struct connac_dev *dev,
 	} else {
 		q_idx = MT_TX_MCU_PORT_RX_FWDL;
 		pkt_fmt = MT_TX_TYPE_FW;
-		ep = MT_EP_OUT_AC_BK;
+		ep = MT_EP_OUT_AC_BE;
 	}
 
 	txd = mcu_txd->txd;
@@ -344,7 +344,7 @@ static int __connac_usb_mcu_msg_send(struct connac_dev *dev,
 	if (wait_seq)
 		*wait_seq = seq;
 
-	if (test_bit(MT76_STATE_MCU_RUNNING, &dev->mt76.state))
+	if (test_bit(MT76_STATE_MCU_RUNNING, &dev->mphy.state))
 		qid = MT_TXQ_MCU;
 	else
 		qid = MT_TXQ_FWDL;
@@ -876,7 +876,7 @@ int connac_mcu_init(struct connac_dev *dev)
 	if (ret)
 		return ret;
 
-	set_bit(MT76_STATE_MCU_RUNNING, &dev->mt76.state);
+	set_bit(MT76_STATE_MCU_RUNNING, &dev->mphy.state);
 
 	return 0;
 }
@@ -932,7 +932,7 @@ int connac_usb_mcu_init(struct connac_dev *dev)
 	val &= ~FW_DL_EN;
 	mt76_wr(dev, UDMA_TX_QSEL(dev), val);
 
-	set_bit(MT76_STATE_MCU_RUNNING, &dev->mt76.state);
+	set_bit(MT76_STATE_MCU_RUNNING, &dev->mphy.state);
 
 	return 0;
 }
@@ -1871,8 +1871,8 @@ int connac_mcu_set_bcn(struct connac_dev *dev, struct ieee80211_vif *vif,
 /* CONNAC : TBD */
 int connac_mcu_set_tx_power(struct connac_dev *dev)
 {
-	int i, ret, n_chains = hweight8(dev->mt76.antenna_mask);
-	struct cfg80211_chan_def *chandef = &dev->mt76.chandef;
+	int i, ret, n_chains = hweight8(dev->mphy.antenna_mask);
+	struct cfg80211_chan_def *chandef = &dev->mphy.chandef;
 	u8 *req, *data, *eep = (u8 *)dev->mt76.eeprom.data;
 	struct ieee80211_hw *hw = mt76_hw(dev);
 	int freq = chandef->center_freq1, len;
@@ -1912,7 +1912,7 @@ int connac_mcu_set_tx_power(struct connac_dev *dev)
 		break;
 	}
 	tx_power = max_t(s8, tx_power, 0);
-	dev->mt76.txpower_cur = tx_power;
+	dev->mphy.txpower_cur = tx_power;
 
 	for (i = 0; i < n_chains; i++) {
 		int index = -MT_EE_NIC_CONF_0;
@@ -1987,7 +1987,7 @@ int connac_mcu_rdd_send_pattern(struct connac_dev *dev)
 
 int connac_mcu_set_channel(struct connac_dev *dev)
 {
-	struct cfg80211_chan_def *chandef = &dev->mt76.chandef;
+	struct cfg80211_chan_def *chandef = &dev->mphy.chandef;
 	int freq1 = chandef->center_freq1, freq2 = chandef->center_freq2;
 	struct {
 		u8 control_chan;
@@ -2010,8 +2010,8 @@ int connac_mcu_set_channel(struct connac_dev *dev)
 	} req = {
 		.control_chan = chandef->chan->hw_value,
 		.center_chan = ieee80211_frequency_to_channel(freq1),
-		.tx_streams = (dev->mt76.chainmask >> 8) & 0xf,
-		.rx_streams_mask = dev->mt76.antenna_mask,
+		.tx_streams = (dev->chainmask >> 8) & 0xf,
+		.rx_streams_mask = dev->mphy.antenna_mask,
 		.center_chan2 = ieee80211_frequency_to_channel(freq2),
 	};
 	int ret;
@@ -2022,7 +2022,7 @@ int connac_mcu_set_channel(struct connac_dev *dev)
 	else
 		req.switch_reason = CH_SWITCH_NORMAL;
 
-	switch (dev->mt76.chandef.width) {
+	switch (dev->mphy.chandef.width) {
 	case NL80211_CHAN_WIDTH_40:
 		req.bw = CMD_CBW_40MHZ;
 		break;
