@@ -39,13 +39,13 @@ static int __connac_usb_vendor_request(struct mt76_dev *dev, u8 req,
 	pipe = (req_type & USB_DIR_IN) ? usb_rcvctrlpipe(udev, 0)
 				       : usb_sndctrlpipe(udev, 0);
 	for (i = 0; i < MT_VEND_REQ_MAX_RETRY; i++) {
-		if (test_bit(MT76_REMOVED, &dev->state))
+		if (test_bit(MT76_REMOVED, &dev->phy.state))
 			return -EIO;
 
 		ret = usb_control_msg(udev, pipe, req, req_type, val,
 				      offset, buf, len, MT_VEND_REQ_TOUT_MS);
 		if (ret == -ENODEV)
-			set_bit(MT76_REMOVED, &dev->state);
+			set_bit(MT76_REMOVED, &dev->phy.state);
 		if (ret >= 0 || ret == -ENODEV)
 			return ret;
 		usleep_range(5000, 10000);
@@ -178,7 +178,7 @@ connac_usb_read_copy(struct mt76_dev *dev, u32 offset, void *data, int len)
 
 static void connac_usb_cleanup(struct connac_dev *dev)
 {
-	clear_bit(MT76_STATE_INITIALIZED, &dev->mt76.state);
+	clear_bit(MT76_STATE_INITIALIZED, &dev->mphy.state);
 	mt7663u_queues_deinit(&dev->mt76);
 }
 
@@ -276,9 +276,8 @@ error:
 static void connac_usb_disconnect(struct usb_interface *usb_intf)
 {
 	struct connac_dev *dev = usb_get_intfdata(usb_intf);
-	bool initialized = test_bit(MT76_STATE_INITIALIZED, &dev->mt76.state);
 
-	if (!initialized)
+	if (!test_bit(MT76_STATE_INITIALIZED, &dev->mphy.state))
 		return;
 
 	ieee80211_unregister_hw(dev->mt76.hw);
