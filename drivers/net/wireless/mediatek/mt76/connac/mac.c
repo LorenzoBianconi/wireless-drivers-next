@@ -220,6 +220,7 @@ int connac_mac_fill_rx(struct connac_dev *dev, struct sk_buff *skb)
 void connac_sta_ps(struct mt76_dev *mdev, struct ieee80211_sta *sta, bool ps)
 {
 }
+EXPORT_SYMBOL_GPL(connac_sta_ps);
 
 static u16
 connac_mac_tx_rate_val(struct connac_dev *dev,
@@ -440,6 +441,7 @@ int connac_mac_write_txwi(struct connac_dev *dev, __le32 *txwi,
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(connac_mac_write_txwi);
 
 void connac_txp_skb_unmap(struct mt76_dev *dev,
 			  struct mt76_txwi_cache *t)
@@ -713,6 +715,7 @@ void connac_usb_mac_set_rates(struct connac_dev *dev, struct connac_sta *sta,
 	ieee80211_queue_work(mt76_hw(dev), &dev->rc_work);
 	queue_work(dev->mt76.usb.wq, &dev->rc_work);
 }
+EXPORT_SYMBOL_GPL(connac_usb_mac_set_rates);
 
 static enum connac_cipher_type
 connac_mac_get_cipher(int cipher)
@@ -1153,6 +1156,7 @@ void connac_update_channel(struct mt76_dev *mdev)
 	/* reset obss airtime */
 	mt76_set(dev, MT_WF_RMAC_MIB_TIME0(dev), MT_WF_RMAC_MIB_RXTIME_CLR);
 }
+EXPORT_SYMBOL_GPL(connac_update_channel);
 
 void connac_mac_work(struct work_struct *work)
 {
