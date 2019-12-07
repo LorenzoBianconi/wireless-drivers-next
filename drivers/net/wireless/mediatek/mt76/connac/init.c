@@ -319,3 +319,5 @@ void connac_unregister_device(struct connac_dev *dev)
 
 	mt76_free_device(&dev->mt76);
 }
+
+MODULE_LICENSE("Dual BSD/GPL");
