@@ -366,6 +366,7 @@ int connac_sta_add(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(connac_sta_add);
 
 void connac_sta_assoc(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 		      struct ieee80211_sta *sta)
@@ -374,6 +375,7 @@ void connac_sta_assoc(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 
 	connac_mcu_set_sta_rec(dev, vif, sta, 1);
 }
+EXPORT_SYMBOL_GPL(connac_sta_assoc);
 
 void connac_sta_remove(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 		       struct ieee80211_sta *sta)
@@ -382,6 +384,7 @@ void connac_sta_remove(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 
 	connac_mcu_set_sta_rec(dev, vif, sta, 0);
 }
+EXPORT_SYMBOL_GPL(connac_sta_remove);
 
 static void connac_sta_rate_tbl_update(struct ieee80211_hw *hw,
 				       struct ieee80211_vif *vif,
@@ -528,3 +531,4 @@ const struct ieee80211_ops connac_ops = {
 	.channel_switch_beacon = connac_channel_switch_beacon,
 	.get_survey = mt76_get_survey,
 };
+EXPORT_SYMBOL_GPL(connac_ops);
