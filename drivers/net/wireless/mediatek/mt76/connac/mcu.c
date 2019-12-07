@@ -751,6 +751,7 @@ int connac_mcu_set_eeprom(struct connac_dev *dev)
 
 	return ret;
 }
+EXPORT_SYMBOL_GPL(connac_mcu_set_eeprom);
 
 int connac_mcu_dbdc_ctrl(struct connac_dev *dev)
 {
@@ -874,6 +875,7 @@ int connac_mcu_ctrl_pm_state(struct connac_dev *dev, int enter)
 	return __mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD_PM_STATE_CTRL,
 				   &req, sizeof(req), true);
 }
+EXPORT_SYMBOL_GPL(connac_mcu_ctrl_pm_state);
 
 int connac_mcu_set_dev_info(struct connac_dev *dev,
 			    struct ieee80211_vif *vif, bool enable)

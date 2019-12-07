@@ -110,3 +110,4 @@ int connac_eeprom_init(struct connac_dev *dev)
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(connac_eeprom_init);
