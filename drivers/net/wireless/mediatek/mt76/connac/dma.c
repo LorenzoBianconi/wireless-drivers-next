@@ -46,6 +46,7 @@ void connac_queue_rx_skb(struct mt76_dev *mdev, enum mt76_rxq_id q,
 		break;
 	}
 }
+EXPORT_SYMBOL_GPL(connac_queue_rx_skb);
 
 void connac_dma_cleanup(struct connac_dev *dev)
 {

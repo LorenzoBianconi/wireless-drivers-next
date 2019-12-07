@@ -65,6 +65,7 @@ void connac_mac_init(struct connac_dev *dev)
 	mt76_wr(dev, MT_WF_AGG(dev, 0x160), 0x5c341c02);
 	mt76_wr(dev, MT_WF_AGG(dev, 0x164), 0x70708040);
 }
+EXPORT_SYMBOL_GPL(connac_mac_init);
 
 #define CCK_RATE(_idx, _rate) {						\
 	.bitrate = _rate,						\
@@ -174,6 +175,7 @@ int connac_register_device(struct connac_dev *dev)
 
 	return connac_init_debugfs(dev);
 }
+EXPORT_SYMBOL_GPL(connac_register_device);
 
 void connac_unregister_device(struct connac_dev *dev)
 {
@@ -196,5 +198,6 @@ void connac_unregister_device(struct connac_dev *dev)
 
 	mt76_free_device(&dev->mt76);
 }
+EXPORT_SYMBOL_GPL(connac_unregister_device);
 
 MODULE_LICENSE("Dual BSD/GPL");
