@@ -410,40 +410,18 @@ static void connac_sta_rate_tbl_update(struct ieee80211_hw *hw,
 	spin_unlock_bh(&dev->mt76.lock);
 }
 
-static void
-connac_altx(struct mt76_dev *dev, struct ieee80211_sta *sta,
-	    struct mt76_wcid *wcid, struct sk_buff *skb)
-{
-	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
-	struct mt76_queue *q;
-
-	if (!(wcid->tx_info & MT_WCID_TX_INFO_SET))
-		ieee80211_get_tx_rates(info->control.vif, sta, skb,
-				       info->control.rates, 1);
-
-	q = dev->q_tx[MT_TXQ_PSD].q;
-
-	spin_lock_bh(&q->lock);
-	dev->queue_ops->tx_queue_skb(dev, MT_TXQ_PSD, skb, wcid, sta);
-	dev->queue_ops->kick(dev, q);
-
-	if (q->queued > q->ndesc - 8 && !q->stopped) {
-		ieee80211_stop_queue(dev->hw, skb_get_queue_mapping(skb));
-		q->stopped = true;
-	}
-
-	spin_unlock_bh(&q->lock);
-}
-
 static void connac_tx(struct ieee80211_hw *hw,
 		      struct ieee80211_tx_control *control,
 		      struct sk_buff *skb)
 {
-	struct connac_dev *dev = hw->priv;
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
 	struct ieee80211_vif *vif = info->control.vif;
-	struct mt76_wcid *wcid = &dev->mt76.global_wcid;
-	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)skb->data;
+	struct mt76_phy *mphy = hw->priv;
+	struct mt76_wcid *wcid;
+	struct connac_dev *dev;
+
+	dev = container_of(mphy->dev, struct connac_dev, mt76);
+	wcid = &dev->mt76.global_wcid;
 
 	if (control->sta) {
 		struct connac_sta *sta;
@@ -452,17 +430,14 @@ static void connac_tx(struct ieee80211_hw *hw,
 		wcid = &sta->wcid;
 	}
 
-	if (vif && !control->sta && ieee80211_is_data_qos(hdr->frame_control)) {
+	if (vif && !control->sta) {
 		struct connac_vif *mvif;
 
 		mvif = (struct connac_vif *)vif->drv_priv;
 		wcid = &mvif->sta.wcid;
 	}
 
-	if (wcid->idx != dev->mt76.global_wcid.idx)
-		mt76_tx(&dev->mphy, control->sta, wcid, skb);
-	else
-		connac_altx(&dev->mt76, control->sta, wcid, skb);
+	mt76_tx(mphy, control->sta, wcid, skb);
 }
 
 static int connac_set_rts_threshold(struct ieee80211_hw *hw, u32 val)
