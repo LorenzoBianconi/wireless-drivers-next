@@ -570,12 +570,4 @@ connac_mcu_msg_alloc(const void *data, int len)
 				  len, 0);
 }
 
-static inline struct sk_buff *
-connac_usb_mcu_msg_alloc(const void *data, int len)
-{
-	return mt76_mcu_msg_alloc(data, CONNAC_USB_HDR_SIZE +
-				  sizeof(struct connac_mcu_txd), len,
-				  CONNAC_USB_TAIL_SIZE);
-}
-
 #endif
