@@ -291,6 +291,11 @@ int connac_mcu_set_rts_thresh(struct connac_dev *dev, u32 val);
 int connac_mcu_ctrl_pm_state(struct connac_dev *dev, int enter);
 int connac_mcu_set_tx_power(struct connac_dev *dev);
 void connac_mcu_exit(struct connac_dev *dev);
+int connac_mcu_restart(struct mt76_dev *dev);
+int connac_load_firmware(struct connac_dev *dev);
+void connac_mcu_fill_msg(struct connac_dev *dev, struct sk_buff *skb,
+			 int cmd, int *wait_seq);
+int connac_mcu_wait_response(struct connac_dev *dev, int cmd, int seq);
 
 int connac_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 			  enum mt76_txq_id qid, struct mt76_wcid *wcid,
@@ -319,12 +324,8 @@ int connac_init_debugfs(struct connac_dev *dev);
 
 void connac_mac_init(struct connac_dev *dev);
 int connac_init_hardware(struct connac_dev *dev);
-int connac_usb_mcu_init(struct connac_dev *dev);
 
 void connac_usb_mac_set_rates(struct connac_dev *dev, struct connac_sta *sta,
 			      struct ieee80211_tx_rate *probe_rate,
 			      struct ieee80211_tx_rate *rates);
-
-void connac_usb_rc_work(struct work_struct *work);
-
 #endif
