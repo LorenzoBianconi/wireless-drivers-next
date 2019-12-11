@@ -35,6 +35,89 @@ connac_usb_tx_complete_skb(struct mt76_dev *mdev, enum mt76_txq_id qid,
 }
 
 static int
+__connac_mac_set_rates(struct connac_dev *dev, struct connac_rate_desc *rc)
+{
+	u32 addr = MT_WTBL(dev, 0) + rc->wcid * MT_WTBL_ENTRY_SIZE;
+	u32 w5, w27;
+
+	if (!mt76_poll(dev, MT_WTBL_UPDATE(dev), MT_WTBL_UPDATE_BUSY, 0, 5000))
+		return -ETIMEDOUT;
+
+	w27 = mt76_rr(dev, addr + 27 * 4);
+	w27 &= ~MT_WTBL_W27_CC_BW_SEL;
+	w27 |= FIELD_PREP(MT_WTBL_W27_CC_BW_SEL, rc->bw);
+
+	w5 = mt76_rr(dev, addr + 5 * 4);
+	w5 &= ~(MT_WTBL_W5_BW_CAP | MT_WTBL_W5_CHANGE_BW_RATE |
+		MT_WTBL_W5_MPDU_OK_COUNT |
+		MT_WTBL_W5_MPDU_FAIL_COUNT |
+		MT_WTBL_W5_RATE_IDX);
+	w5 |= FIELD_PREP(MT_WTBL_W5_BW_CAP, rc->bw) |
+	      FIELD_PREP(MT_WTBL_W5_CHANGE_BW_RATE,
+			 rc->bw_idx ? rc->bw_idx - 1 : 7);
+
+	mt76_wr(dev, MT_WTBL_RIUCR0(dev), w5);
+
+	mt76_wr(dev, MT_WTBL_RIUCR1(dev),
+		FIELD_PREP(MT_WTBL_RIUCR1_RATE0, rc->probe_val) |
+		FIELD_PREP(MT_WTBL_RIUCR1_RATE1, rc->val[0]) |
+		FIELD_PREP(MT_WTBL_RIUCR1_RATE2_LO, rc->val[1]));
+
+	mt76_wr(dev, MT_WTBL_RIUCR2(dev),
+		FIELD_PREP(MT_WTBL_RIUCR2_RATE2_HI, rc->val[1] >> 8) |
+		FIELD_PREP(MT_WTBL_RIUCR2_RATE3, rc->val[1]) |
+		FIELD_PREP(MT_WTBL_RIUCR2_RATE4, rc->val[2]) |
+		FIELD_PREP(MT_WTBL_RIUCR2_RATE5_LO, rc->val[2]));
+
+	mt76_wr(dev, MT_WTBL_RIUCR3(dev),
+		FIELD_PREP(MT_WTBL_RIUCR3_RATE5_HI, rc->val[2] >> 4) |
+		FIELD_PREP(MT_WTBL_RIUCR3_RATE6, rc->val[3]) |
+		FIELD_PREP(MT_WTBL_RIUCR3_RATE7, rc->val[3]));
+
+	mt76_wr(dev, MT_WTBL_UPDATE(dev),
+		FIELD_PREP(MT_WTBL_UPDATE_WLAN_IDX, rc->wcid) |
+		MT_WTBL_UPDATE_RATE_UPDATE |
+		MT_WTBL_UPDATE_TX_COUNT_CLEAR);
+
+	mt76_wr(dev, addr + 27 * 4, w27);
+
+	mt76_set(dev, MT_LPON_T0CR(dev), MT_LPON_T0CR_MODE); /* TSF read */
+	rc->sta->rate_set_tsf = (mt76_rr(dev, MT_LPON_UTTR0(dev)) & ~BIT(0)) | rc->rateset;
+
+	if (!(rc->sta->wcid.tx_info & MT_WCID_TX_INFO_SET))
+		mt76_poll(dev, MT_WTBL_UPDATE(dev), MT_WTBL_UPDATE_BUSY, 0,
+			  5000);
+
+	rc->sta->rate_count = 2 * CONNAC_RATE_RETRY * rc->sta->n_rates;
+	rc->sta->wcid.tx_info |= MT_WCID_TX_INFO_SET;
+
+	return 0;
+}
+
+static void
+connac_usb_rc_work(struct work_struct *work)
+{
+	struct connac_dev *dev;
+	struct connac_rate_desc *rc, *tmp_rc;
+	int err;
+
+	dev = (struct connac_dev *)container_of(work, struct connac_dev,
+						rc_work);
+
+	list_for_each_entry_safe(rc, tmp_rc, &dev->rc_processing, node) {
+		spin_lock_bh(&dev->mt76.lock);
+		list_del(&rc->node);
+		spin_unlock_bh(&dev->mt76.lock);
+
+		err = __connac_mac_set_rates(dev, rc);
+		if (err)
+			dev_err(dev->mt76.dev, "something wrong in setting rate\n");
+
+		kfree(rc);
+	}
+}
+
+static int
 connac_usb_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 			  enum mt76_txq_id qid, struct mt76_wcid *wcid,
 			  struct ieee80211_sta *sta,
@@ -148,6 +231,102 @@ connac_usb_dma_sched_init(struct connac_dev *dev)
 	val = mt76_rr(dev, PDMA_HIF_RST);
 	val |= CONN_HIF_LOGIC_RST_N;
 	mt76_wr(dev, PDMA_HIF_RST, val);
+
+	return 0;
+}
+
+static inline struct sk_buff *
+connac_usb_mcu_msg_alloc(const void *data, int len)
+{
+	return mt76_mcu_msg_alloc(data, CONNAC_USB_HDR_SIZE +
+				  sizeof(struct connac_mcu_txd), len,
+				  CONNAC_USB_TAIL_SIZE);
+}
+
+static int
+connac_usb_mcu_msg_send(struct mt76_dev *mdev, int cmd, const void *data,
+			int len, bool wait_resp)
+{
+	struct connac_dev *dev = container_of(mdev, struct connac_dev, mt76);
+	struct sk_buff *skb;
+	int ret, seq, ep;
+
+	skb = connac_usb_mcu_msg_alloc(data, len);
+	if (!skb)
+		return -ENOMEM;
+
+	mutex_lock(&mdev->mcu.mutex);
+
+	connac_mcu_fill_msg(dev, skb, cmd, &seq);
+	if (cmd != -MCU_CMD_FW_SCATTER)
+		ep = MT_EP_OUT_INBAND_CMD;
+	else
+		ep = MT_EP_OUT_AC_BE;
+
+	ret = mt76u_skb_dma_info(skb, skb->len);
+	if (ret < 0)
+		goto out;
+
+	ret = mt76u_bulk_msg(&dev->mt76, skb->data, skb->len, NULL,
+			     1000, ep);
+	if (ret < 0)
+		goto out;
+
+	consume_skb(skb);
+	if (wait_resp)
+		ret = connac_mcu_wait_response(dev, cmd, seq);
+
+out:
+	mutex_unlock(&mdev->mcu.mutex);
+
+	return ret;
+}
+
+static int connac_usb_mcu_init(struct connac_dev *dev)
+{
+	static const struct mt76_mcu_ops connac_usb_mcu_ops = {
+		.mcu_send_msg = connac_usb_mcu_msg_send,
+		.mcu_restart = connac_mcu_restart,
+	};
+	int ret;
+	u32 val;
+
+	dev->mt76.mcu_ops = &connac_usb_mcu_ops,
+
+	val = mt76_rr(dev, UDMA_TX_QSEL(dev));
+	val |= FW_DL_EN;
+	mt76_wr(dev, UDMA_TX_QSEL(dev), val);
+
+	if (dev->required_poweroff) {
+		connac_mcu_restart(&dev->mt76);
+
+		if (!mt76_poll_msec(dev, MT_CONN_ON_MISC(dev),
+				   MT_TOP_MISC2_FW_PWR_ON, 0, 500))
+			return -EIO;
+
+		ret = mt76u_vendor_request(&dev->mt76, MT_VEND_POWER_ON,
+					   USB_DIR_OUT | USB_TYPE_VENDOR,
+					   0x0, 0x1, NULL, 0);
+		if (ret)
+			return ret;
+
+		if (!mt76_poll_msec(dev, MT_CONN_ON_MISC(dev),
+				    MT_TOP_MISC2_FW_PWR_ON,
+				    FW_STATE_PWR_ON << 1, 500)) {
+			dev_err(dev->mt76.dev, "Timeout for power on\n");
+			return -EIO;
+		}
+	}
+
+	ret = connac_load_firmware(dev);
+	if (ret)
+		return ret;
+
+	val = mt76_rr(dev, UDMA_TX_QSEL(dev));
+	val &= ~FW_DL_EN;
+	mt76_wr(dev, UDMA_TX_QSEL(dev), val);
+
+	set_bit(MT76_STATE_MCU_RUNNING, &dev->mphy.state);
 
 	return 0;
 }
