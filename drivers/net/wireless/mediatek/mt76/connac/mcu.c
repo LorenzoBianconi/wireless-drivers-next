@@ -152,9 +152,8 @@ out:
 	return ret;
 }
 
-static void
-connac_mcu_fill_msg(struct connac_dev *dev, struct sk_buff *skb,
-		    int cmd, int *wait_seq)
+void connac_mcu_fill_msg(struct connac_dev *dev, struct sk_buff *skb,
+			 int cmd, int *wait_seq)
 {
 	struct connac_mcu_txd *mcu_txd;
 	u8 seq, q_idx, pkt_fmt;
@@ -206,9 +205,9 @@ connac_mcu_fill_msg(struct connac_dev *dev, struct sk_buff *skb,
 	if (wait_seq)
 		*wait_seq = seq;
 }
+EXPORT_SYMBOL_GPL(connac_mcu_fill_msg);
 
-static int
-connac_mcu_wait_response(struct connac_dev *dev, int cmd, int seq)
+int connac_mcu_wait_response(struct connac_dev *dev, int cmd, int seq)
 {
 	unsigned long expires = jiffies + 10 * HZ;
 	struct connac_mcu_rxd *rxd;
@@ -238,6 +237,7 @@ connac_mcu_wait_response(struct connac_dev *dev, int cmd, int seq)
 
 	return ret;
 }
+EXPORT_SYMBOL_GPL(connac_mcu_wait_response);
 
 static int
 connac_mcu_msg_send(struct mt76_dev *mdev, int cmd, const void *data,
@@ -266,45 +266,6 @@ connac_mcu_msg_send(struct mt76_dev *mdev, int cmd, const void *data,
 
 	if (wait_resp)
 		ret = connac_mcu_wait_response(dev, cmd, seq);
-out:
-	mutex_unlock(&mdev->mcu.mutex);
-
-	return ret;
-}
-
-static int
-connac_usb_mcu_msg_send(struct mt76_dev *mdev, int cmd, const void *data,
-			int len, bool wait_resp)
-{
-	struct connac_dev *dev = container_of(mdev, struct connac_dev, mt76);
-	struct sk_buff *skb;
-	int ret, seq, ep;
-
-	skb = connac_usb_mcu_msg_alloc(data, len);
-	if (!skb)
-		return -ENOMEM;
-
-	mutex_lock(&mdev->mcu.mutex);
-
-	connac_mcu_fill_msg(dev, skb, cmd, &seq);
-	if (cmd != -MCU_CMD_FW_SCATTER)
-		ep = MT_EP_OUT_INBAND_CMD;
-	else
-		ep = MT_EP_OUT_AC_BE;
-
-	ret = mt76u_skb_dma_info(skb, skb->len);
-	if (ret < 0)
-		goto out;
-
-	ret = mt76u_bulk_msg(&dev->mt76, skb->data, skb->len, NULL,
-			     1000, ep);
-	if (ret < 0)
-		goto out;
-
-	consume_skb(skb);
-	if (wait_resp)
-		ret = connac_mcu_wait_response(dev, cmd, seq);
-
 out:
 	mutex_unlock(&mdev->mcu.mutex);
 
@@ -423,11 +384,12 @@ static int connac_mcu_start_firmware(struct connac_dev *dev, u32 addr,
 				   &req, sizeof(req), true);
 }
 
-static int connac_mcu_restart(struct mt76_dev *dev)
+int connac_mcu_restart(struct mt76_dev *dev)
 {
 	return __mt76_mcu_send_msg(dev, -MCU_CMD_RESTART_DL_REQ, NULL,
 				   0, true);
 }
+EXPORT_SYMBOL_GPL(connac_mcu_restart);
 
 static int connac_mcu_patch_sem_ctrl(struct connac_dev *dev, bool get)
 {
@@ -672,7 +634,7 @@ static void fwdl_datapath_setup(struct connac_dev *dev, bool init)
 	mt76_wr(dev, MT_WPDMA_GLO_CFG(dev), val);
 }
 
-static int connac_load_firmware(struct connac_dev *dev)
+int connac_load_firmware(struct connac_dev *dev)
 {
 	bool emi_load = false;
 	int ret;
@@ -726,6 +688,7 @@ static int connac_load_firmware(struct connac_dev *dev)
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(connac_load_firmware);
 
 int connac_mcu_init(struct connac_dev *dev)
 {
@@ -757,55 +720,6 @@ void connac_mcu_exit(struct connac_dev *dev)
 		mt76_wr(dev, MT_CONN_HIF_ON_LPCTL(dev),
 			MT_CFG_LPCR_HOST_FW_OWN);
 	skb_queue_purge(&dev->mt76.mcu.res_q);
-}
-
-int connac_usb_mcu_init(struct connac_dev *dev)
-{
-	static const struct mt76_mcu_ops connac_usb_mcu_ops = {
-		.mcu_send_msg =	connac_usb_mcu_msg_send,
-		.mcu_restart = connac_mcu_restart,
-	};
-	int ret;
-	u32 val;
-
-	dev->mt76.mcu_ops = &connac_usb_mcu_ops,
-
-	val = mt76_rr(dev, UDMA_TX_QSEL(dev));
-	val |= FW_DL_EN;
-	mt76_wr(dev, UDMA_TX_QSEL(dev), val);
-
-	if (dev->required_poweroff) {
-		connac_mcu_restart(&dev->mt76);
-
-		if (!mt76_poll_msec(dev, MT_CONN_ON_MISC(dev),
-				   MT_TOP_MISC2_FW_PWR_ON, 0, 500))
-			return -EIO;
-
-		ret = mt76u_vendor_request(&dev->mt76, MT_VEND_POWER_ON,
-					   USB_DIR_OUT | USB_TYPE_VENDOR,
-					   0x0, 0x1, NULL, 0);
-		if (ret)
-			return ret;
-
-		if (!mt76_poll_msec(dev, MT_CONN_ON_MISC(dev),
-				    MT_TOP_MISC2_FW_PWR_ON,
-				    FW_STATE_PWR_ON << 1, 500)) {
-			dev_err(dev->mt76.dev, "Timeout for power on\n");
-			return -EIO;
-		}
-	}
-
-	ret = connac_load_firmware(dev);
-	if (ret)
-		return ret;
-
-	val = mt76_rr(dev, UDMA_TX_QSEL(dev));
-	val &= ~FW_DL_EN;
-	mt76_wr(dev, UDMA_TX_QSEL(dev), val);
-
-	set_bit(MT76_STATE_MCU_RUNNING, &dev->mphy.state);
-
-	return 0;
 }
 
 int connac_mcu_set_eeprom(struct connac_dev *dev)
