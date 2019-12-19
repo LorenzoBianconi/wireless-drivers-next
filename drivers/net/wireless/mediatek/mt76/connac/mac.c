@@ -294,7 +294,6 @@ int connac_mac_write_txwi(struct connac_dev *dev, __le32 *txwi,
 	__le16 fc = hdr->frame_control;
 	u16 seqno = 0;
 	u32 val, sz_txd;
-	int i;
 
 	static const u8 wmm_queue_map[] = {
 		[MT_TXQ_VO] /* 0 */ = MT_LMAC_AC03,
@@ -435,8 +434,9 @@ int connac_mac_write_txwi(struct connac_dev *dev, __le32 *txwi,
 		  FIELD_PREP(MT_TXD7_SUB_TYPE, fc_stype);
 
 	if (mt76_is_usb(&dev->mt76)) {
-		for (i = 8 ; i <= 15 ; i++)
-			txwi[i] = 0;
+		txwi[8] = FIELD_PREP(MT_TXD8_L_TYPE, fc_type) |
+			  FIELD_PREP(MT_TXD8_L_SUB_TYPE, fc_stype);
+		memset(&txwi[9], 0, 7);
 	}
 
 	return 0;

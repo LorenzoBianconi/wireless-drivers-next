@@ -243,6 +243,9 @@ enum tx_phy_bandwidth {
 #define MT_TXD7_SPE_IDX			GENMASK(15, 11)
 #define MT_TXD7_SPE_IDX_SLE		BIT(10)
 
+#define MT_TXD8_L_TYPE			GENMASK(5, 4)
+#define MT_TXD8_L_SUB_TYPE		GENMASK(3, 0)
+
 #define MT_TX_RATE_STBC			BIT(11)
 #define MT_TX_RATE_NSS			GENMASK(10, 9)
 #define MT_TX_RATE_MODE			GENMASK(8, 6)
