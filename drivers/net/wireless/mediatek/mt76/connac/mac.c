@@ -221,26 +221,6 @@ void connac_sta_ps(struct mt76_dev *mdev, struct ieee80211_sta *sta, bool ps)
 {
 }
 
-void connac_tx_complete_skb(struct mt76_dev *mdev, enum mt76_txq_id qid,
-			    struct mt76_queue_entry *e)
-{
-	if (!e->txwi) {
-		dev_kfree_skb_any(e->skb);
-		return;
-	}
-
-	/* error path */
-	if (e->skb == DMA_DUMMY_DATA) {
-		struct mt76_txwi_cache *t = NULL;
-
-		t = e->txwi;
-		e->skb = t ? t->skb : NULL;
-	}
-
-	if (e->skb)
-		mt76_tx_complete_skb(mdev, e->skb);
-}
-
 static u16
 connac_mac_tx_rate_val(struct connac_dev *dev,
 		       const struct ieee80211_tx_rate *rate,
@@ -894,73 +874,6 @@ out:
 	mutex_unlock(&dev->mt76.mutex);
 
 	return err;
-}
-
-int connac_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
-			  enum mt76_txq_id qid, struct mt76_wcid *wcid,
-			  struct ieee80211_sta *sta,
-			  struct mt76_tx_info *tx_info)
-{
-	struct connac_dev *dev = container_of(mdev, struct connac_dev, mt76);
-	struct connac_sta *msta = container_of(wcid, struct connac_sta, wcid);
-	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(tx_info->skb);
-	struct ieee80211_key_conf *key = info->control.hw_key;
-	int i, pid, id, nbuf = tx_info->nbuf - 1;
-	u8 *txwi = (u8 *)txwi_ptr;
-	struct mt76_txwi_cache *t;
-	struct connac_txp *txp;
-	struct txd_ptr_len *txp_ptr_len;
-
-	if (!wcid)
-		wcid = &dev->mt76.global_wcid;
-
-	pid = mt76_tx_status_skb_add(mdev, wcid, tx_info->skb);
-
-	if (info->flags & IEEE80211_TX_CTL_RATE_CTRL_PROBE) {
-		spin_lock_bh(&dev->mt76.lock);
-		connac_mac_set_rates(dev, msta, &info->control.rates[0],
-				     msta->rates);
-		msta->rate_probe = true;
-		spin_unlock_bh(&dev->mt76.lock);
-	}
-
-	connac_mac_write_txwi(dev, txwi_ptr, tx_info->skb, qid, wcid, sta,
-			      pid, key);
-
-	txp = (struct connac_txp *)(txwi + MT_TXD_SIZE);
-
-	t = (struct mt76_txwi_cache *)(txwi + mdev->drv->txwi_size);
-	t->skb = tx_info->skb;
-	//t->nbuf = nbuf;
-
-	/* Write back nbuf to minus 1, for dmad of connac only need one
-	 * segment.
-	 */
-	tx_info->nbuf = nbuf;
-
-	for (i = 0; i < nbuf; i++) {
-		txp_ptr_len = &txp->ptr_len[i / 2];
-		if ((i & 0x1) == 0x0) {
-			txp_ptr_len->u4ptr0 = cpu_to_le32(tx_info->buf[i + 1].addr);
-			txp_ptr_len->u2len0 = cpu_to_le16((tx_info->buf[i + 1].len & TXD_LEN_MASK_V2) | TXD_LEN_ML_V2);
-		} else {
-			txp_ptr_len->u4ptr1 = cpu_to_le32(tx_info->buf[i + 1].addr);
-			txp_ptr_len->u2len1 = cpu_to_le16((tx_info->buf[i + 1].len & TXD_LEN_MASK_V2) | TXD_LEN_ML_V2);
-		}
-
-		spin_lock_bh(&dev->token_lock);
-		id = idr_alloc(&dev->token, t, 0, CONNAC_TOKEN_SIZE,
-			       GFP_ATOMIC);
-		spin_unlock_bh(&dev->token_lock);
-		if (id < 0)
-			return id;
-
-		txp->buf[i] = cpu_to_le16(id | TXD_MSDU_ID_VLD);
-	}
-
-	tx_info->skb = DMA_DUMMY_DATA;
-
-	return 0;
 }
 
 static bool connac_fill_txs(struct connac_dev *dev, struct connac_sta *sta,

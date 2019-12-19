@@ -9,6 +9,5 @@ obj-$(CONFIG_CONNAC_COMMON) += connac-common.o
 
 connac-common-y := init.o dma.o eeprom.o main.o mcu.o mac.o debugfs.o
 
-mt7629-y := soc.o
-mt7663e-y := pci.o
+mt7663e-y := pci.o soc.o mmio.o
 mt7663u-y := usb.o
