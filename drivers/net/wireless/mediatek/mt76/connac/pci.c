@@ -92,8 +92,8 @@ static int connac_pci_probe(struct pci_dev *pdev,
 	if (ret)
 		return ret;
 
-	mdev = mt76_alloc_device(&pdev->dev, sizeof(*dev), &connac_ops,
-				 &drv_ops);
+	mdev = mt76_alloc_device(&pdev->dev, sizeof(*dev),
+				 &connac_mmio_ops, &drv_ops);
 	if (!mdev)
 		return -ENOMEM;
 
