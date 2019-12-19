@@ -14,26 +14,6 @@
 #include <linux/module.h>
 #include "connac.h"
 
-static int connac_start(struct ieee80211_hw *hw)
-{
-	struct connac_dev *dev = hw->priv;
-
-	dev->mphy.survey_time = ktime_get_boottime();
-	set_bit(MT76_STATE_RUNNING, &dev->mphy.state);
-	ieee80211_queue_delayed_work(mt76_hw(dev), &dev->mt76.mac_work,
-				     CONNAC_WATCHDOG_TIME);
-
-	return 0;
-}
-
-static void connac_stop(struct ieee80211_hw *hw)
-{
-	struct connac_dev *dev = hw->priv;
-
-	clear_bit(MT76_STATE_RUNNING, &dev->mphy.state);
-	cancel_delayed_work_sync(&dev->mt76.mac_work);
-}
-
 static int get_omac_idx(enum nl80211_iftype type, u32 mask)
 {
 	int i;
@@ -65,8 +45,8 @@ static int get_omac_idx(enum nl80211_iftype type, u32 mask)
 	return -1;
 }
 
-static int connac_add_interface(struct ieee80211_hw *hw,
-				struct ieee80211_vif *vif)
+int connac_add_interface(struct ieee80211_hw *hw,
+			 struct ieee80211_vif *vif)
 {
 	struct connac_vif *mvif = (struct connac_vif *)vif->drv_priv;
 	struct connac_dev *dev = hw->priv;
@@ -112,9 +92,10 @@ out:
 
 	return ret;
 }
+EXPORT_SYMBOL_GPL(connac_add_interface);
 
-static void connac_remove_interface(struct ieee80211_hw *hw,
-				    struct ieee80211_vif *vif)
+void connac_remove_interface(struct ieee80211_hw *hw,
+			     struct ieee80211_vif *vif)
 {
 	struct connac_vif *mvif = (struct connac_vif *)vif->drv_priv;
 	struct connac_dev *dev = hw->priv;
@@ -132,6 +113,7 @@ static void connac_remove_interface(struct ieee80211_hw *hw,
 	dev->omac_mask &= ~BIT(mvif->omac_idx);
 	mutex_unlock(&dev->mt76.mutex);
 }
+EXPORT_SYMBOL_GPL(connac_remove_interface);
 
 static int connac_set_channel(struct connac_dev *dev)
 {
@@ -166,9 +148,9 @@ out:
 	return ret;
 }
 
-static int connac_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
-			  struct ieee80211_vif *vif, struct ieee80211_sta *sta,
-			  struct ieee80211_key_conf *key)
+int connac_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
+		   struct ieee80211_vif *vif, struct ieee80211_sta *sta,
+		   struct ieee80211_key_conf *key)
 {
 	struct connac_dev *dev = hw->priv;
 	struct connac_vif *mvif = (struct connac_vif *)vif->drv_priv;
@@ -216,8 +198,9 @@ static int connac_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 
 	return connac_mac_wtbl_set_key(dev, wcid, key, cmd);
 }
+EXPORT_SYMBOL_GPL(connac_set_key);
 
-static int connac_config(struct ieee80211_hw *hw, u32 changed)
+int connac_config(struct ieee80211_hw *hw, u32 changed)
 {
 	struct connac_dev *dev = hw->priv;
 	int ret = 0;
@@ -247,10 +230,11 @@ static int connac_config(struct ieee80211_hw *hw, u32 changed)
 
 	return ret;
 }
+EXPORT_SYMBOL_GPL(connac_config);
 
-static int
-connac_conf_tx(struct ieee80211_hw *hw, struct ieee80211_vif *vif, u16 queue,
-	       const struct ieee80211_tx_queue_params *params)
+int connac_conf_tx(struct ieee80211_hw *hw,
+		   struct ieee80211_vif *vif, u16 queue,
+		   const struct ieee80211_tx_queue_params *params)
 {
 	static const u8 wmm_queue_map[] = {
 		[IEEE80211_AC_BK]/*3*/ = 0,
@@ -266,11 +250,12 @@ connac_conf_tx(struct ieee80211_hw *hw, struct ieee80211_vif *vif, u16 queue,
 	/* TODO: hw wmm_set 1~3 */
 	return connac_mcu_set_wmm(dev, wmm_mapping, params);
 }
+EXPORT_SYMBOL_GPL(connac_conf_tx);
 
-static void connac_configure_filter(struct ieee80211_hw *hw,
-				    unsigned int changed_flags,
-				    unsigned int *total_flags,
-				    u64 multicast)
+void connac_configure_filter(struct ieee80211_hw *hw,
+			     unsigned int changed_flags,
+			     unsigned int *total_flags,
+			     u64 multicast)
 {
 	struct connac_dev *dev = hw->priv;
 	u32 flags = 0;
@@ -307,11 +292,12 @@ static void connac_configure_filter(struct ieee80211_hw *hw,
 	*total_flags = flags;
 	mt76_wr(dev, MT_WF_RFCR(dev), dev->mt76.rxfilter);
 }
+EXPORT_SYMBOL_GPL(connac_configure_filter);
 
-static void connac_bss_info_changed(struct ieee80211_hw *hw,
-				    struct ieee80211_vif *vif,
-				    struct ieee80211_bss_conf *info,
-				    u32 changed)
+void connac_bss_info_changed(struct ieee80211_hw *hw,
+			     struct ieee80211_vif *vif,
+			     struct ieee80211_bss_conf *info,
+			     u32 changed)
 {
 	struct connac_dev *dev = hw->priv;
 
@@ -333,18 +319,7 @@ static void connac_bss_info_changed(struct ieee80211_hw *hw,
 
 	mutex_unlock(&dev->mt76.mutex);
 }
-
-static void
-connac_channel_switch_beacon(struct ieee80211_hw *hw,
-			     struct ieee80211_vif *vif,
-			     struct cfg80211_chan_def *chandef)
-{
-	struct connac_dev *dev = hw->priv;
-
-	mutex_lock(&dev->mt76.mutex);
-	connac_mcu_set_bcn(dev, vif, true);
-	mutex_unlock(&dev->mt76.mutex);
-}
+EXPORT_SYMBOL_GPL(connac_bss_info_changed);
 
 int connac_sta_add(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 		   struct ieee80211_sta *sta)
@@ -386,36 +361,9 @@ void connac_sta_remove(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 }
 EXPORT_SYMBOL_GPL(connac_sta_remove);
 
-static void connac_sta_rate_tbl_update(struct ieee80211_hw *hw,
-				       struct ieee80211_vif *vif,
-				       struct ieee80211_sta *sta)
-{
-	struct connac_dev *dev = hw->priv;
-	struct connac_sta *msta = (struct connac_sta *)sta->drv_priv;
-	struct ieee80211_sta_rates *sta_rates = rcu_dereference(sta->rates);
-	int i;
-
-	spin_lock_bh(&dev->mt76.lock);
-	for (i = 0; i < ARRAY_SIZE(msta->rates); i++) {
-		msta->rates[i].idx = sta_rates->rate[i].idx;
-		msta->rates[i].count = sta_rates->rate[i].count;
-		msta->rates[i].flags = sta_rates->rate[i].flags;
-
-		if (msta->rates[i].idx < 0 || !msta->rates[i].count)
-			break;
-	}
-	msta->n_rates = i;
-	if (mt76_is_usb(&dev->mt76))
-		connac_usb_mac_set_rates(dev, msta, NULL, msta->rates);
-	else
-		connac_mac_set_rates(dev, msta, NULL, msta->rates);
-	msta->rate_probe = false;
-	spin_unlock_bh(&dev->mt76.lock);
-}
-
-static void connac_tx(struct ieee80211_hw *hw,
-		      struct ieee80211_tx_control *control,
-		      struct sk_buff *skb)
+void connac_tx(struct ieee80211_hw *hw,
+	       struct ieee80211_tx_control *control,
+	       struct sk_buff *skb)
 {
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
 	struct ieee80211_vif *vif = info->control.vif;
@@ -442,8 +390,9 @@ static void connac_tx(struct ieee80211_hw *hw,
 
 	mt76_tx(mphy, control->sta, wcid, skb);
 }
+EXPORT_SYMBOL_GPL(connac_tx);
 
-static int connac_set_rts_threshold(struct ieee80211_hw *hw, u32 val)
+int connac_set_rts_threshold(struct ieee80211_hw *hw, u32 val)
 {
 	struct connac_dev *dev = hw->priv;
 
@@ -453,10 +402,11 @@ static int connac_set_rts_threshold(struct ieee80211_hw *hw, u32 val)
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(connac_set_rts_threshold);
 
-static int
-connac_ampdu_action(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
-		    struct ieee80211_ampdu_params *params)
+int connac_ampdu_action(struct ieee80211_hw *hw,
+			struct ieee80211_vif *vif,
+			struct ieee80211_ampdu_params *params)
 {
 	enum ieee80211_ampdu_mlme_action action = params->action;
 	struct connac_dev *dev = hw->priv;
@@ -507,28 +457,4 @@ connac_ampdu_action(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 
 	return 0;
 }
-
-const struct ieee80211_ops connac_ops = {
-	.tx = connac_tx,
-	.start = connac_start,
-	.stop = connac_stop,
-	.add_interface = connac_add_interface,
-	.remove_interface = connac_remove_interface,
-	.config = connac_config,
-	.conf_tx = connac_conf_tx,
-	.configure_filter = connac_configure_filter,
-	.bss_info_changed = connac_bss_info_changed,
-	.sta_state = mt76_sta_state,
-	.set_key = connac_set_key,
-	.ampdu_action = connac_ampdu_action,
-	.set_rts_threshold = connac_set_rts_threshold,
-	.wake_tx_queue = mt76_wake_tx_queue,
-	.sta_rate_tbl_update = connac_sta_rate_tbl_update,
-	.sw_scan_start = mt76_sw_scan,
-	.sw_scan_complete = mt76_sw_scan_complete,
-	.release_buffered_frames = mt76_release_buffered_frames,
-	.get_txpower = mt76_get_txpower,
-	.channel_switch_beacon = connac_channel_switch_beacon,
-	.get_survey = mt76_get_survey,
-};
-EXPORT_SYMBOL_GPL(connac_ops);
+EXPORT_SYMBOL_GPL(connac_ampdu_action);

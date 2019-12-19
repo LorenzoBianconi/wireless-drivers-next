@@ -101,8 +101,8 @@ static int mt76_wmac_probe(struct platform_device *pdev)
 		return PTR_ERR(mem_base);
 	}
 
-	mdev = mt76_alloc_device(&pdev->dev, sizeof(*dev), &connac_ops,
-				 &drv_ops);
+	mdev = mt76_alloc_device(&pdev->dev, sizeof(*dev),
+				 &connac_mmio_ops, &drv_ops);
 	if (!mdev)
 		return -ENOMEM;
 

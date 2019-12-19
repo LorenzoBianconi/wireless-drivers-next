@@ -15,6 +15,52 @@
 #include "mcu.h"
 #include "../usb_trace.h"
 
+static int connac_usb_start(struct ieee80211_hw *hw)
+{
+	struct connac_dev *dev = hw->priv;
+
+	dev->mphy.survey_time = ktime_get_boottime();
+	set_bit(MT76_STATE_RUNNING, &dev->mphy.state);
+	ieee80211_queue_delayed_work(mt76_hw(dev), &dev->mt76.mac_work,
+				     CONNAC_WATCHDOG_TIME);
+
+	return 0;
+}
+
+static void connac_usb_stop(struct ieee80211_hw *hw)
+{
+	struct connac_dev *dev = hw->priv;
+
+	clear_bit(MT76_STATE_RUNNING, &dev->mphy.state);
+	mt76u_stop_tx(&dev->mt76);
+	cancel_delayed_work_sync(&dev->mt76.mac_work);
+}
+
+static void
+connac_usb_sta_rate_tbl_update(struct ieee80211_hw *hw,
+			       struct ieee80211_vif *vif,
+			       struct ieee80211_sta *sta)
+{
+	struct connac_dev *dev = hw->priv;
+	struct connac_sta *msta = (struct connac_sta *)sta->drv_priv;
+	struct ieee80211_sta_rates *sta_rates = rcu_dereference(sta->rates);
+	int i;
+
+	spin_lock_bh(&dev->mt76.lock);
+	for (i = 0; i < ARRAY_SIZE(msta->rates); i++) {
+		msta->rates[i].idx = sta_rates->rate[i].idx;
+		msta->rates[i].count = sta_rates->rate[i].count;
+		msta->rates[i].flags = sta_rates->rate[i].flags;
+
+		if (msta->rates[i].idx < 0 || !msta->rates[i].count)
+			break;
+	}
+	msta->n_rates = i;
+	connac_usb_mac_set_rates(dev, msta, NULL, msta->rates);
+	msta->rate_probe = false;
+	spin_unlock_bh(&dev->mt76.lock);
+}
+
 static const struct usb_device_id connac_device_table[] = {
 	{ USB_DEVICE_AND_INTERFACE_INFO(0x0e8d, 0x7663, 0xff, 0xff, 0xff)},
 	{ },
@@ -416,6 +462,29 @@ connac_usb_register_device(struct connac_dev *dev)
 	return connac_register_device(dev);
 }
 
+const struct ieee80211_ops connac_usb_ops = {
+	.tx = connac_tx,
+	.start = connac_usb_start,
+	.stop = connac_usb_stop,
+	.add_interface = connac_add_interface,
+	.remove_interface = connac_remove_interface,
+	.config = connac_config,
+	.conf_tx = connac_conf_tx,
+	.configure_filter = connac_configure_filter,
+	.bss_info_changed = connac_bss_info_changed,
+	.sta_state = mt76_sta_state,
+	.set_key = connac_set_key,
+	.ampdu_action = connac_ampdu_action,
+	.set_rts_threshold = connac_set_rts_threshold,
+	.wake_tx_queue = mt76_wake_tx_queue,
+	.sta_rate_tbl_update = connac_usb_sta_rate_tbl_update,
+	.sw_scan_start = mt76_sw_scan,
+	.sw_scan_complete = mt76_sw_scan_complete,
+	.release_buffered_frames = mt76_release_buffered_frames,
+	.get_txpower = mt76_get_txpower,
+	.get_survey = mt76_get_survey,
+};
+
 static int connac_usb_probe(struct usb_interface *usb_intf,
 			    const struct usb_device_id *id)
 {
@@ -436,8 +505,8 @@ static int connac_usb_probe(struct usb_interface *usb_intf,
 	struct mt76_dev *mdev;
 	int ret;
 
-	mdev = mt76_alloc_device(&usb_intf->dev, sizeof(*dev), &connac_ops,
-				 &drv_ops);
+	mdev = mt76_alloc_device(&usb_intf->dev, sizeof(*dev),
+				 &connac_usb_ops, &drv_ops);
 	if (!mdev)
 		return -ENOMEM;
 
