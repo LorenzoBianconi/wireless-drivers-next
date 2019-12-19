@@ -207,7 +207,6 @@ void connac_unregister_device(struct connac_dev *dev);
 int connac_eeprom_init(struct connac_dev *dev);
 int connac_eeprom_get_power_index(struct ieee80211_channel *chan,
 				  u8 chain_idx);
-int connac_dma_init(struct connac_dev *dev);
 void connac_dma_cleanup(struct connac_dev *dev);
 int connac_mcu_init(struct connac_dev *dev);
 int connac_mcu_set_dev_info(struct connac_dev *dev,
@@ -323,9 +322,10 @@ int connac_dfs_init_radar_detector(struct connac_dev *dev);
 int connac_init_debugfs(struct connac_dev *dev);
 
 void connac_mac_init(struct connac_dev *dev);
-int connac_init_hardware(struct connac_dev *dev);
 
 void connac_usb_mac_set_rates(struct connac_dev *dev, struct connac_sta *sta,
 			      struct ieee80211_tx_rate *probe_rate,
 			      struct ieee80211_tx_rate *rates);
+
+int connac_mmio_init_hardware(struct connac_dev *dev);
 #endif
