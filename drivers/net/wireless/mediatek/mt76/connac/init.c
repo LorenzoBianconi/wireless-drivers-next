@@ -12,53 +12,6 @@
 #include "connac.h"
 #include "mac.h"
 
-static int
-connac_dma_sched_init(struct connac_dev *dev)
-{
-	u32 val;
-
-	val = mt76_rr(dev, MT_HIF_DMASHDL_PKT_MAX_SIZE(dev));
-	val &= ~(PLE_PKT_MAX_SIZE_MASK | PSE_PKT_MAX_SIZE_MASK);
-	val |= PLE_PKT_MAX_SIZE_NUM(0x1);
-	val |= PSE_PKT_MAX_SIZE_NUM(0x8);
-	mt76_wr(dev, MT_HIF_DMASHDL_PKT_MAX_SIZE(dev), val);
-
-	/* Enable refill Control Group 0, 1, 2, 4, 5 */
-	mt76_wr(dev, MT_HIF_DMASHDL_REFILL_CTRL(dev), 0xffc80000);
-	/* Group 0, 1, 2, 4, 5, 15 joint the ask round robin */
-	mt76_wr(dev, MT_HIF_DMASHDL_OPTION_CTRL(dev), 0x70068037);
-	/*Each group min quota must larger then PLE_PKT_MAX_SIZE_NUM*/
-	val = DMASHDL_MIN_QUOTA_NUM(0x40);
-	val |= DMASHDL_MAX_QUOTA_NUM(0x800);
-
-	mt76_wr(dev, MT_HIF_DMASHDL_GROUP0_CTRL(dev), val);
-	mt76_wr(dev, MT_HIF_DMASHDL_GROUP1_CTRL(dev), val);
-	mt76_wr(dev, MT_HIF_DMASHDL_GROUP2_CTRL(dev), val);
-	mt76_wr(dev, MT_HIF_DMASHDL_GROUP4_CTRL(dev), val);
-	val = DMASHDL_MIN_QUOTA_NUM(0x40);
-	val |= DMASHDL_MAX_QUOTA_NUM(0x40);
-	mt76_wr(dev, MT_HIF_DMASHDL_GROUP5_CTRL(dev), val);
-
-	val = DMASHDL_MIN_QUOTA_NUM(0x20);
-	val |= DMASHDL_MAX_QUOTA_NUM(0x20);
-	mt76_wr(dev, MT_HIF_DMASHDL_GROUP15_CTRL(dev), val);
-
-	mt76_wr(dev, MT_HIF_DMASHDL_Q_MAP0(dev), 0x42104210);
-	mt76_wr(dev, MT_HIF_DMASHDL_Q_MAP1(dev), 0x42104210);
-	/* ALTX0 and ALTX1 QID mapping to group 5 */
-	mt76_wr(dev, MT_HIF_DMASHDL_Q_MAP2(dev), 0x00050005);
-	mt76_wr(dev, MT_HIF_DMASHDL_Q_MAP3(dev), 0x0);
-	mt76_wr(dev, MT_HIF_DMASHDL_SHDL_SET0(dev), 0x6012345f);
-	mt76_wr(dev, MT_HIF_DMASHDL_SHDL_SET1(dev), 0xedcba987);
-
-	return 0;
-}
-
-static void connac_phy_init(struct connac_dev *dev)
-{
-	/* CONNAC : no need */
-}
-
 void connac_mac_init(struct connac_dev *dev)
 {
 	u32 val;
@@ -111,82 +64,6 @@ void connac_mac_init(struct connac_dev *dev)
 	mt76_wr(dev, 0x44064, 0x2000000);
 	mt76_wr(dev, MT_WF_AGG(dev, 0x160), 0x5c341c02);
 	mt76_wr(dev, MT_WF_AGG(dev, 0x164), 0x70708040);
-}
-
-int connac_init_hardware(struct connac_dev *dev)
-{
-	int ret, idx;
-	bool init_dbdc = true;
-	bool init_mac = false;
-
-	switch (dev->mt76.rev) {
-	case 0x76630010:
-		init_dbdc = false;
-		init_mac = true;
-		break;
-	}
-
-	mt76_wr(dev, MT_INT_SOURCE_CSR(dev), ~0);
-
-	spin_lock_init(&dev->token_lock);
-	idr_init(&dev->token);
-
-	ret = connac_eeprom_init(dev);
-	if (ret < 0)
-		return ret;
-
-	ret = connac_dma_init(dev);
-	if (ret)
-		return ret;
-
-	/* CONNAC : init before f/w download*/
-	ret = connac_dma_sched_init(dev);
-	if (ret)
-		return ret;
-
-	set_bit(MT76_STATE_INITIALIZED, &dev->mphy.state);
-
-	ret = connac_mcu_init(dev);
-	if (ret)
-		return ret;
-
-	connac_mcu_set_eeprom(dev);
-
-	if (init_dbdc)
-		connac_mcu_dbdc_ctrl(dev);
-
-	connac_mac_init(dev);
-	connac_phy_init(dev);
-
-	connac_mcu_ctrl_pm_state(dev, 0);
-	/* CONNAC : F/W halWtblClearAllWtbl() will do this in init. */
-	/* connac_mcu_del_wtbl_all(dev); */
-
-	/* Beacon and mgmt frames should occupy wcid 0 */
-	idx = mt76_wcid_alloc(dev->mt76.wcid_mask, CONNAC_WTBL_STA - 1);
-	if (idx)
-		return -ENOSPC;
-
-	dev->mt76.global_wcid.idx = idx;
-	dev->mt76.global_wcid.hw_key_idx = -1;
-	rcu_assign_pointer(dev->mt76.wcid[idx], &dev->mt76.global_wcid);
-
-	if (init_mac) {
-		//just for test
-		//      eth_random_addr(dev->mt76.macaddr);
-		dev->mt76.macaddr[0] = 0x1a;
-		dev->mt76.macaddr[1] = 0xed;
-		dev->mt76.macaddr[2] = 0x8f;
-		dev->mt76.macaddr[3] = 0x7a;
-		dev->mt76.macaddr[4] = 0x97;
-		dev->mt76.macaddr[5] = 0x4e;
-
-		dev_info(dev->mt76.dev,
-			 "Force to use mac address %pM to test\n",
-			 dev->mt76.macaddr);
-	}
-
-	return 0;
 }
 
 #define CCK_RATE(_idx, _rate) {						\
