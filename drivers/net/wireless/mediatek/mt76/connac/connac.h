@@ -268,6 +268,35 @@ static inline void connac_irq_disable(struct connac_dev *dev, u32 mask)
 	mt76_set_irq_mask(&dev->mt76, MT_INT_MASK_CSR(dev), mask, 0);
 }
 
+extern const struct ieee80211_ops connac_mmio_ops;
+
+void connac_tx(struct ieee80211_hw *hw,
+	       struct ieee80211_tx_control *control,
+	       struct sk_buff *skb);
+int connac_add_interface(struct ieee80211_hw *hw,
+			 struct ieee80211_vif *vif);
+void connac_remove_interface(struct ieee80211_hw *hw,
+			     struct ieee80211_vif *vif);
+int connac_config(struct ieee80211_hw *hw, u32 changed);
+int connac_conf_tx(struct ieee80211_hw *hw,
+		   struct ieee80211_vif *vif, u16 queue,
+		   const struct ieee80211_tx_queue_params *params);
+void connac_configure_filter(struct ieee80211_hw *hw,
+			     unsigned int changed_flags,
+			     unsigned int *total_flags,
+			     u64 multicast);
+void connac_bss_info_changed(struct ieee80211_hw *hw,
+			     struct ieee80211_vif *vif,
+			     struct ieee80211_bss_conf *info,
+			     u32 changed);
+int connac_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
+		   struct ieee80211_vif *vif, struct ieee80211_sta *sta,
+		   struct ieee80211_key_conf *key);
+int connac_ampdu_action(struct ieee80211_hw *hw,
+			struct ieee80211_vif *vif,
+			struct ieee80211_ampdu_params *params);
+int connac_set_rts_threshold(struct ieee80211_hw *hw, u32 val);
+
 void connac_update_channel(struct mt76_dev *mdev);
 void connac_mac_cca_stats_reset(struct connac_dev *dev);
 

@@ -14,6 +14,51 @@
 #include "mac.h"
 #include "../dma.h"
 
+static int connac_mmio_start(struct ieee80211_hw *hw)
+{
+	struct connac_dev *dev = hw->priv;
+
+	dev->mphy.survey_time = ktime_get_boottime();
+	set_bit(MT76_STATE_RUNNING, &dev->mphy.state);
+	ieee80211_queue_delayed_work(mt76_hw(dev), &dev->mt76.mac_work,
+				     CONNAC_WATCHDOG_TIME);
+
+	return 0;
+}
+
+static void connac_mmio_stop(struct ieee80211_hw *hw)
+{
+	struct connac_dev *dev = hw->priv;
+
+	clear_bit(MT76_STATE_RUNNING, &dev->mphy.state);
+	cancel_delayed_work_sync(&dev->mt76.mac_work);
+}
+
+static void
+connac_mmio_sta_rate_tbl_update(struct ieee80211_hw *hw,
+				struct ieee80211_vif *vif,
+				struct ieee80211_sta *sta)
+{
+	struct connac_dev *dev = hw->priv;
+	struct connac_sta *msta = (struct connac_sta *)sta->drv_priv;
+	struct ieee80211_sta_rates *sta_rates = rcu_dereference(sta->rates);
+	int i;
+
+	spin_lock_bh(&dev->mt76.lock);
+	for (i = 0; i < ARRAY_SIZE(msta->rates); i++) {
+		msta->rates[i].idx = sta_rates->rate[i].idx;
+		msta->rates[i].count = sta_rates->rate[i].count;
+		msta->rates[i].flags = sta_rates->rate[i].flags;
+
+		if (msta->rates[i].idx < 0 || !msta->rates[i].count)
+			break;
+	}
+	msta->n_rates = i;
+	connac_mac_set_rates(dev, msta, NULL, msta->rates);
+	msta->rate_probe = false;
+	spin_unlock_bh(&dev->mt76.lock);
+}
+
 void connac_tx_complete_skb(struct mt76_dev *mdev, enum mt76_txq_id qid,
 			    struct mt76_queue_entry *e)
 {
@@ -365,3 +410,26 @@ int connac_mmio_init_hardware(struct connac_dev *dev)
 
 	return 0;
 }
+
+const struct ieee80211_ops connac_mmio_ops = {
+	.tx = connac_tx,
+	.start = connac_mmio_start,
+	.stop = connac_mmio_stop,
+	.add_interface = connac_add_interface,
+	.remove_interface = connac_remove_interface,
+	.config = connac_config,
+	.conf_tx = connac_conf_tx,
+	.configure_filter = connac_configure_filter,
+	.bss_info_changed = connac_bss_info_changed,
+	.sta_state = mt76_sta_state,
+	.set_key = connac_set_key,
+	.ampdu_action = connac_ampdu_action,
+	.set_rts_threshold = connac_set_rts_threshold,
+	.wake_tx_queue = mt76_wake_tx_queue,
+	.sta_rate_tbl_update = connac_mmio_sta_rate_tbl_update,
+	.sw_scan_start = mt76_sw_scan,
+	.sw_scan_complete = mt76_sw_scan_complete,
+	.release_buffered_frames = mt76_release_buffered_frames,
+	.get_txpower = mt76_get_txpower,
+	.get_survey = mt76_get_survey,
+};
