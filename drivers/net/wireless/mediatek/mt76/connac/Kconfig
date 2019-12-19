@@ -3,16 +3,6 @@ config CONNAC_COMMON
 	select MT76_CORE
 	tristate
 
-config MT7629
-	tristate "MediaTek MT7629 support"
-	select CONNAC_COMMON
-	depends on MAC80211
-	depends on PCI
-	help
-	  This adds support for built-in wireless devices on MT7629 SoC.
-
-	  To compile this driver as a module, choose M here.
-
 config MT7663E
 	tristate "MediaTek MT7663E (PCIE) support"
 	select CONNAC_COMMON
