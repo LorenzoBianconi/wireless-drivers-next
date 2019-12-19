@@ -481,8 +481,7 @@ mt76u_fill_bulk_urb(struct mt76_dev *dev, int dir, int index,
 	if (dir == USB_DIR_IN)
 		pipe = usb_rcvbulkpipe(udev, dev->usb.in_ep[index]);
 	else
-		//pipe = usb_sndbulkpipe(udev, dev->usb.out_ep[index]);
-		pipe = usb_sndbulkpipe(udev, 9 /*dev->usb.out_ep[index]*/);
+		pipe = usb_sndbulkpipe(udev, dev->usb.out_ep[index]);
 
 	urb->dev = udev;
 	urb->pipe = pipe;
