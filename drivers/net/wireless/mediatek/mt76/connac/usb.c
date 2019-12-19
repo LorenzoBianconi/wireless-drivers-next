@@ -163,7 +163,7 @@ connac_usb_dma_sched_init(struct connac_dev *dev)
 	/* disable refill group 5 - group 15 and raise group 2
 	 * and 3 as high priority.
 	 */
-	val = 0xffe00010;
+	val = 0xffe00006;
 	mt76_wr(dev, DMASHDL_REFILL_CONTROL(dev), val);
 
 	val = mt76_rr(dev, DMASHDL_PAGE_SETTING(dev));
@@ -178,24 +178,24 @@ connac_usb_dma_sched_init(struct connac_dev *dev)
 	mt76_wr(dev, DMASHDL_GROUP3_CONTROL(dev), val);
 	mt76_wr(dev, DMASHDL_GROUP4_CONTROL(dev), val);
 
-	val = FIELD_PREP(QUEUE0_MAP, 0x4) | /* ac0 group 0 */
-	      FIELD_PREP(QUEUE1_MAP, 0x4) | /* ac1 group 1 */
-	      FIELD_PREP(QUEUE2_MAP, 0x4) | /* ac2 group 2 */
-	      FIELD_PREP(QUEUE3_MAP, 0x4) | /* ac3 group 3 */
-	      FIELD_PREP(QUEUE4_MAP, 0x4) | /* ac10 group 4*/
-	      FIELD_PREP(QUEUE5_MAP, 0x4) | /* ac11 */
-	      FIELD_PREP(QUEUE6_MAP, 0x4) |
-	      FIELD_PREP(QUEUE7_MAP, 0x4);
+	val = FIELD_PREP(QUEUE0_MAP, 0x0) | /* ac0 group 0 */
+	      FIELD_PREP(QUEUE1_MAP, 0x1) | /* ac1 group 1 */
+	      FIELD_PREP(QUEUE2_MAP, 0x2) | /* ac2 group 2 */
+	      FIELD_PREP(QUEUE3_MAP, 0x3) | /* ac3 group 3 */
+	      FIELD_PREP(QUEUE4_MAP, 0x0) | /* ac10 group 4*/
+	      FIELD_PREP(QUEUE5_MAP, 0x1) | /* ac11 */
+	      FIELD_PREP(QUEUE6_MAP, 0x2) |
+	      FIELD_PREP(QUEUE7_MAP, 0x3);
 	mt76_wr(dev, DMASHDL_QUEUE_MAPPING0(dev), val);
 
-	val = FIELD_PREP(QUEUE8_MAP, 0x4) | /* ac20 group 4*/
-	      FIELD_PREP(QUEUE9_MAP, 0x4) |
-	      FIELD_PREP(QUEUE10_MAP, 0x4) |
-	      FIELD_PREP(QUEUE11_MAP, 0x4) |
-	      FIELD_PREP(QUEUE12_MAP, 0x4) | /* ac30 group 4*/
-	      FIELD_PREP(QUEUE13_MAP, 0x4) |
-	      FIELD_PREP(QUEUE14_MAP, 0x4) |
-	      FIELD_PREP(QUEUE15_MAP, 0x4);
+	val = FIELD_PREP(QUEUE8_MAP, 0x0) | /* ac20 group 4*/
+	      FIELD_PREP(QUEUE9_MAP, 0x1) |
+	      FIELD_PREP(QUEUE10_MAP, 0x2) |
+	      FIELD_PREP(QUEUE11_MAP, 0x3) |
+	      FIELD_PREP(QUEUE12_MAP, 0x0) | /* ac30 group 4*/
+	      FIELD_PREP(QUEUE13_MAP, 0x1) |
+	      FIELD_PREP(QUEUE14_MAP, 0x2) |
+	      FIELD_PREP(QUEUE15_MAP, 0x3);
 	mt76_wr(dev, DMASHDL_QUEUE_MAPPING1(dev), val);
 
 	val = FIELD_PREP(QUEUE16_MAP, 0x4) | /* altx group 4*/
@@ -214,7 +214,7 @@ connac_usb_dma_sched_init(struct connac_dev *dev)
 	/* setup UDMA Tx timeout */
 	val = mt76_rr(dev, UDMA_WLCFG_1(dev));
 	val &= ~WL_TX_TMOUT_LMT;
-	val |= FIELD_PREP(WL_TX_TMOUT_LMT, 500);
+	val |= FIELD_PREP(WL_TX_TMOUT_LMT, 80000);
 	/* do we need to setup WL_RX_AGG_PKT_LMT? */
 	mt76_wr(dev, UDMA_WLCFG_1(dev), val);
 
