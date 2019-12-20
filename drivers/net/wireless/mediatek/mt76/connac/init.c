@@ -122,8 +122,6 @@ static inline void _ieee80211_hw_clear(struct ieee80211_hw *hw,
 	return __clear_bit(flg, hw->flags);
 }
 
-#define ieee80211_hw_clear(hw, flg)	_ieee80211_hw_clear(hw, IEEE80211_HW_##flg)
-
 int connac_register_device(struct connac_dev *dev)
 {
 	struct ieee80211_hw *hw = mt76_hw(dev);
@@ -159,15 +157,11 @@ int connac_register_device(struct connac_dev *dev)
 #endif
 				 BIT(NL80211_IFTYPE_AP);
 
-	ret = mt76_register_device(&dev->mt76, true, connac_rates,
-				   ARRAY_SIZE(connac_rates));
-
 	ieee80211_hw_set(hw, SUPPORTS_REORDERING_BUFFER);
 	ieee80211_hw_set(hw, TX_STATUS_NO_AMPDU_LEN);
-	/* connac only support HW-AMSDU in this stage. */
-	ieee80211_hw_clear(hw, TX_AMSDU);
-	ieee80211_hw_clear(hw, TX_FRAG_LIST);
 
+	ret = mt76_register_device(&dev->mt76, true, connac_rates,
+				   ARRAY_SIZE(connac_rates));
 	if (ret)
 		return ret;
 
