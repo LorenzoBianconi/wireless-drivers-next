@@ -9,6 +9,8 @@
 
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/platform_device.h>
+#include <linux/pci.h>
 
 #include "connac.h"
 #include "mac.h"
@@ -491,3 +493,28 @@ const struct ieee80211_ops connac_mmio_ops = {
 	.get_txpower = mt76_get_txpower,
 	.get_survey = mt76_get_survey,
 };
+
+static int __init connac_mmio_init(void)
+{
+	int ret;
+
+	ret = pci_register_driver(&connac_pci_driver);
+	if (ret)
+		return ret;
+
+	ret = platform_driver_register(&mt7629_wmac_driver);
+	if (ret)
+		pci_unregister_driver(&connac_pci_driver);
+
+	return ret;
+}
+
+static void __exit connac_mmio_exit(void)
+{
+	platform_driver_unregister(&mt7629_wmac_driver);
+	pci_unregister_driver(&connac_pci_driver);
+}
+
+module_init(connac_mmio_init);
+module_exit(connac_mmio_exit);
+MODULE_LICENSE("Dual BSD/GPL");
