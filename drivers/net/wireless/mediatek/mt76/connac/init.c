@@ -168,8 +168,6 @@ int connac_register_device(struct connac_dev *dev)
 	if (ret)
 		return ret;
 
-	hw->max_tx_fragments = MT_TXP_MAX_BUF_NUM;
-
 	return connac_init_debugfs(dev);
 }
 EXPORT_SYMBOL_GPL(connac_register_device);

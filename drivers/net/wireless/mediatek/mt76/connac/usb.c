@@ -458,6 +458,8 @@ connac_usb_register_device(struct connac_dev *dev)
 		return err;
 
 	hw->extra_tx_headroom += CONNAC_USB_HDR_SIZE + CONNAC_USB_TXD_SIZE;
+	/* check hw sg support in order to enable AMSDU */
+	hw->max_tx_fragments = dev->mt76.usb.sg_en ? MT_TXP_MAX_BUF_NUM : 1;
 
 	return connac_register_device(dev);
 }

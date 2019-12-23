@@ -112,11 +112,7 @@ static int connac_pci_probe(struct pci_dev *pdev,
 	if (ret)
 		goto error;
 
-	ret = connac_mmio_init_hardware(dev);
-	if (ret)
-		goto error;
-
-	ret = connac_register_device(dev);
+	ret = connac_mmio_init_device(dev);
 	if (ret)
 		goto error;
 

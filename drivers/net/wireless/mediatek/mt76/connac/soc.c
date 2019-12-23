@@ -134,11 +134,7 @@ static int mt76_wmac_probe(struct platform_device *pdev)
 	if (ret)
 		goto error;
 
-	ret = connac_mmio_init_hardware(dev);
-	if (ret)
-		goto error;
-
-	ret = connac_register_device(dev);
+	ret = connac_mmio_init_device(dev);
 	if (ret)
 		goto error;
 
