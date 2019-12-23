@@ -18,45 +18,6 @@ static const struct pci_device_id connac_pci_device_table[] = {
 	{ },
 };
 
-static void
-connac_rx_poll_complete(struct mt76_dev *mdev, enum mt76_rxq_id q)
-{
-	struct connac_dev *dev = container_of(mdev, struct connac_dev, mt76);
-
-	connac_irq_enable(dev, MT_INT_RX_DONE(q));
-}
-
-static irqreturn_t connac_irq_handler(int irq, void *dev_instance)
-{
-	struct connac_dev *dev = dev_instance;
-	u32 intr;
-
-	intr = mt76_rr(dev, MT_INT_SOURCE_CSR(dev));
-	mt76_wr(dev, MT_INT_SOURCE_CSR(dev), intr);
-
-	if (!test_bit(MT76_STATE_INITIALIZED, &dev->mphy.state))
-		return IRQ_NONE;
-
-	intr &= dev->mt76.mmio.irqmask;
-
-	if (intr & MT_INT_TX_DONE_ALL) {
-		connac_irq_disable(dev, MT_INT_TX_DONE_ALL);
-		napi_schedule(&dev->mt76.tx_napi);
-	}
-
-	if (intr & MT_INT_RX_DONE(0)) {
-		connac_irq_disable(dev, MT_INT_RX_DONE(0));
-		napi_schedule(&dev->mt76.napi[0]);
-	}
-
-	if (intr & MT_INT_RX_DONE(1)) {
-		connac_irq_disable(dev, MT_INT_RX_DONE(1));
-		napi_schedule(&dev->mt76.napi[1]);
-	}
-
-	return IRQ_HANDLED;
-}
-
 static int connac_pci_probe(struct pci_dev *pdev,
 			    const struct pci_device_id *id)
 {
@@ -67,7 +28,7 @@ static int connac_pci_probe(struct pci_dev *pdev,
 		.tx_prepare_skb = connac_tx_prepare_skb,
 		.tx_complete_skb = connac_tx_complete_skb,
 		.rx_skb = connac_queue_rx_skb,
-		.rx_poll_complete = connac_rx_poll_complete,
+		.rx_poll_complete = connac_mmio_rx_poll_complete,
 		.sta_ps = connac_sta_ps,
 		.sta_add = connac_sta_add,
 		.sta_assoc = connac_sta_assoc,
@@ -107,12 +68,7 @@ static int connac_pci_probe(struct pci_dev *pdev,
 	dev_dbg(mdev->dev, "ASIC revision: %04x\n", mdev->rev);
 	mt76_wr(dev, MT_PCIE_IRQ_ENABLE(dev), 1);
 
-	ret = devm_request_irq(mdev->dev, pdev->irq, connac_irq_handler,
-			       IRQF_SHARED, KBUILD_MODNAME, dev);
-	if (ret)
-		goto error;
-
-	ret = connac_mmio_init_device(dev);
+	ret = connac_mmio_init_device(dev, pdev->irq);
 	if (ret)
 		goto error;
 
