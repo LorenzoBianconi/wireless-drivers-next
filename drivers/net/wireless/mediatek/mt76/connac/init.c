@@ -64,6 +64,9 @@ void connac_mac_init(struct connac_dev *dev)
 	mt76_wr(dev, 0x44064, 0x2000000);
 	mt76_wr(dev, MT_WF_AGG(dev, 0x160), 0x5c341c02);
 	mt76_wr(dev, MT_WF_AGG(dev, 0x164), 0x70708040);
+
+	 /* Disable AMSDU de-aggregation */
+	mt76_wr(dev, MT_WF_DMA(dev, 0x0), 0x0046f000);
 }
 EXPORT_SYMBOL_GPL(connac_mac_init);
 
