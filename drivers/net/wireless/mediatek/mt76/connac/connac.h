@@ -269,6 +269,8 @@ static inline void connac_irq_disable(struct connac_dev *dev, u32 mask)
 }
 
 extern const struct ieee80211_ops connac_mmio_ops;
+extern struct pci_driver connac_pci_driver;
+extern struct platform_driver mt7629_wmac_driver;
 
 void connac_tx(struct ieee80211_hw *hw,
 	       struct ieee80211_tx_control *control,

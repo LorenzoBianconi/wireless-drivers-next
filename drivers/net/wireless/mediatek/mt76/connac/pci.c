@@ -93,9 +93,6 @@ struct pci_driver connac_pci_driver = {
 	.remove		= connac_pci_remove,
 };
 
-module_pci_driver(connac_pci_driver);
-
 MODULE_DEVICE_TABLE(pci, connac_pci_device_table);
 MODULE_FIRMWARE(MT7663_FIRMWARE_N9);
 MODULE_FIRMWARE(MT7663_ROM_PATCH);
-MODULE_LICENSE("Dual BSD/GPL");
