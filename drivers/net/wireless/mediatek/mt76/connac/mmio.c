@@ -293,6 +293,37 @@ connac_mmio_dma_init(struct connac_dev *dev)
 	return 0;
 }
 
+static irqreturn_t connac_irq_handler(int irq, void *dev_instance)
+{
+	struct connac_dev *dev = dev_instance;
+	u32 intr;
+
+	intr = mt76_rr(dev, MT_INT_SOURCE_CSR(dev));
+	mt76_wr(dev, MT_INT_SOURCE_CSR(dev), intr);
+
+	if (!test_bit(MT76_STATE_INITIALIZED, &dev->mphy.state))
+		return IRQ_NONE;
+
+	intr &= dev->mt76.mmio.irqmask;
+
+	if (intr & MT_INT_TX_DONE_ALL) {
+		connac_irq_disable(dev, MT_INT_TX_DONE_ALL);
+		napi_schedule(&dev->mt76.tx_napi);
+	}
+
+	if (intr & MT_INT_RX_DONE(0)) {
+		connac_irq_disable(dev, MT_INT_RX_DONE(0));
+		napi_schedule(&dev->mt76.napi[0]);
+	}
+
+	if (intr & MT_INT_RX_DONE(1)) {
+		connac_irq_disable(dev, MT_INT_RX_DONE(1));
+		napi_schedule(&dev->mt76.napi[1]);
+	}
+
+	return IRQ_HANDLED;
+}
+
 static int
 connac_mmio_dma_sched_init(struct connac_dev *dev)
 {
@@ -411,10 +442,23 @@ static int connac_mmio_init_hardware(struct connac_dev *dev)
 	return 0;
 }
 
-int connac_mmio_init_device(struct connac_dev *dev)
+void connac_mmio_rx_poll_complete(struct mt76_dev *mdev,
+				  enum mt76_rxq_id q)
+{
+	struct connac_dev *dev = container_of(mdev, struct connac_dev, mt76);
+
+	connac_irq_enable(dev, MT_INT_RX_DONE(q));
+}
+
+int connac_mmio_init_device(struct connac_dev *dev, int irq)
 {
 	struct ieee80211_hw *hw = mt76_hw(dev);
 	int err;
+
+	err = devm_request_irq(dev->mt76.dev, irq, connac_irq_handler,
+			       IRQF_SHARED, KBUILD_MODNAME, dev);
+	if (err)
+		return err;
 
 	err = connac_mmio_init_hardware(dev);
 	if (err)

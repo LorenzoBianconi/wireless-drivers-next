@@ -356,5 +356,7 @@ void connac_usb_mac_set_rates(struct connac_dev *dev, struct connac_sta *sta,
 			      struct ieee80211_tx_rate *probe_rate,
 			      struct ieee80211_tx_rate *rates);
 
-int connac_mmio_init_device(struct connac_dev *dev);
+int connac_mmio_init_device(struct connac_dev *dev, int irq);
+void connac_mmio_rx_poll_complete(struct mt76_dev *mdev,
+				  enum mt76_rxq_id q);
 #endif
