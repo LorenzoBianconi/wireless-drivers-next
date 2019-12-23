@@ -335,7 +335,7 @@ connac_mmio_dma_sched_init(struct connac_dev *dev)
 	return 0;
 }
 
-int connac_mmio_init_hardware(struct connac_dev *dev)
+static int connac_mmio_init_hardware(struct connac_dev *dev)
 {
 	int ret, idx;
 	bool init_dbdc = true;
@@ -409,6 +409,20 @@ int connac_mmio_init_hardware(struct connac_dev *dev)
 	}
 
 	return 0;
+}
+
+int connac_mmio_init_device(struct connac_dev *dev)
+{
+	struct ieee80211_hw *hw = mt76_hw(dev);
+	int err;
+
+	err = connac_mmio_init_hardware(dev);
+	if (err)
+		return err;
+
+	hw->max_tx_fragments = MT_TXP_MAX_BUF_NUM;
+
+	return connac_register_device(dev);
 }
 
 const struct ieee80211_ops connac_mmio_ops = {
