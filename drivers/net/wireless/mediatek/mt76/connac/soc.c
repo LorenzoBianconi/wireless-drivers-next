@@ -120,9 +120,8 @@ MODULE_FIRMWARE(MT7629_EMI_IEMI);
 MODULE_FIRMWARE(MT7629_EMI_DEMI);
 MODULE_FIRMWARE(MT7629_FIRMWARE_N9);
 MODULE_FIRMWARE(MT7629_ROM_PATCH);
-MODULE_LICENSE("Dual BSD/GPL");
 
-struct platform_driver mt766x_wmac_driver = {
+struct platform_driver mt7629_wmac_driver = {
 	.probe		= mt76_wmac_probe,
 	.remove		= mt76_wmac_remove,
 	.driver = {
@@ -130,4 +129,3 @@ struct platform_driver mt766x_wmac_driver = {
 		.of_match_table = of_wmac_match,
 	},
 };
-module_platform_driver(mt766x_wmac_driver);
