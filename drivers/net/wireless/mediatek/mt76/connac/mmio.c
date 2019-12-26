@@ -432,9 +432,10 @@ static void connac_mac_init(struct connac_dev *dev)
 
 static int connac_mmio_init_hardware(struct connac_dev *dev)
 {
-	int ret, idx;
+	u32 base = connac_reg_map(dev, MT_EFUSE_BASE);
 	bool init_dbdc = true;
 	bool init_mac = false;
+	int ret, idx;
 
 	switch (dev->mt76.rev) {
 	case 0x76630010:
@@ -448,7 +449,7 @@ static int connac_mmio_init_hardware(struct connac_dev *dev)
 	spin_lock_init(&dev->token_lock);
 	idr_init(&dev->token);
 
-	ret = connac_eeprom_init(dev);
+	ret = connac_eeprom_init(dev, base);
 	if (ret < 0)
 		return ret;
 
