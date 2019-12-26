@@ -203,7 +203,7 @@ u32 connac_reg_map(struct connac_dev *dev, u32 addr);
 
 int connac_register_device(struct connac_dev *dev);
 void connac_unregister_device(struct connac_dev *dev);
-int connac_eeprom_init(struct connac_dev *dev);
+int connac_eeprom_init(struct connac_dev *dev, u32 base);
 int connac_eeprom_get_power_index(struct ieee80211_channel *chan,
 				  u8 chain_idx);
 void connac_dma_cleanup(struct connac_dev *dev);
