@@ -13,6 +13,7 @@
 #include "mcu.h"
 #include "mac.h"
 #include "eeprom.h"
+#include "regs.h"
 
 struct connac_patch_hdr {
 	char build_date[16];
@@ -428,7 +429,7 @@ static int connac_driver_own(struct connac_dev *dev)
 	return 0;
 }
 
-static int connac_load_patch(struct connac_dev *dev)
+int connac_load_patch(struct connac_dev *dev)
 {
 	const struct firmware *fw;
 	const struct connac_patch_hdr *hdr;
@@ -509,6 +510,7 @@ out:
 
 	return ret;
 }
+EXPORT_SYMBOL_GPL(connac_load_patch);
 
 static u32 gen_dl_mode(u8 feature_set, bool is_cr4)
 {
@@ -524,7 +526,7 @@ static u32 gen_dl_mode(u8 feature_set, bool is_cr4)
 	return ret;
 }
 
-static int connac_load_ram(struct connac_dev *dev)
+int connac_load_ram(struct connac_dev *dev)
 {
 	const struct firmware *fw;
 	const struct connac_fw_trailer *hdr;
@@ -620,6 +622,7 @@ out:
 	release_firmware(fw);
 	return ret;
 }
+EXPORT_SYMBOL_GPL(connac_load_ram);
 
 static void fwdl_datapath_setup(struct connac_dev *dev, bool init)
 {
@@ -808,6 +811,7 @@ int connac_mcu_set_rts_thresh(struct connac_dev *dev, u32 val)
 	return __mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD_PROTECT_CTRL,
 				   &req, sizeof(req), true);
 }
+EXPORT_SYMBOL_GPL(connac_mcu_set_rts_thresh);
 
 int connac_mcu_set_wmm(struct connac_dev *dev, u8 queue,
 		       const struct ieee80211_tx_queue_params *params)
@@ -1838,6 +1842,7 @@ int connac_mcu_set_channel(struct connac_dev *dev)
 	return __mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD_SET_RX_PATH,
 				   &req, sizeof(req), true);
 }
+EXPORT_SYMBOL_GPL(connac_mcu_set_channel);
 
 int connac_mcu_set_tx_ba(struct connac_dev *dev,
 			 struct ieee80211_ampdu_params *params,

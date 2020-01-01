@@ -13,6 +13,7 @@
 #include <linux/pci.h>
 #include <linux/module.h>
 #include "connac.h"
+#include "regs.h"
 
 static int get_omac_idx(enum nl80211_iftype type, u32 mask)
 {
@@ -148,15 +149,10 @@ out:
 	return ret;
 }
 
-int connac_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
-		   struct ieee80211_vif *vif, struct ieee80211_sta *sta,
-		   struct ieee80211_key_conf *key)
+int connac_check_key(struct connac_dev *dev, enum set_key_cmd cmd,
+		     struct ieee80211_vif *vif, struct mt76_wcid *wcid,
+		     struct ieee80211_key_conf *key)
 {
-	struct connac_dev *dev = hw->priv;
-	struct connac_vif *mvif = (struct connac_vif *)vif->drv_priv;
-	struct connac_sta *msta = sta ? (struct connac_sta *)sta->drv_priv :
-				  &mvif->sta;
-	struct mt76_wcid *wcid = &msta->wcid;
 	int idx = key->keyidx;
 
 	/* The hardware does not support per-STA RX GTK, fallback
@@ -196,9 +192,9 @@ int connac_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 	mt76_wcid_key_setup(&dev->mt76, wcid,
 			    cmd == SET_KEY ? key : NULL);
 
-	return connac_mac_wtbl_set_key(dev, wcid, key, cmd);
+	return 0;
 }
-EXPORT_SYMBOL_GPL(connac_set_key);
+EXPORT_SYMBOL_GPL(connac_check_key);
 
 int connac_config(struct ieee80211_hw *hw, u32 changed)
 {

@@ -12,6 +12,7 @@
 
 #include "connac.h"
 #include "mac.h"
+#include "regs.h"
 
 static const struct pci_device_id connac_pci_device_table[] = {
 	{ PCI_DEVICE(0x14c3, 0x7663) },

@@ -7,7 +7,6 @@
 #include <linux/interrupt.h>
 #include <linux/ktime.h>
 #include "../mt76.h"
-#include "regs.h"
 
 #define CONNAC_USB_TXD_EXTRA_SIZE	(8 * 4)
 #define CONNAC_USB_TXD_SIZE		(MT_TXD_SIZE + \
@@ -258,17 +257,9 @@ static inline void connac_dfs_check_channel(struct connac_dev *dev)
 		dev->dfs_state = -1;
 }
 
-static inline void connac_irq_enable(struct connac_dev *dev, u32 mask)
-{
-	mt76_set_irq_mask(&dev->mt76, MT_INT_MASK_CSR(dev), 0, mask);
-}
-
-static inline void connac_irq_disable(struct connac_dev *dev, u32 mask)
-{
-	mt76_set_irq_mask(&dev->mt76, MT_INT_MASK_CSR(dev), mask, 0);
-}
-
 extern const struct ieee80211_ops connac_mmio_ops;
+extern const struct ieee80211_ops connac_usb_ops;
+
 extern struct pci_driver connac_pci_driver;
 extern struct platform_driver mt7629_wmac_driver;
 
@@ -291,9 +282,9 @@ void connac_bss_info_changed(struct ieee80211_hw *hw,
 			     struct ieee80211_vif *vif,
 			     struct ieee80211_bss_conf *info,
 			     u32 changed);
-int connac_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
-		   struct ieee80211_vif *vif, struct ieee80211_sta *sta,
-		   struct ieee80211_key_conf *key);
+int connac_check_key(struct connac_dev *dev, enum set_key_cmd cmd,
+		     struct ieee80211_vif *vif, struct mt76_wcid *wcid,
+		     struct ieee80211_key_conf *key);
 int connac_ampdu_action(struct ieee80211_hw *hw,
 			struct ieee80211_vif *vif,
 			struct ieee80211_ampdu_params *params);
@@ -313,7 +304,15 @@ void connac_mac_tx_free(struct connac_dev *dev, struct sk_buff *skb);
 int connac_mac_wtbl_set_key(struct connac_dev *dev, struct mt76_wcid *wcid,
 			    struct ieee80211_key_conf *key,
 			    enum set_key_cmd cmd);
+int connac_mac_wtbl_update_key(struct connac_dev *dev, struct mt76_wcid *wcid,
+			       u32 base_addr, struct ieee80211_key_conf *key,
+			       int cipher, enum set_key_cmd cmd);
+void connac_mac_wtbl_update_cipher(struct connac_dev *dev,
+				   struct mt76_wcid *wcid, u32 addr,
+				   int cipher, enum set_key_cmd cmd);
 
+int connac_load_ram(struct connac_dev *dev);
+int connac_load_patch(struct connac_dev *dev);
 int connac_mcu_set_eeprom(struct connac_dev *dev);
 int connac_mcu_dbdc_ctrl(struct connac_dev *dev);
 int connac_mcu_init_mac(struct connac_dev *dev, u8 band);
@@ -352,8 +351,15 @@ int connac_dfs_init_radar_detector(struct connac_dev *dev);
 
 int connac_init_debugfs(struct connac_dev *dev);
 
-void connac_mac_init(struct connac_dev *dev);
-
+int __connac_usb_mac_set_rates(struct connac_dev *dev,
+			       struct connac_rate_desc *rc);
+void connac_usb_mac_cca_stats_reset(struct connac_dev *dev);
+int connac_usb_mac_wtbl_set_key(struct connac_dev *dev, struct mt76_wcid *wcid,
+				struct ieee80211_key_conf *key,
+				enum set_key_cmd cmd);
+int connac_usb_mcu_init(struct connac_dev *dev);
+void connac_usb_rc_work(struct work_struct *work);
+int connac_usb_register_device(struct connac_dev *dev);
 void connac_usb_mac_set_rates(struct connac_dev *dev, struct connac_sta *sta,
 			      struct ieee80211_tx_rate *probe_rate,
 			      struct ieee80211_tx_rate *rates);
