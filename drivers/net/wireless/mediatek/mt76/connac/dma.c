@@ -11,6 +11,7 @@
 
 #include "connac.h"
 #include "../dma.h"
+#include "regs.h"
 #include "mac.h"
 
 void connac_queue_rx_skb(struct mt76_dev *mdev, enum mt76_rxq_id q,

@@ -10,65 +10,8 @@
 
 #include <linux/etherdevice.h>
 #include "connac.h"
+#include "regs.h"
 #include "mac.h"
-
-void connac_mac_init(struct connac_dev *dev)
-{
-	u32 val;
-	bool init_mac1 = false;
-
-	switch (dev->mt76.rev) {
-	case 0x76630010:
-		init_mac1 = true;
-		break;
-	}
-
-	/* enable band 0 clk */
-	mt76_rmw(dev, MT_CFG_CCR(dev),
-		 MT_CFG_CCR_MAC_D0_1X_GC_EN | MT_CFG_CCR_MAC_D0_2X_GC_EN,
-		 MT_CFG_CCR_MAC_D0_1X_GC_EN | MT_CFG_CCR_MAC_D0_2X_GC_EN);
-
-	/* Hdr translation off*/
-	mt76_wr(dev, MT_DMA_DCR0(dev), 0x471000);
-
-	/* CCA Setting */
-	val = mt76_rmw(dev, MT_TMAC_TRCR0(dev),
-		       MT_TMAC_TRCR_CCA_SEL | MT_TMAC_TRCR_SEC_CCA_SEL,
-		       FIELD_PREP(MT_TMAC_TRCR_CCA_SEL, 0x2) |
-		       FIELD_PREP(MT_TMAC_TRCR_SEC_CCA_SEL, 0x0));
-
-	mt76_rmw_field(dev, MT_TMAC_CTCR0(dev),
-		       MT_TMAC_CTCR0_INS_DDLMT_REFTIME, 0x3f);
-	mt76_rmw_field(dev, MT_TMAC_CTCR0(dev),
-		       MT_TMAC_CTCR0_INS_DDLMT_DENSITY, 0x3);
-	mt76_rmw(dev, MT_TMAC_CTCR0(dev),
-		 MT_TMAC_CTCR0_INS_DDLMT_VHT_SMPDU_EN |
-		 MT_TMAC_CTCR0_INS_DDLMT_EN,
-		 MT_TMAC_CTCR0_INS_DDLMT_VHT_SMPDU_EN |
-		 MT_TMAC_CTCR0_INS_DDLMT_EN);
-	connac_mcu_set_rts_thresh(dev, 0x92b);
-
-	mt76_rmw(dev, MT_AGG_SCR(dev), MT_AGG_SCR_NLNAV_MID_PTEC_DIS,
-		 MT_AGG_SCR_NLNAV_MID_PTEC_DIS);
-
-	connac_mcu_init_mac(dev, 0);
-
-	if (init_mac1)
-		connac_mcu_init_mac(dev, 1);
-
-#define RF_LOW_BEACON_BAND0 0x11900
-#define RF_LOW_BEACON_BAND1 0x11d00
-	mt76_wr(dev, RF_LOW_BEACON_BAND0, 0x200);
-	mt76_wr(dev, RF_LOW_BEACON_BAND1, 0x200);
-	mt76_wr(dev, 0x7010, 0x8208);
-	mt76_wr(dev, 0x44064, 0x2000000);
-	mt76_wr(dev, MT_WF_AGG(dev, 0x160), 0x5c341c02);
-	mt76_wr(dev, MT_WF_AGG(dev, 0x164), 0x70708040);
-
-	 /* Disable AMSDU de-aggregation */
-	mt76_wr(dev, MT_WF_DMA(dev, 0x0), 0x0046f000);
-}
-EXPORT_SYMBOL_GPL(connac_mac_init);
 
 #define CCK_RATE(_idx, _rate) {						\
 	.bitrate = _rate,						\
