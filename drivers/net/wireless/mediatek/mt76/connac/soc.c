@@ -13,6 +13,7 @@
 
 #include "connac.h"
 #include "mac.h"
+#include "regs.h"
 
 u32 connac_reg_map(struct connac_dev *dev, u32 addr)
 {

@@ -13,6 +13,7 @@
 #include <linux/timekeeping.h>
 #include "connac.h"
 #include "../dma.h"
+#include "regs.h"
 #include "mac.h"
 
 static inline s8 to_rssi(u32 field, u32 rxv)
@@ -717,40 +718,11 @@ void connac_usb_mac_set_rates(struct connac_dev *dev, struct connac_sta *sta,
 }
 EXPORT_SYMBOL_GPL(connac_usb_mac_set_rates);
 
-static enum connac_cipher_type
-connac_mac_get_cipher(int cipher)
+int connac_mac_wtbl_update_key(struct connac_dev *dev, struct mt76_wcid *wcid,
+			       u32 base_addr, struct ieee80211_key_conf *key,
+			       int cipher, enum set_key_cmd cmd)
 {
-	switch (cipher) {
-	case WLAN_CIPHER_SUITE_WEP40:
-		return MT_CIPHER_WEP40;
-	case WLAN_CIPHER_SUITE_WEP104:
-		return MT_CIPHER_WEP104;
-	case WLAN_CIPHER_SUITE_TKIP:
-		return MT_CIPHER_TKIP;
-	case WLAN_CIPHER_SUITE_AES_CMAC:
-		return MT_CIPHER_BIP_CMAC_128;
-	case WLAN_CIPHER_SUITE_CCMP:
-		return MT_CIPHER_AES_CCMP;
-	case WLAN_CIPHER_SUITE_CCMP_256:
-		return MT_CIPHER_CCMP_256;
-	case WLAN_CIPHER_SUITE_GCMP:
-		return MT_CIPHER_GCMP;
-	case WLAN_CIPHER_SUITE_GCMP_256:
-		return MT_CIPHER_GCMP_256;
-	case WLAN_CIPHER_SUITE_SMS4:
-		return MT_CIPHER_WAPI;
-	default:
-		return MT_CIPHER_NONE;
-	}
-}
-
-static int
-connac_mac_wtbl_update_key(struct connac_dev *dev, struct mt76_wcid *wcid,
-			   struct ieee80211_key_conf *key,
-			   enum connac_cipher_type cipher,
-			   enum set_key_cmd cmd)
-{
-	u32 addr = connac_mac_wtbl_addr(dev, wcid->idx) + 30 * 4;
+	u32 addr = base_addr + 30 * 4;
 	u8 data[32] = {};
 
 	if (key->keylen > sizeof(data))
@@ -782,6 +754,7 @@ connac_mac_wtbl_update_key(struct connac_dev *dev, struct mt76_wcid *wcid,
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(connac_mac_wtbl_update_key);
 
 static int
 connac_mac_wtbl_update_pk(struct connac_dev *dev, struct mt76_wcid *wcid,
@@ -822,13 +795,10 @@ connac_mac_wtbl_update_pk(struct connac_dev *dev, struct mt76_wcid *wcid,
 	return 0;
 }
 
-static void
-connac_mac_wtbl_update_cipher(struct connac_dev *dev, struct mt76_wcid *wcid,
-			      enum connac_cipher_type cipher,
-			      enum set_key_cmd cmd)
+void connac_mac_wtbl_update_cipher(struct connac_dev *dev,
+				   struct mt76_wcid *wcid, u32 addr,
+				   int cipher, enum set_key_cmd cmd)
 {
-	u32 addr = connac_mac_wtbl_addr(dev, wcid->idx);
-
 	if (cmd == SET_KEY) {
 		if (cipher != MT_CIPHER_BIP_CMAC_128 || !wcid->cipher)
 			mt76_rmw(dev, addr + 2 * 4, MT_WTBL_W2_KEY_TYPE,
@@ -843,12 +813,14 @@ connac_mac_wtbl_update_cipher(struct connac_dev *dev, struct mt76_wcid *wcid,
 			mt76_clear(dev, addr + 2 * 4, MT_WTBL_W2_KEY_TYPE);
 	}
 }
+EXPORT_SYMBOL_GPL(connac_mac_wtbl_update_cipher);
 
 int connac_mac_wtbl_set_key(struct connac_dev *dev,
 			    struct mt76_wcid *wcid,
 			    struct ieee80211_key_conf *key,
 			    enum set_key_cmd cmd)
 {
+	u32 addr = connac_mac_wtbl_addr(dev, wcid->idx);
 	enum connac_cipher_type cipher;
 	int err;
 
@@ -858,8 +830,8 @@ int connac_mac_wtbl_set_key(struct connac_dev *dev,
 
 	mutex_lock(&dev->mt76.mutex);
 
-	connac_mac_wtbl_update_cipher(dev, wcid, cipher, cmd);
-	err = connac_mac_wtbl_update_key(dev, wcid, key, cipher, cmd);
+	connac_mac_wtbl_update_cipher(dev, wcid, addr, cipher, cmd);
+	err = connac_mac_wtbl_update_key(dev, wcid, addr, key, cipher, cmd);
 	if (err < 0)
 		goto out;
 
@@ -1267,3 +1239,4 @@ int connac_dfs_init_radar_detector(struct connac_dev *dev)
 		return connac_dfs_stop_radar_detector(dev);
 	}
 }
+EXPORT_SYMBOL_GPL(connac_dfs_init_radar_detector);

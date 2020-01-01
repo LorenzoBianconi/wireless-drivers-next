@@ -14,6 +14,7 @@
 
 #include "connac.h"
 #include "mac.h"
+#include "regs.h"
 #include "../dma.h"
 
 static int connac_mmio_start(struct ieee80211_hw *hw)
@@ -151,6 +152,16 @@ int connac_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 static void connac_phy_init(struct connac_dev *dev)
 {
 	/* CONNAC : no need */
+}
+
+static void connac_irq_enable(struct connac_dev *dev, u32 mask)
+{
+	mt76_set_irq_mask(&dev->mt76, MT_INT_MASK_CSR(dev), 0, mask);
+}
+
+static void connac_irq_disable(struct connac_dev *dev, u32 mask)
+{
+	mt76_set_irq_mask(&dev->mt76, MT_INT_MASK_CSR(dev), mask, 0);
 }
 
 static int connac_poll_tx(struct napi_struct *napi, int budget)
@@ -368,6 +379,57 @@ connac_mmio_dma_sched_init(struct connac_dev *dev)
 	return 0;
 }
 
+static void connac_mac_init(struct connac_dev *dev)
+{
+	bool init_mac1 = dev->mt76.rev == 0x76630010;
+	u32 val;
+
+	/* enable band 0 clk */
+	mt76_rmw(dev, MT_CFG_CCR(dev),
+		 MT_CFG_CCR_MAC_D0_1X_GC_EN | MT_CFG_CCR_MAC_D0_2X_GC_EN,
+		 MT_CFG_CCR_MAC_D0_1X_GC_EN | MT_CFG_CCR_MAC_D0_2X_GC_EN);
+
+	/* Hdr translation off*/
+	mt76_wr(dev, MT_DMA_DCR0(dev), 0x471000);
+
+	/* CCA Setting */
+	val = mt76_rmw(dev, MT_TMAC_TRCR0(dev),
+		       MT_TMAC_TRCR_CCA_SEL | MT_TMAC_TRCR_SEC_CCA_SEL,
+		       FIELD_PREP(MT_TMAC_TRCR_CCA_SEL, 0x2) |
+		       FIELD_PREP(MT_TMAC_TRCR_SEC_CCA_SEL, 0x0));
+
+	mt76_rmw_field(dev, MT_TMAC_CTCR0(dev),
+		       MT_TMAC_CTCR0_INS_DDLMT_REFTIME, 0x3f);
+	mt76_rmw_field(dev, MT_TMAC_CTCR0(dev),
+		       MT_TMAC_CTCR0_INS_DDLMT_DENSITY, 0x3);
+	mt76_rmw(dev, MT_TMAC_CTCR0(dev),
+		 MT_TMAC_CTCR0_INS_DDLMT_VHT_SMPDU_EN |
+		 MT_TMAC_CTCR0_INS_DDLMT_EN,
+		 MT_TMAC_CTCR0_INS_DDLMT_VHT_SMPDU_EN |
+		 MT_TMAC_CTCR0_INS_DDLMT_EN);
+	connac_mcu_set_rts_thresh(dev, 0x92b);
+
+	mt76_rmw(dev, MT_AGG_SCR(dev), MT_AGG_SCR_NLNAV_MID_PTEC_DIS,
+		 MT_AGG_SCR_NLNAV_MID_PTEC_DIS);
+
+	connac_mcu_init_mac(dev, 0);
+
+	if (init_mac1)
+		connac_mcu_init_mac(dev, 1);
+
+#define RF_LOW_BEACON_BAND0 0x11900
+#define RF_LOW_BEACON_BAND1 0x11d00
+	mt76_wr(dev, RF_LOW_BEACON_BAND0, 0x200);
+	mt76_wr(dev, RF_LOW_BEACON_BAND1, 0x200);
+	mt76_wr(dev, 0x7010, 0x8208);
+	mt76_wr(dev, 0x44064, 0x2000000);
+	mt76_wr(dev, MT_WF_AGG(dev, 0x160), 0x5c341c02);
+	mt76_wr(dev, MT_WF_AGG(dev, 0x164), 0x70708040);
+
+	 /* Disable AMSDU de-aggregation */
+	mt76_wr(dev, MT_WF_DMA(dev, 0x0), 0x0046f000);
+}
+
 static int connac_mmio_init_hardware(struct connac_dev *dev)
 {
 	int ret, idx;
@@ -469,6 +531,24 @@ int connac_mmio_init_device(struct connac_dev *dev, int irq)
 	hw->max_tx_fragments = MT_TXP_MAX_BUF_NUM;
 
 	return connac_register_device(dev);
+}
+
+static int
+connac_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
+	       struct ieee80211_vif *vif, struct ieee80211_sta *sta,
+	       struct ieee80211_key_conf *key)
+{
+	struct connac_vif *mvif = (struct connac_vif *)vif->drv_priv;
+	struct connac_dev *dev = hw->priv;
+	struct connac_sta *msta;
+	int err;
+
+	msta = sta ? (struct connac_sta *)sta->drv_priv : &mvif->sta;
+	err = connac_check_key(dev, cmd, vif, &msta->wcid, key);
+	if (err < 0)
+		return err;
+
+	return connac_mac_wtbl_set_key(dev, &msta->wcid, key, cmd);
 }
 
 const struct ieee80211_ops connac_mmio_ops = {

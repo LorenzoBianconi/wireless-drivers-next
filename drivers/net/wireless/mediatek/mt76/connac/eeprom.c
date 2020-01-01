@@ -9,6 +9,7 @@
 
 #include "connac.h"
 #include "eeprom.h"
+#include "regs.h"
 
 static int connac_efuse_init(struct connac_dev *dev)
 {
