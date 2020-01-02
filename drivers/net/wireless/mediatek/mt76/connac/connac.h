@@ -358,6 +358,9 @@ int connac_usb_mac_wtbl_set_key(struct connac_dev *dev, struct mt76_wcid *wcid,
 				struct ieee80211_key_conf *key,
 				enum set_key_cmd cmd);
 int connac_usb_mcu_init(struct connac_dev *dev);
+void connac_usb_mac_write_txwi(struct connac_dev *dev, struct mt76_wcid *wcid,
+			       enum mt76_txq_id qid, struct ieee80211_sta *sta,
+			       struct sk_buff *skb);
 void connac_usb_rc_work(struct work_struct *work);
 int connac_usb_register_device(struct connac_dev *dev);
 void connac_usb_mac_set_rates(struct connac_dev *dev, struct connac_sta *sta,
