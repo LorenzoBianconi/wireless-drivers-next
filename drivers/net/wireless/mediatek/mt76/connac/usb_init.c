@@ -8,13 +8,10 @@
 
 #include <linux/kernel.h>
 #include <linux/module.h>
-#include <linux/usb.h>
 
 #include "connac.h"
 #include "mac.h"
-#include "mcu.h"
 #include "usb_regs.h"
-#include "../usb_trace.h"
 
 static int
 connac_usb_dma_sched_init(struct connac_dev *dev)

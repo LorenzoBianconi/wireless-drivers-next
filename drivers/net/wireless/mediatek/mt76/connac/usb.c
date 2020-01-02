@@ -14,7 +14,6 @@
 #include "mac.h"
 #include "mcu.h"
 #include "usb_regs.h"
-#include "../usb_trace.h"
 
 static const struct usb_device_id connac_device_table[] = {
 	{ USB_DEVICE_AND_INTERFACE_INFO(0x0e8d, 0x7663, 0xff, 0xff, 0xff)},
@@ -42,27 +41,19 @@ connac_usb_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 			  struct mt76_tx_info *tx_info)
 {
 	struct connac_dev *dev = container_of(mdev, struct connac_dev, mt76);
-	struct connac_sta *msta = container_of(wcid, struct connac_sta, wcid);
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(tx_info->skb);
-	int pid;
-
-	if (!wcid)
-		wcid = &dev->mt76.global_wcid;
-	pid = mt76_tx_status_skb_add(mdev, wcid, tx_info->skb);
 
 	if (info->flags & IEEE80211_TX_CTL_RATE_CTRL_PROBE) {
+		struct connac_sta *msta;
+
+		msta = container_of(wcid, struct connac_sta, wcid);
 		spin_lock_bh(&dev->mt76.lock);
 		connac_usb_mac_set_rates(dev, msta, &info->control.rates[0],
 					 msta->rates);
 		msta->rate_probe = true;
 		spin_unlock_bh(&dev->mt76.lock);
 	}
-
-	txwi_ptr = (void *)(tx_info->skb->data - CONNAC_USB_TXD_SIZE);
-	connac_mac_write_txwi(dev, txwi_ptr, tx_info->skb, qid, wcid, sta,
-			      pid, info->control.hw_key);
-	/* Add MAC TXD */
-	skb_push(tx_info->skb, CONNAC_USB_TXD_SIZE);
+	connac_usb_mac_write_txwi(dev, wcid, qid, sta, tx_info->skb);
 
 	return mt76u_skb_dma_info(tx_info->skb, tx_info->skb->len);
 }
@@ -139,6 +130,7 @@ skip_poweron:
 		goto error_freeq;
 
 	return 0;
+
 error_freeq:
 	mt76u_queues_deinit(&dev->mt76);
 error:
