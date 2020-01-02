@@ -434,12 +434,6 @@ int connac_mac_write_txwi(struct connac_dev *dev, __le32 *txwi,
 	txwi[7] = FIELD_PREP(MT_TXD7_TYPE, fc_type) |
 		  FIELD_PREP(MT_TXD7_SUB_TYPE, fc_stype);
 
-	if (mt76_is_usb(&dev->mt76)) {
-		txwi[8] = FIELD_PREP(MT_TXD8_L_TYPE, fc_type) |
-			  FIELD_PREP(MT_TXD8_L_SUB_TYPE, fc_stype);
-		memset(&txwi[9], 0, 7);
-	}
-
 	return 0;
 }
 EXPORT_SYMBOL_GPL(connac_mac_write_txwi);
