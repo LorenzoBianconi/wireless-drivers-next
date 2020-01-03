@@ -11,7 +11,7 @@
 
 #include "connac.h"
 #include "mac.h"
-#include "usb_regs.h"
+#include "usb_sdio_regs.h"
 
 static int
 connac_usb_dma_sched_init(struct connac_dev *dev)

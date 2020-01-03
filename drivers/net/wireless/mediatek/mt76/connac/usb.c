@@ -13,7 +13,7 @@
 #include "connac.h"
 #include "mac.h"
 #include "mcu.h"
-#include "usb_regs.h"
+#include "usb_sdio_regs.h"
 
 static const struct usb_device_id connac_device_table[] = {
 	{ USB_DEVICE_AND_INTERFACE_INFO(0x0e8d, 0x7663, 0xff, 0xff, 0xff)},

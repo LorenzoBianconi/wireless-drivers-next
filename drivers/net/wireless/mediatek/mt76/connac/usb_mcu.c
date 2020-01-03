@@ -12,7 +12,7 @@
 #include "connac.h"
 #include "mac.h"
 #include "mcu.h"
-#include "usb_regs.h"
+#include "usb_sdio_regs.h"
 
 static struct sk_buff *
 connac_usb_mcu_msg_alloc(const void *data, int len)

@@ -11,7 +11,7 @@
 
 #include "connac.h"
 #include "mac.h"
-#include "usb_regs.h"
+#include "usb_sdio_regs.h"
 
 static u32 connac_usb_mac_wtbl_addr(struct connac_dev *dev, int wcid)
 {
