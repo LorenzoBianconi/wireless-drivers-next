@@ -130,9 +130,8 @@ struct connac_dev {
 	int pid_tmp;
 	u32 amsdu_en;
 
-	struct work_struct	rc_work;     /* deferred rate tuning */
-	struct list_head	rc_processing;
-	const u32 *regs;
+	struct work_struct rc_work;     /* deferred rate tuning */
+	struct list_head rc_processing;
 	bool required_poweroff;
 };
 

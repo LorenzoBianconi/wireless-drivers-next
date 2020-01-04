@@ -51,10 +51,10 @@ EXPORT_SYMBOL_GPL(connac_queue_rx_skb);
 
 void connac_dma_cleanup(struct connac_dev *dev)
 {
-	mt76_clear(dev, MT_WPDMA_GLO_CFG(dev),
+	mt76_clear(dev, MT_WPDMA_GLO_CFG,
 		   MT_WPDMA_GLO_CFG_TX_DMA_EN |
 		   MT_WPDMA_GLO_CFG_RX_DMA_EN);
-	mt76_set(dev, MT_WPDMA_GLO_CFG(dev), MT_WPDMA_GLO_CFG_SW_RESET);
+	mt76_set(dev, MT_WPDMA_GLO_CFG, MT_WPDMA_GLO_CFG_SW_RESET);
 
 	tasklet_kill(&dev->mt76.tx_tasklet);
 	mt76_dma_cleanup(&dev->mt76);

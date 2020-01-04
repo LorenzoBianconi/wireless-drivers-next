@@ -466,7 +466,7 @@ void connac_txp_skb_unmap(struct mt76_dev *dev,
 
 u32 connac_mac_wtbl_addr(struct connac_dev *dev, int wcid)
 {
-	return MT_WTBL(dev, 0) + wcid * MT_WTBL_ENTRY_SIZE;
+	return MT_WTBL(0) + wcid * MT_WTBL_ENTRY_SIZE;
 }
 EXPORT_SYMBOL_GPL(connac_mac_wtbl_addr);
 
@@ -486,7 +486,7 @@ void connac_mac_set_rates(struct connac_dev *dev, struct connac_sta *sta,
 	bool rateset;
 	int i, k;
 
-	if (!mt76_poll(dev, MT_WTBL_UPDATE(dev), MT_WTBL_UPDATE_BUSY, 0, 5000))
+	if (!mt76_poll(dev, MT_WTBL_UPDATE, MT_WTBL_UPDATE_BUSY, 0, 5000))
 		return;
 
 	for (i = n_rates; i < 4; i++)
@@ -571,37 +571,36 @@ void connac_mac_set_rates(struct connac_dev *dev, struct connac_sta *sta,
 	w5 |= FIELD_PREP(MT_WTBL_W5_BW_CAP, bw) |
 	      FIELD_PREP(MT_WTBL_W5_CHANGE_BW_RATE, bw_idx ? bw_idx - 1 : 7);
 
-	mt76_wr(dev, MT_WTBL_RIUCR0(dev), w5);
+	mt76_wr(dev, MT_WTBL_RIUCR0, w5);
 
-	mt76_wr(dev, MT_WTBL_RIUCR1(dev),
+	mt76_wr(dev, MT_WTBL_RIUCR1,
 		FIELD_PREP(MT_WTBL_RIUCR1_RATE0, probe_val) |
 		FIELD_PREP(MT_WTBL_RIUCR1_RATE1, val[0]) |
 		FIELD_PREP(MT_WTBL_RIUCR1_RATE2_LO, val[1]));
 
-	mt76_wr(dev, MT_WTBL_RIUCR2(dev),
+	mt76_wr(dev, MT_WTBL_RIUCR2,
 		FIELD_PREP(MT_WTBL_RIUCR2_RATE2_HI, val[1] >> 8) |
 		FIELD_PREP(MT_WTBL_RIUCR2_RATE3, val[1]) |
 		FIELD_PREP(MT_WTBL_RIUCR2_RATE4, val[2]) |
 		FIELD_PREP(MT_WTBL_RIUCR2_RATE5_LO, val[2]));
 
-	mt76_wr(dev, MT_WTBL_RIUCR3(dev),
+	mt76_wr(dev, MT_WTBL_RIUCR3,
 		FIELD_PREP(MT_WTBL_RIUCR3_RATE5_HI, val[2] >> 4) |
 		FIELD_PREP(MT_WTBL_RIUCR3_RATE6, val[3]) |
 		FIELD_PREP(MT_WTBL_RIUCR3_RATE7, val[3]));
 
-	mt76_wr(dev, MT_WTBL_UPDATE(dev),
+	mt76_wr(dev, MT_WTBL_UPDATE,
 		FIELD_PREP(MT_WTBL_UPDATE_WLAN_IDX, wcid) |
 		MT_WTBL_UPDATE_RATE_UPDATE |
 		MT_WTBL_UPDATE_TX_COUNT_CLEAR);
 
 	mt76_wr(dev, addr + 27 * 4, w27);
 
-	mt76_set(dev, MT_LPON_T0CR(dev), MT_LPON_T0CR_MODE); /* TSF read */
-	sta->rate_set_tsf = (mt76_rr(dev, MT_LPON_UTTR0(dev)) & ~BIT(0)) | rateset;
+	mt76_set(dev, MT_LPON_T0CR, MT_LPON_T0CR_MODE); /* TSF read */
+	sta->rate_set_tsf = (mt76_rr(dev, MT_LPON_UTTR0) & ~BIT(0)) | rateset;
 
 	if (!(sta->wcid.tx_info & MT_WCID_TX_INFO_SET))
-		mt76_poll(dev, MT_WTBL_UPDATE(dev), MT_WTBL_UPDATE_BUSY, 0,
-			  5000);
+		mt76_poll(dev, MT_WTBL_UPDATE, MT_WTBL_UPDATE_BUSY, 0, 5000);
 
 	sta->rate_count = 2 * CONNAC_RATE_RETRY * n_rates;
 	sta->wcid.tx_info |= MT_WCID_TX_INFO_SET;
@@ -1016,8 +1015,8 @@ void connac_mac_tx_free(struct connac_dev *dev, struct sk_buff *skb)
 
 void connac_mac_cca_stats_reset(struct connac_dev *dev)
 {
-	mt76_clear(dev, MT_WF_PHY_R0_B0_PHYMUX_5(dev), GENMASK(22, 20));
-	mt76_set(dev, MT_WF_PHY_R0_B0_PHYMUX_5(dev), BIT(22) | BIT(20));
+	mt76_clear(dev, MT_WF_PHY_R0_B0_PHYMUX_5, GENMASK(22, 20));
+	mt76_set(dev, MT_WF_PHY_R0_B0_PHYMUX_5, BIT(22) | BIT(20));
 }
 
 void connac_update_channel(struct mt76_dev *mdev)
@@ -1031,13 +1030,12 @@ void connac_update_channel(struct mt76_dev *mdev)
 		return;
 
 	/* TODO: add DBDC support */
-	busy_time = mt76_get_field(dev, MT_MIB_SDR9(dev, 0),
-				   MT_MIB_SDR9_BUSY_MASK);
-	tx_time = mt76_get_field(dev, MT_MIB_SDR36(dev, 0),
+	busy_time = mt76_get_field(dev, MT_MIB_SDR9(0), MT_MIB_SDR9_BUSY_MASK);
+	tx_time = mt76_get_field(dev, MT_MIB_SDR36(0),
 				 MT_MIB_SDR36_TXTIME_MASK);
-	rx_time = mt76_get_field(dev, MT_MIB_SDR37(dev, 0),
+	rx_time = mt76_get_field(dev, MT_MIB_SDR37(0),
 				 MT_MIB_SDR37_RXTIME_MASK);
-	obss_time = mt76_get_field(dev, MT_WF_RMAC_MIB_TIME5(dev),
+	obss_time = mt76_get_field(dev, MT_WF_RMAC_MIB_TIME5,
 				   MT_MIB_OBSSTIME_MASK);
 
 	state = mdev->phy.chan_state;
@@ -1047,7 +1045,7 @@ void connac_update_channel(struct mt76_dev *mdev)
 	state->cc_bss_rx += rx_time;
 
 	/* reset obss airtime */
-	mt76_set(dev, MT_WF_RMAC_MIB_TIME0(dev), MT_WF_RMAC_MIB_RXTIME_CLR);
+	mt76_set(dev, MT_WF_RMAC_MIB_TIME0, MT_WF_RMAC_MIB_RXTIME_CLR);
 }
 EXPORT_SYMBOL_GPL(connac_update_channel);
 
