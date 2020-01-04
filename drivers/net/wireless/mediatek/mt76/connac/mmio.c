@@ -535,6 +535,82 @@ int connac_mmio_init_device(struct connac_dev *dev, int irq)
 }
 
 static int
+connac_mac_wtbl_update_pk(struct connac_dev *dev, struct mt76_wcid *wcid,
+			  enum connac_cipher_type cipher, int keyidx,
+			  enum set_key_cmd cmd)
+{
+	u32 addr = connac_mac_wtbl_addr(dev, wcid->idx), w0, w1;
+
+	if (!mt76_poll(dev, MT_WTBL_UPDATE(dev), MT_WTBL_UPDATE_BUSY, 0, 5000))
+		return -ETIMEDOUT;
+
+	w0 = mt76_rr(dev, addr);
+	w1 = mt76_rr(dev, addr + 4);
+	if (cmd == SET_KEY) {
+		w0 |= MT_WTBL_W0_RX_KEY_VALID |
+		      FIELD_PREP(MT_WTBL_W0_RX_IK_VALID,
+				 cipher == MT_CIPHER_BIP_CMAC_128);
+		if (cipher != MT_CIPHER_BIP_CMAC_128 ||
+		    !wcid->cipher)
+			w0 |= FIELD_PREP(MT_WTBL_W0_KEY_IDX, keyidx);
+	}  else {
+		if (!(wcid->cipher & ~BIT(cipher)))
+			w0 &= ~(MT_WTBL_W0_RX_KEY_VALID |
+				MT_WTBL_W0_KEY_IDX);
+		if (cipher == MT_CIPHER_BIP_CMAC_128)
+			w0 &= ~MT_WTBL_W0_RX_IK_VALID;
+	}
+	mt76_wr(dev, MT_WTBL_RICR0(dev), w0);
+	mt76_wr(dev, MT_WTBL_RICR1(dev), w1);
+
+	mt76_wr(dev, MT_WTBL_UPDATE(dev),
+		FIELD_PREP(MT_WTBL_UPDATE_WLAN_IDX, wcid->idx) |
+		MT_WTBL_UPDATE_RXINFO_UPDATE);
+
+	if (!mt76_poll(dev, MT_WTBL_UPDATE(dev), MT_WTBL_UPDATE_BUSY, 0, 5000))
+		return -ETIMEDOUT;
+
+	return 0;
+}
+
+static int
+connac_mac_wtbl_set_key(struct connac_dev *dev,
+			struct mt76_wcid *wcid,
+			struct ieee80211_key_conf *key,
+			enum set_key_cmd cmd)
+{
+	u32 addr = connac_mac_wtbl_addr(dev, wcid->idx);
+	enum connac_cipher_type cipher;
+	int err;
+
+	cipher = connac_mac_get_cipher(key->cipher);
+	if (cipher == MT_CIPHER_NONE)
+		return -EOPNOTSUPP;
+
+	mutex_lock(&dev->mt76.mutex);
+
+	connac_mac_wtbl_update_cipher(dev, wcid, addr, cipher, cmd);
+	err = connac_mac_wtbl_update_key(dev, wcid, addr, key, cipher, cmd);
+	if (err < 0)
+		goto out;
+
+	err = connac_mac_wtbl_update_pk(dev, wcid, cipher, key->keyidx,
+					cmd);
+	if (err < 0)
+		goto out;
+
+	if (cmd == SET_KEY)
+		wcid->cipher |= BIT(cipher);
+	else
+		wcid->cipher &= ~BIT(cipher);
+
+out:
+	mutex_unlock(&dev->mt76.mutex);
+
+	return err;
+}
+
+static int
 connac_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 	       struct ieee80211_vif *vif, struct ieee80211_sta *sta,
 	       struct ieee80211_key_conf *key)

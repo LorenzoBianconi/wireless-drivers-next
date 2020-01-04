@@ -301,15 +301,13 @@ int connac_mac_write_txwi(struct connac_dev *dev, __le32 *txwi,
 int connac_mac_fill_rx(struct connac_dev *dev, struct sk_buff *skb);
 void connac_mac_add_txs(struct connac_dev *dev, void *data);
 void connac_mac_tx_free(struct connac_dev *dev, struct sk_buff *skb);
-int connac_mac_wtbl_set_key(struct connac_dev *dev, struct mt76_wcid *wcid,
-			    struct ieee80211_key_conf *key,
-			    enum set_key_cmd cmd);
 int connac_mac_wtbl_update_key(struct connac_dev *dev, struct mt76_wcid *wcid,
 			       u32 base_addr, struct ieee80211_key_conf *key,
 			       int cipher, enum set_key_cmd cmd);
 void connac_mac_wtbl_update_cipher(struct connac_dev *dev,
 				   struct mt76_wcid *wcid, u32 addr,
 				   int cipher, enum set_key_cmd cmd);
+u32 connac_mac_wtbl_addr(struct connac_dev *dev, int wcid);
 
 int connac_load_ram(struct connac_dev *dev);
 int connac_load_patch(struct connac_dev *dev);
