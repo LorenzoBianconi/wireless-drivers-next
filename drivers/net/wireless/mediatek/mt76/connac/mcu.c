@@ -715,6 +715,7 @@ int connac_mcu_init(struct connac_dev *dev)
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(connac_mcu_init);
 
 void connac_mcu_exit(struct connac_dev *dev)
 {
@@ -777,6 +778,7 @@ int connac_mcu_dbdc_ctrl(struct connac_dev *dev)
 	return __mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD_DBDC_CTRL,
 				   &req, sizeof(req), true);
 }
+EXPORT_SYMBOL_GPL(connac_mcu_dbdc_ctrl);
 
 int connac_mcu_init_mac(struct connac_dev *dev, u8 band)
 {
@@ -792,6 +794,7 @@ int connac_mcu_init_mac(struct connac_dev *dev, u8 band)
 	return __mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD_MAC_INIT_CTRL,
 				   &req, sizeof(req), true);
 }
+EXPORT_SYMBOL_GPL(connac_mcu_init_mac);
 
 int connac_mcu_set_rts_thresh(struct connac_dev *dev, u32 val)
 {
