@@ -70,7 +70,6 @@ static int mt76_wmac_probe(struct platform_device *pdev)
 
 	dev = container_of(mdev, struct connac_dev, mt76);
 	mt76_mmio_init(mdev, mem_base);
-	dev->regs = connac_mmio_regs_base;
 
 	/* CHIP ID*/
 	reg_virt = (unsigned long)ioremap(0x8000000, 4);

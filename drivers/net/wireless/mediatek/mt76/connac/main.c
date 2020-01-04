@@ -137,7 +137,7 @@ static int connac_set_channel(struct connac_dev *dev)
 	connac_mac_cca_stats_reset(dev);
 	dev->mphy.survey_time = ktime_get_boottime();
 	/* TODO: add DBDC support */
-	mt76_rr(dev, MT_MIB_SDR16(dev, 0));
+	mt76_rr(dev, MT_MIB_SDR16(0));
 
 out:
 	clear_bit(MT76_RESET, &dev->mphy.state);
@@ -219,7 +219,7 @@ int connac_config(struct ieee80211_hw *hw, u32 changed)
 		else
 			dev->mt76.rxfilter &= ~MT_WF_RFCR_DROP_OTHER_UC;
 
-		mt76_wr(dev, MT_WF_RFCR(dev), dev->mt76.rxfilter);
+		mt76_wr(dev, MT_WF_RFCR, dev->mt76.rxfilter);
 	}
 
 	mutex_unlock(&dev->mt76.mutex);
@@ -286,7 +286,7 @@ void connac_configure_filter(struct ieee80211_hw *hw,
 			     MT_WF_RFCR_DROP_NDPA);
 
 	*total_flags = flags;
-	mt76_wr(dev, MT_WF_RFCR(dev), dev->mt76.rxfilter);
+	mt76_wr(dev, MT_WF_RFCR, dev->mt76.rxfilter);
 }
 EXPORT_SYMBOL_GPL(connac_configure_filter);
 

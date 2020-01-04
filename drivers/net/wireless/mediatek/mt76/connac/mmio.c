@@ -156,12 +156,12 @@ static void connac_phy_init(struct connac_dev *dev)
 
 static void connac_irq_enable(struct connac_dev *dev, u32 mask)
 {
-	mt76_set_irq_mask(&dev->mt76, MT_INT_MASK_CSR(dev), 0, mask);
+	mt76_set_irq_mask(&dev->mt76, MT_INT_MASK_CSR, 0, mask);
 }
 
 static void connac_irq_disable(struct connac_dev *dev, u32 mask)
 {
-	mt76_set_irq_mask(&dev->mt76, MT_INT_MASK_CSR(dev), mask, 0);
+	mt76_set_irq_mask(&dev->mt76, MT_INT_MASK_CSR, mask, 0);
 }
 
 static int connac_poll_tx(struct napi_struct *napi, int budget)
@@ -196,7 +196,7 @@ connac_init_tx_queue(struct connac_dev *dev, struct mt76_sw_queue *q,
 	if (!hwq)
 		return -ENOMEM;
 
-	err = mt76_queue_alloc(dev, hwq, idx, n_desc, 0, MT_TX_RING_BASE(dev));
+	err = mt76_queue_alloc(dev, hwq, idx, n_desc, 0, MT_TX_RING_BASE);
 	if (err < 0)
 		return err;
 
@@ -222,24 +222,24 @@ connac_mmio_dma_init(struct connac_dev *dev)
 
 	mt76_dma_attach(&dev->mt76);
 
-	mt76_wr(dev, MT_WPDMA_GLO_CFG(dev),
+	mt76_wr(dev, MT_WPDMA_GLO_CFG,
 		MT_WPDMA_GLO_CFG_TX_WRITEBACK_DONE |
 		MT_WPDMA_GLO_CFG_FIFO_LITTLE_ENDIAN |
 		MT_WPDMA_GLO_CFG_OMIT_TX_INFO);
 
-	mt76_rmw_field(dev, MT_WPDMA_GLO_CFG(dev),
+	mt76_rmw_field(dev, MT_WPDMA_GLO_CFG,
 		       MT_WPDMA_GLO_CFG_FW_RING_BP_TX_SCH, 0x1);
 
-	mt76_rmw_field(dev, MT_WPDMA_GLO_CFG(dev),
+	mt76_rmw_field(dev, MT_WPDMA_GLO_CFG,
 		       MT_WPDMA_GLO_CFG_TX_BT_SIZE_BIT21, 0x1);
 
-	mt76_rmw_field(dev, MT_WPDMA_GLO_CFG(dev),
+	mt76_rmw_field(dev, MT_WPDMA_GLO_CFG,
 		       MT_WPDMA_GLO_CFG_DMA_BURST_SIZE, 0x3);
 
-	mt76_rmw_field(dev, MT_WPDMA_GLO_CFG(dev),
+	mt76_rmw_field(dev, MT_WPDMA_GLO_CFG,
 		       MT_WPDMA_GLO_CFG_MULTI_DMA_EN, 0x3);
 
-	mt76_wr(dev, MT_WPDMA_RST_IDX(dev), ~0);
+	mt76_wr(dev, MT_WPDMA_RST_IDX, ~0);
 
 	for (i = 0; i < ARRAY_SIZE(wmm_queue_map); i++) {
 		ret = connac_init_tx_queue(dev, &dev->mt76.q_tx[i],
@@ -271,17 +271,17 @@ connac_mmio_dma_init(struct connac_dev *dev)
 	/* init rx queues */
 	ret = mt76_queue_alloc(dev, &dev->mt76.q_rx[MT_RXQ_MCU], 1,
 			       CONNAC_RX_MCU_RING_SIZE, MT_RX_BUF_SIZE,
-			       MT_RX_RING_BASE(dev));
+			       MT_RX_RING_BASE);
 	if (ret)
 		return ret;
 
 	ret = mt76_queue_alloc(dev, &dev->mt76.q_rx[MT_RXQ_MAIN], 0,
 			       CONNAC_RX_RING_SIZE, MT_RX_BUF_SIZE,
-			       MT_RX_RING_BASE(dev));
+			       MT_RX_RING_BASE);
 	if (ret)
 		return ret;
 
-	mt76_wr(dev, MT_DELAY_INT_CFG(dev), 0);
+	mt76_wr(dev, MT_DELAY_INT_CFG, 0);
 
 	ret = mt76_init_queues(dev);
 	if (ret < 0)
@@ -291,12 +291,12 @@ connac_mmio_dma_init(struct connac_dev *dev)
 			  connac_poll_tx, NAPI_POLL_WEIGHT);
 	napi_enable(&dev->mt76.tx_napi);
 
-	mt76_poll(dev, MT_WPDMA_GLO_CFG(dev),
+	mt76_poll(dev, MT_WPDMA_GLO_CFG,
 		  MT_WPDMA_GLO_CFG_TX_DMA_BUSY |
 		  MT_WPDMA_GLO_CFG_RX_DMA_BUSY, 0, 1000);
 
 	/* start dma engine */
-	mt76_set(dev, MT_WPDMA_GLO_CFG(dev),
+	mt76_set(dev, MT_WPDMA_GLO_CFG,
 		 MT_WPDMA_GLO_CFG_TX_DMA_EN |
 		 MT_WPDMA_GLO_CFG_RX_DMA_EN);
 
@@ -311,8 +311,8 @@ static irqreturn_t connac_irq_handler(int irq, void *dev_instance)
 	struct connac_dev *dev = dev_instance;
 	u32 intr;
 
-	intr = mt76_rr(dev, MT_INT_SOURCE_CSR(dev));
-	mt76_wr(dev, MT_INT_SOURCE_CSR(dev), intr);
+	intr = mt76_rr(dev, MT_INT_SOURCE_CSR);
+	mt76_wr(dev, MT_INT_SOURCE_CSR, intr);
 
 	if (!test_bit(MT76_STATE_INITIALIZED, &dev->mphy.state))
 		return IRQ_NONE;
@@ -342,39 +342,39 @@ connac_mmio_dma_sched_init(struct connac_dev *dev)
 {
 	u32 val;
 
-	val = mt76_rr(dev, MT_HIF_DMASHDL_PKT_MAX_SIZE(dev));
+	val = mt76_rr(dev, MT_HIF_DMA_SHDL_PKT_MAX_SIZE);
 	val &= ~(PLE_PKT_MAX_SIZE_MASK | PSE_PKT_MAX_SIZE_MASK);
 	val |= PLE_PKT_MAX_SIZE_NUM(0x1);
 	val |= PSE_PKT_MAX_SIZE_NUM(0x8);
-	mt76_wr(dev, MT_HIF_DMASHDL_PKT_MAX_SIZE(dev), val);
+	mt76_wr(dev, MT_HIF_DMA_SHDL_PKT_MAX_SIZE, val);
 
 	/* Enable refill Control Group 0, 1, 2, 4, 5 */
-	mt76_wr(dev, MT_HIF_DMASHDL_REFILL_CTRL(dev), 0xffc80000);
+	mt76_wr(dev, MT_HIF_DMA_SHDL_REFILL_CTRL, 0xffc80000);
 	/* Group 0, 1, 2, 4, 5, 15 joint the ask round robin */
-	mt76_wr(dev, MT_HIF_DMASHDL_OPTION_CTRL(dev), 0x70068037);
+	mt76_wr(dev, MT_HIF_DMA_SHDL_OPTION_CTRL, 0x70068037);
 	/*Each group min quota must larger then PLE_PKT_MAX_SIZE_NUM*/
-	val = DMASHDL_MIN_QUOTA_NUM(0x40);
-	val |= DMASHDL_MAX_QUOTA_NUM(0x800);
+	val = MT_DMA_SHDL_MIN_QUOTA_NUM(0x40);
+	val |= MT_DMA_SHDL_MAX_QUOTA_NUM(0x800);
 
-	mt76_wr(dev, MT_HIF_DMASHDL_GROUP0_CTRL(dev), val);
-	mt76_wr(dev, MT_HIF_DMASHDL_GROUP1_CTRL(dev), val);
-	mt76_wr(dev, MT_HIF_DMASHDL_GROUP2_CTRL(dev), val);
-	mt76_wr(dev, MT_HIF_DMASHDL_GROUP4_CTRL(dev), val);
-	val = DMASHDL_MIN_QUOTA_NUM(0x40);
-	val |= DMASHDL_MAX_QUOTA_NUM(0x40);
-	mt76_wr(dev, MT_HIF_DMASHDL_GROUP5_CTRL(dev), val);
+	mt76_wr(dev, MT_HIF_DMA_SHDL_GROUP0_CTRL, val);
+	mt76_wr(dev, MT_HIF_DMA_SHDL_GROUP1_CTRL, val);
+	mt76_wr(dev, MT_HIF_DMA_SHDL_GROUP2_CTRL, val);
+	mt76_wr(dev, MT_HIF_DMA_SHDL_GROUP4_CTRL, val);
+	val = MT_DMA_SHDL_MIN_QUOTA_NUM(0x40);
+	val |= MT_DMA_SHDL_MAX_QUOTA_NUM(0x40);
+	mt76_wr(dev, MT_HIF_DMA_SHDL_GROUP5_CTRL, val);
 
-	val = DMASHDL_MIN_QUOTA_NUM(0x20);
-	val |= DMASHDL_MAX_QUOTA_NUM(0x20);
-	mt76_wr(dev, MT_HIF_DMASHDL_GROUP15_CTRL(dev), val);
+	val = MT_DMA_SHDL_MIN_QUOTA_NUM(0x20);
+	val |= MT_DMA_SHDL_MAX_QUOTA_NUM(0x20);
+	mt76_wr(dev, MT_HIF_DMA_SHDL_GROUP15_CTRL, val);
 
-	mt76_wr(dev, MT_HIF_DMASHDL_Q_MAP0(dev), 0x42104210);
-	mt76_wr(dev, MT_HIF_DMASHDL_Q_MAP1(dev), 0x42104210);
+	mt76_wr(dev, MT_HIF_DMA_SHDL_Q_MAP0, 0x42104210);
+	mt76_wr(dev, MT_HIF_DMA_SHDL_Q_MAP1, 0x42104210);
 	/* ALTX0 and ALTX1 QID mapping to group 5 */
-	mt76_wr(dev, MT_HIF_DMASHDL_Q_MAP2(dev), 0x00050005);
-	mt76_wr(dev, MT_HIF_DMASHDL_Q_MAP3(dev), 0x0);
-	mt76_wr(dev, MT_HIF_DMASHDL_SHDL_SET0(dev), 0x6012345f);
-	mt76_wr(dev, MT_HIF_DMASHDL_SHDL_SET1(dev), 0xedcba987);
+	mt76_wr(dev, MT_HIF_DMA_SHDL_Q_MAP2, 0x00050005);
+	mt76_wr(dev, MT_HIF_DMA_SHDL_Q_MAP3, 0x0);
+	mt76_wr(dev, MT_HIF_DMA_SHDL_SHDL_SET0, 0x6012345f);
+	mt76_wr(dev, MT_HIF_DMA_SHDL_SHDL_SET1, 0xedcba987);
 
 	return 0;
 }
@@ -385,31 +385,31 @@ static void connac_mac_init(struct connac_dev *dev)
 	u32 val;
 
 	/* enable band 0 clk */
-	mt76_rmw(dev, MT_CFG_CCR(dev),
+	mt76_rmw(dev, MT_CFG_CCR,
 		 MT_CFG_CCR_MAC_D0_1X_GC_EN | MT_CFG_CCR_MAC_D0_2X_GC_EN,
 		 MT_CFG_CCR_MAC_D0_1X_GC_EN | MT_CFG_CCR_MAC_D0_2X_GC_EN);
 
 	/* Hdr translation off*/
-	mt76_wr(dev, MT_DMA_DCR0(dev), 0x471000);
+	mt76_wr(dev, MT_DMA_DCR0, 0x471000);
 
 	/* CCA Setting */
-	val = mt76_rmw(dev, MT_TMAC_TRCR0(dev),
+	val = mt76_rmw(dev, MT_TMAC_TRCR0,
 		       MT_TMAC_TRCR_CCA_SEL | MT_TMAC_TRCR_SEC_CCA_SEL,
 		       FIELD_PREP(MT_TMAC_TRCR_CCA_SEL, 0x2) |
 		       FIELD_PREP(MT_TMAC_TRCR_SEC_CCA_SEL, 0x0));
 
-	mt76_rmw_field(dev, MT_TMAC_CTCR0(dev),
+	mt76_rmw_field(dev, MT_TMAC_CTCR0,
 		       MT_TMAC_CTCR0_INS_DDLMT_REFTIME, 0x3f);
-	mt76_rmw_field(dev, MT_TMAC_CTCR0(dev),
+	mt76_rmw_field(dev, MT_TMAC_CTCR0,
 		       MT_TMAC_CTCR0_INS_DDLMT_DENSITY, 0x3);
-	mt76_rmw(dev, MT_TMAC_CTCR0(dev),
+	mt76_rmw(dev, MT_TMAC_CTCR0,
 		 MT_TMAC_CTCR0_INS_DDLMT_VHT_SMPDU_EN |
 		 MT_TMAC_CTCR0_INS_DDLMT_EN,
 		 MT_TMAC_CTCR0_INS_DDLMT_VHT_SMPDU_EN |
 		 MT_TMAC_CTCR0_INS_DDLMT_EN);
 	connac_mcu_set_rts_thresh(dev, 0x92b);
 
-	mt76_rmw(dev, MT_AGG_SCR(dev), MT_AGG_SCR_NLNAV_MID_PTEC_DIS,
+	mt76_rmw(dev, MT_AGG_SCR, MT_AGG_SCR_NLNAV_MID_PTEC_DIS,
 		 MT_AGG_SCR_NLNAV_MID_PTEC_DIS);
 
 	connac_mcu_init_mac(dev, 0);
@@ -423,11 +423,11 @@ static void connac_mac_init(struct connac_dev *dev)
 	mt76_wr(dev, RF_LOW_BEACON_BAND1, 0x200);
 	mt76_wr(dev, 0x7010, 0x8208);
 	mt76_wr(dev, 0x44064, 0x2000000);
-	mt76_wr(dev, MT_WF_AGG(dev, 0x160), 0x5c341c02);
-	mt76_wr(dev, MT_WF_AGG(dev, 0x164), 0x70708040);
+	mt76_wr(dev, MT_WF_AGG(0x160), 0x5c341c02);
+	mt76_wr(dev, MT_WF_AGG(0x164), 0x70708040);
 
 	 /* Disable AMSDU de-aggregation */
-	mt76_wr(dev, MT_WF_DMA(dev, 0x0), 0x0046f000);
+	mt76_wr(dev, MT_WF_DMA(0x0), 0x0046f000);
 }
 
 static int connac_mmio_init_hardware(struct connac_dev *dev)
@@ -444,7 +444,7 @@ static int connac_mmio_init_hardware(struct connac_dev *dev)
 		break;
 	}
 
-	mt76_wr(dev, MT_INT_SOURCE_CSR(dev), ~0);
+	mt76_wr(dev, MT_INT_SOURCE_CSR, ~0);
 
 	spin_lock_init(&dev->token_lock);
 	idr_init(&dev->token);
@@ -541,7 +541,7 @@ connac_mac_wtbl_update_pk(struct connac_dev *dev, struct mt76_wcid *wcid,
 {
 	u32 addr = connac_mac_wtbl_addr(dev, wcid->idx), w0, w1;
 
-	if (!mt76_poll(dev, MT_WTBL_UPDATE(dev), MT_WTBL_UPDATE_BUSY, 0, 5000))
+	if (!mt76_poll(dev, MT_WTBL_UPDATE, MT_WTBL_UPDATE_BUSY, 0, 5000))
 		return -ETIMEDOUT;
 
 	w0 = mt76_rr(dev, addr);
@@ -560,14 +560,14 @@ connac_mac_wtbl_update_pk(struct connac_dev *dev, struct mt76_wcid *wcid,
 		if (cipher == MT_CIPHER_BIP_CMAC_128)
 			w0 &= ~MT_WTBL_W0_RX_IK_VALID;
 	}
-	mt76_wr(dev, MT_WTBL_RICR0(dev), w0);
-	mt76_wr(dev, MT_WTBL_RICR1(dev), w1);
+	mt76_wr(dev, MT_WTBL_RICR0, w0);
+	mt76_wr(dev, MT_WTBL_RICR1, w1);
 
-	mt76_wr(dev, MT_WTBL_UPDATE(dev),
+	mt76_wr(dev, MT_WTBL_UPDATE,
 		FIELD_PREP(MT_WTBL_UPDATE_WLAN_IDX, wcid->idx) |
 		MT_WTBL_UPDATE_RXINFO_UPDATE);
 
-	if (!mt76_poll(dev, MT_WTBL_UPDATE(dev), MT_WTBL_UPDATE_BUSY, 0, 5000))
+	if (!mt76_poll(dev, MT_WTBL_UPDATE, MT_WTBL_UPDATE_BUSY, 0, 5000))
 		return -ETIMEDOUT;
 
 	return 0;

@@ -419,8 +419,8 @@ static int connac_mcu_start_patch(struct connac_dev *dev)
 
 static int connac_driver_own(struct connac_dev *dev)
 {
-	mt76_wr(dev, MT_CONN_HIF_ON_LPCTL(dev), MT_CFG_LPCR_HOST_DRV_OWN);
-	if (!mt76_poll_msec(dev, MT_CONN_HIF_ON_LPCTL(dev),
+	mt76_wr(dev, MT_CONN_HIF_ON_LPCTL, MT_CFG_LPCR_HOST_DRV_OWN);
+	if (!mt76_poll_msec(dev, MT_CONN_HIF_ON_LPCTL,
 			    MT_CFG_LPCR_HOST_FW_OWN, 0, 500)) {
 		dev_err(dev->mt76.dev, "Timeout for driver own\n");
 		return -EIO;
@@ -628,13 +628,13 @@ static void fwdl_datapath_setup(struct connac_dev *dev, bool init)
 {
 	u32 val;
 
-	val = mt76_rr(dev, MT_WPDMA_GLO_CFG(dev));
+	val = mt76_rr(dev, MT_WPDMA_GLO_CFG);
 	if (init)
 		val |= MT_WPDMA_GLO_CFG_FW_RING_BP_TX_SCH;
 	else
 		val &= ~MT_WPDMA_GLO_CFG_FW_RING_BP_TX_SCH;
 
-	mt76_wr(dev, MT_WPDMA_GLO_CFG(dev), val);
+	mt76_wr(dev, MT_WPDMA_GLO_CFG, val);
 }
 
 int connac_load_firmware(struct connac_dev *dev)
@@ -659,7 +659,7 @@ int connac_load_firmware(struct connac_dev *dev)
 	if (mt76_is_mmio(&dev->mt76))
 		fwdl_datapath_setup(dev, true);
 
-	val = mt76_get_field(dev, MT_CONN_ON_MISC(dev), MT_TOP_MISC2_FW_N9_RDY);
+	val = mt76_get_field(dev, MT_CONN_ON_MISC, MT_TOP_MISC2_FW_N9_RDY);
 	if (val) {
 		dev_dbg(dev->mt76.dev, "Firmware is already download\n");
 		return -EIO;
@@ -673,9 +673,9 @@ int connac_load_firmware(struct connac_dev *dev)
 	if (ret)
 		return ret;
 
-	if (!mt76_poll_msec(dev, MT_CONN_ON_MISC(dev), MT_TOP_MISC2_FW_N9_RDY,
+	if (!mt76_poll_msec(dev, MT_CONN_ON_MISC, MT_TOP_MISC2_FW_N9_RDY,
 			    (FW_STATE_N9_RDY << 1), 1500)) {
-		val = mt76_get_field(dev, MT_CONN_ON_MISC(dev),
+		val = mt76_get_field(dev, MT_CONN_ON_MISC,
 				     MT_TOP_MISC2_FW_STATE);
 		dev_err(dev->mt76.dev, "Timeout for initializing firmware\n");
 		return -EIO;
@@ -721,8 +721,7 @@ void connac_mcu_exit(struct connac_dev *dev)
 {
 	__mt76_mcu_restart(&dev->mt76);
 	if (mt76_is_mmio(&dev->mt76))
-		mt76_wr(dev, MT_CONN_HIF_ON_LPCTL(dev),
-			MT_CFG_LPCR_HOST_FW_OWN);
+		mt76_wr(dev, MT_CONN_HIF_ON_LPCTL, MT_CFG_LPCR_HOST_FW_OWN);
 	skb_queue_purge(&dev->mt76.mcu.res_q);
 }
 
