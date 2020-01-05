@@ -434,13 +434,11 @@ static int connac_mmio_init_hardware(struct connac_dev *dev)
 {
 	u32 base = connac_reg_map(dev, MT_EFUSE_BASE);
 	bool init_dbdc = true;
-	bool init_mac = false;
 	int ret, idx;
 
 	switch (dev->mt76.rev) {
 	case 0x76630010:
 		init_dbdc = false;
-		init_mac = true;
 		break;
 	}
 
@@ -488,21 +486,6 @@ static int connac_mmio_init_hardware(struct connac_dev *dev)
 	dev->mt76.global_wcid.idx = idx;
 	dev->mt76.global_wcid.hw_key_idx = -1;
 	rcu_assign_pointer(dev->mt76.wcid[idx], &dev->mt76.global_wcid);
-
-	if (init_mac) {
-		//just for test
-		//      eth_random_addr(dev->mt76.macaddr);
-		dev->mt76.macaddr[0] = 0x1a;
-		dev->mt76.macaddr[1] = 0xed;
-		dev->mt76.macaddr[2] = 0x8f;
-		dev->mt76.macaddr[3] = 0x7a;
-		dev->mt76.macaddr[4] = 0x97;
-		dev->mt76.macaddr[5] = 0x4e;
-
-		dev_info(dev->mt76.dev,
-			 "Force to use mac address %pM to test\n",
-			 dev->mt76.macaddr);
-	}
 
 	return 0;
 }
