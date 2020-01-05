@@ -318,7 +318,6 @@ int connac_mcu_ctrl_pm_state(struct connac_dev *dev, int enter);
 int connac_mcu_set_tx_power(struct connac_dev *dev);
 void connac_mcu_exit(struct connac_dev *dev);
 int connac_mcu_restart(struct mt76_dev *dev);
-int connac_load_firmware(struct connac_dev *dev);
 void connac_mcu_fill_msg(struct connac_dev *dev, struct sk_buff *skb,
 			 int cmd, int *wait_seq);
 int connac_mcu_wait_response(struct connac_dev *dev, int cmd, int seq);
@@ -364,6 +363,10 @@ void connac_usb_mac_set_rates(struct connac_dev *dev, struct connac_sta *sta,
 			      struct ieee80211_tx_rate *probe_rate,
 			      struct ieee80211_tx_rate *rates);
 
+int connac_poll_tx(struct napi_struct *napi, int budget);
+void connac_irq_enable(struct connac_dev *dev, u32 mask);
+void connac_irq_disable(struct connac_dev *dev, u32 mask);
+irqreturn_t connac_irq_handler(int irq, void *dev_instance);
 int connac_mmio_init_device(struct connac_dev *dev, int irq);
 void connac_mmio_rx_poll_complete(struct mt76_dev *mdev,
 				  enum mt76_rxq_id q);
