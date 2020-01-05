@@ -563,11 +563,4 @@ enum {
 	CH_SWITCH_SCAN_BYPASS_DPD = 9
 };
 
-static inline struct sk_buff *
-connac_mcu_msg_alloc(const void *data, int len)
-{
-	return mt76_mcu_msg_alloc(data, sizeof(struct connac_mcu_txd),
-				  len, 0);
-}
-
 #endif
