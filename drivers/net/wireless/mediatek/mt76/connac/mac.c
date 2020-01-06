@@ -441,26 +441,31 @@ EXPORT_SYMBOL_GPL(connac_mac_write_txwi);
 void connac_txp_skb_unmap(struct mt76_dev *dev,
 			  struct mt76_txwi_cache *t)
 {
+	u8 *txwi = mt76_get_txwi_ptr(dev, t);
 	struct connac_txp *txp;
-	u8 *txwi;
-	int i, nbuf = 0;
+	int i;
 
-	txwi = mt76_get_txwi_ptr(dev, t);
 	txp = (struct connac_txp *)(txwi + MT_TXD_SIZE);
+	for (i = 0; i < ARRAY_SIZE(txp->ptr); i++) {
+		struct connac_txp_ptr *ptr = &txp->ptr[i];
+		bool last;
+		u16 len;
 
-	// calculate nbuf by MSDU VLD bit
-	for (i = 0; i < MT_TXP_MAX_BUF_NUM; i++) {
-		if (txp->buf[i] & cpu_to_le16(TXD_MSDU_ID_VLD))
-			nbuf++;
-	}
+		len = le16_to_cpu(ptr->len0);
+		last = len & TXD_LEN_ML;
+		len &= ~TXD_LEN_ML;
+		dma_unmap_single(dev->dev, le32_to_cpu(ptr->buf0), len,
+				 DMA_TO_DEVICE);
+		if (last)
+			break;
 
-	/* HW-AMSDU didn't support >= 2 */
-	WARN_ON(nbuf >= 2);
-
-	for (i = 0; i < nbuf; i++) {
-		dma_unmap_single(dev->dev, le32_to_cpu(txp->buf[i]),
-				 le16_to_cpu((i & 1) ? txp->ptr_len[i].u2len1 :
-				 txp->ptr_len[i].u2len0), DMA_TO_DEVICE);
+		len = le16_to_cpu(ptr->len1);
+		last = len & TXD_LEN_ML;
+		len &= ~TXD_LEN_ML;
+		dma_unmap_single(dev->dev, le32_to_cpu(ptr->buf1), len,
+				 DMA_TO_DEVICE);
+		if (last)
+			break;
 	}
 }
 
@@ -988,15 +993,14 @@ void connac_mac_tx_free(struct connac_dev *dev, struct sk_buff *skb)
 	struct connac_tx_free *free = (struct connac_tx_free *)skb->data;
 	struct mt76_dev *mdev = &dev->mt76;
 	struct mt76_txwi_cache *txwi;
-	int token_id;
 	u8 i, count;
 
 	count = FIELD_GET(MT_TX_FREE_MSDU_ID_CNT, le16_to_cpu(free->ctrl));
-
 	for (i = 0; i < count; i++) {
+		int token = le32_to_cpu(free->token[i] & MT_TX_TOKEN_MASK);
+
 		spin_lock_bh(&dev->token_lock);
-		token_id = (free->token[i] & 0xffff);
-		txwi = idr_remove(&dev->token, token_id);
+		txwi = idr_remove(&dev->token, token);
 		spin_unlock_bh(&dev->token_lock);
 
 		if (!txwi)
