@@ -88,27 +88,19 @@ void connac_usb_mac_write_txwi(struct connac_dev *dev, struct mt76_wcid *wcid,
 			       enum mt76_txq_id qid, struct ieee80211_sta *sta,
 			       struct sk_buff *skb)
 {
-	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)skb->data;
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
-	u8 type, stype;
 	__le32 *txwi;
 	int pid;
 
-	type = (le16_to_cpu(hdr->frame_control) & IEEE80211_FCTL_FTYPE) >> 2;
-	stype = (le16_to_cpu(hdr->frame_control) & IEEE80211_FCTL_STYPE) >> 4;
-
 	if (!wcid)
 		wcid = &dev->mt76.global_wcid;
+
 	pid = mt76_tx_status_skb_add(&dev->mt76, wcid, skb);
 
 	txwi = (__le32 *)(skb->data - CONNAC_USB_TXD_SIZE);
 	memset(txwi, 0, CONNAC_USB_TXD_SIZE);
 	connac_mac_write_txwi(dev, txwi, skb, qid, wcid, sta,
 			      pid, info->control.hw_key);
-	/* enable hw aggregation */
-	txwi[8] = FIELD_PREP(MT_TXD8_L_TYPE, type) |
-		  FIELD_PREP(MT_TXD8_L_SUB_TYPE, stype);
-
 	skb_push(skb, CONNAC_USB_TXD_SIZE);
 }
 
