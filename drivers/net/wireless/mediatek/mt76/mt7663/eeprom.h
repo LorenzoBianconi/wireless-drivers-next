@@ -4,7 +4,7 @@
 #ifndef __CONNAC_EEPROM_H
 #define __CONNAC_EEPROM_H
 
-#include "connac.h"
+#include "mt7663.h"
 
 enum connac_eeprom_field {
 	MT_EE_CHIP_ID =				0x000,

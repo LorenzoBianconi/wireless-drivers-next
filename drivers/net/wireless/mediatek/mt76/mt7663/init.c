@@ -9,7 +9,7 @@
  */
 
 #include <linux/etherdevice.h>
-#include "connac.h"
+#include "mt7663.h"
 #include "regs.h"
 #include "mac.h"
 

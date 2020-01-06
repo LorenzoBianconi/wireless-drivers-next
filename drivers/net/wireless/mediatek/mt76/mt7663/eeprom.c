@@ -8,7 +8,7 @@
  *	   Sean Wang <sean.wang@mediatek.com>
  */
 
-#include "connac.h"
+#include "mt7663.h"
 #include "eeprom.h"
 #include "regs.h"
 

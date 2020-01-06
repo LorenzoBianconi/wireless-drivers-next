@@ -5,7 +5,7 @@
  *	   Sean Wang <sean.wang@mediatek.com>
  */
 
-#include "connac.h"
+#include "mt7663.h"
 
 int connac_init_debugfs(struct connac_dev *dev)
 {

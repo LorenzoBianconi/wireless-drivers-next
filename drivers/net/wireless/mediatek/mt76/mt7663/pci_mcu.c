@@ -10,7 +10,7 @@
 #include <linux/of.h>
 #include <linux/firmware.h>
 
-#include "connac.h"
+#include "mt7663.h"
 #include "mcu.h"
 #include "mac.h"
 #include "eeprom.h"

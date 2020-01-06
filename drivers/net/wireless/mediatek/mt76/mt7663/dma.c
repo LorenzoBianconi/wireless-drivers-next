@@ -9,7 +9,7 @@
  *	   Sean Wang <sean.wang@mediatek.com>
  */
 
-#include "connac.h"
+#include "mt7663.h"
 #include "../dma.h"
 #include "regs.h"
 #include "mac.h"

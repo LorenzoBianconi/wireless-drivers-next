@@ -12,7 +12,7 @@
 #include <linux/platform_device.h>
 #include <linux/pci.h>
 #include <linux/module.h>
-#include "connac.h"
+#include "mt7663.h"
 #include "regs.h"
 
 static int get_omac_idx(enum nl80211_iftype type, u32 mask)

@@ -9,7 +9,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 
-#include "connac.h"
+#include "mt7663.h"
 #include "usb_sdio_regs.h"
 
 static int connac_usb_start(struct ieee80211_hw *hw)
