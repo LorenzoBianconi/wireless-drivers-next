@@ -21,8 +21,9 @@ static inline s8 to_rssi(u32 field, u32 rxv)
 	return (FIELD_GET(field, rxv) - 220) / 2;
 }
 
-static struct mt76_wcid *connac_rx_get_wcid(struct connac_dev *dev,
-					    u8 idx, bool unicast)
+static struct mt76_wcid *
+connac_rx_get_wcid(struct connac_dev *dev,
+		   u8 idx, bool unicast)
 {
 	struct connac_sta *sta;
 	struct mt76_wcid *wcid;
