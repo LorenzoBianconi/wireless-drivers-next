@@ -206,5 +206,17 @@ int connac_usb_register_device(struct connac_dev *dev)
 	/* check hw sg support in order to enable AMSDU */
 	hw->max_tx_fragments = dev->mt76.usb.sg_en ? MT_TXP_MAX_BUF_NUM : 1;
 
-	return connac_register_device(dev);
+	err = connac_register_device(dev);
+	if (err < 0)
+		return err;
+
+	if (!dev->mt76.usb.sg_en) {
+		struct ieee80211_sta_vht_cap *vht_cap;
+
+		/* decrease max A-MSDU size if SG is not supported */
+		vht_cap = &dev->mphy.sband_5g.sband.vht_cap;
+		vht_cap->cap &= ~IEEE80211_VHT_CAP_MAX_MPDU_LENGTH_11454;
+	}
+
+	return 0;
 }
