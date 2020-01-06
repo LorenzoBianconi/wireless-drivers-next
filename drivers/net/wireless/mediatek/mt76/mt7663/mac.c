@@ -22,10 +22,10 @@ static inline s8 to_rssi(u32 field, u32 rxv)
 }
 
 static struct mt76_wcid *
-connac_rx_get_wcid(struct connac_dev *dev,
+mt7663_rx_get_wcid(struct mt7663_dev *dev,
 		   u8 idx, bool unicast)
 {
-	struct connac_sta *sta;
+	struct mt7663_sta *sta;
 	struct mt76_wcid *wcid;
 
 	if (idx >= ARRAY_SIZE(dev->mt76.wcid))
@@ -38,14 +38,14 @@ connac_rx_get_wcid(struct connac_dev *dev,
 	if (!wcid->sta)
 		return NULL;
 
-	sta = container_of(wcid, struct connac_sta, wcid);
+	sta = container_of(wcid, struct mt7663_sta, wcid);
 	if (!sta->vif)
 		return NULL;
 
 	return &sta->vif->sta.wcid;
 }
 
-int connac_mac_fill_rx(struct connac_dev *dev, struct sk_buff *skb)
+int mt7663_mac_fill_rx(struct mt7663_dev *dev, struct sk_buff *skb)
 {
 	struct mt76_rx_status *status = (struct mt76_rx_status *)skb->cb;
 	struct ieee80211_supported_band *sband;
@@ -64,7 +64,7 @@ int connac_mac_fill_rx(struct connac_dev *dev, struct sk_buff *skb)
 
 	unicast = (rxd1 & MT_RXD1_NORMAL_ADDR_TYPE) == MT_RXD1_NORMAL_U2M;
 	idx = FIELD_GET(MT_RXD2_NORMAL_WLAN_IDX, rxd2);
-	status->wcid = connac_rx_get_wcid(dev, idx, unicast);
+	status->wcid = mt7663_rx_get_wcid(dev, idx, unicast);
 
 	/* TODO: properly support DBDC */
 	status->freq = dev->mphy.chandef.chan->center_freq;
@@ -219,13 +219,13 @@ int connac_mac_fill_rx(struct connac_dev *dev, struct sk_buff *skb)
 	return 0;
 }
 
-void connac_sta_ps(struct mt76_dev *mdev, struct ieee80211_sta *sta, bool ps)
+void mt7663_sta_ps(struct mt76_dev *mdev, struct ieee80211_sta *sta, bool ps)
 {
 }
-EXPORT_SYMBOL_GPL(connac_sta_ps);
+EXPORT_SYMBOL_GPL(mt7663_sta_ps);
 
 static u16
-connac_mac_tx_rate_val(struct connac_dev *dev,
+mt7663_mac_tx_rate_val(struct mt7663_dev *dev,
 		       const struct ieee80211_tx_rate *rate,
 		       bool stbc, u8 *bw)
 {
@@ -280,7 +280,7 @@ connac_mac_tx_rate_val(struct connac_dev *dev,
 	return rateval;
 }
 
-int connac_mac_write_txwi(struct connac_dev *dev, __le32 *txwi,
+int mt7663_mac_write_txwi(struct mt7663_dev *dev, __le32 *txwi,
 			  struct sk_buff *skb, enum mt76_txq_id qid,
 			  struct mt76_wcid *wcid,
 			  struct ieee80211_sta *sta, int pid,
@@ -307,14 +307,14 @@ int connac_mac_write_txwi(struct connac_dev *dev, __le32 *txwi,
 	};
 
 	if (vif) {
-		struct connac_vif *mvif = (struct connac_vif *)vif->drv_priv;
+		struct mt7663_vif *mvif = (struct mt7663_vif *)vif->drv_priv;
 
 		omac_idx = mvif->omac_idx;
 		wmm_idx = mvif->wmm_idx;
 	}
 
 	if (sta) {
-		struct connac_sta *msta = (struct connac_sta *)sta->drv_priv;
+		struct mt7663_sta *msta = (struct mt7663_sta *)sta->drv_priv;
 
 		tx_count = msta->rate_count;
 	}
@@ -332,12 +332,12 @@ int connac_mac_write_txwi(struct connac_dev *dev, __le32 *txwi,
 	}
 
 	if (qid <= MT_TXQ_BK)
-		q_idx = (wmm_idx * CONNAC_MAX_WMM_SETS) + wmm_queue_map[qid];
+		q_idx = (wmm_idx * MT7663_MAX_WMM_SETS) + wmm_queue_map[qid];
 	else
 		q_idx = wmm_queue_map[qid];
 
 	if (mt76_is_usb(&dev->mt76))
-		sz_txd = CONNAC_USB_TXD_SIZE;
+		sz_txd = MT7663_USB_TXD_SIZE;
 	else
 		sz_txd = MT_TXD_SIZE;
 
@@ -383,7 +383,7 @@ int connac_mac_write_txwi(struct connac_dev *dev, __le32 *txwi,
 	    !(info->flags & IEEE80211_TX_CTL_RATE_CTRL_PROBE)) {
 		bool stbc = info->flags & IEEE80211_TX_CTL_STBC;
 		u8 bw;
-		u16 rateval = connac_mac_tx_rate_val(dev, rate, stbc, &bw);
+		u16 rateval = mt7663_mac_tx_rate_val(dev, rate, stbc, &bw);
 
 		txwi[2] |= cpu_to_le32(MT_TXD2_FIX_RATE);
 
@@ -441,18 +441,18 @@ int connac_mac_write_txwi(struct connac_dev *dev, __le32 *txwi,
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(connac_mac_write_txwi);
+EXPORT_SYMBOL_GPL(mt7663_mac_write_txwi);
 
-void connac_txp_skb_unmap(struct mt76_dev *dev,
+void mt7663_txp_skb_unmap(struct mt76_dev *dev,
 			  struct mt76_txwi_cache *t)
 {
 	u8 *txwi = mt76_get_txwi_ptr(dev, t);
-	struct connac_txp *txp;
+	struct mt7663_txp *txp;
 	int i;
 
-	txp = (struct connac_txp *)(txwi + MT_TXD_SIZE);
+	txp = (struct mt7663_txp *)(txwi + MT_TXD_SIZE);
 	for (i = 0; i < ARRAY_SIZE(txp->ptr); i++) {
-		struct connac_txp_ptr *ptr = &txp->ptr[i];
+		struct mt7663_txp_ptr *ptr = &txp->ptr[i];
 		bool last;
 		u16 len;
 
@@ -474,19 +474,19 @@ void connac_txp_skb_unmap(struct mt76_dev *dev,
 	}
 }
 
-u32 connac_mac_wtbl_addr(struct connac_dev *dev, int wcid)
+u32 mt7663_mac_wtbl_addr(struct mt7663_dev *dev, int wcid)
 {
 	return MT_WTBL(0) + wcid * MT_WTBL_ENTRY_SIZE;
 }
-EXPORT_SYMBOL_GPL(connac_mac_wtbl_addr);
+EXPORT_SYMBOL_GPL(mt7663_mac_wtbl_addr);
 
-void connac_mac_set_rates(struct connac_dev *dev, struct connac_sta *sta,
+void mt7663_mac_set_rates(struct mt7663_dev *dev, struct mt7663_sta *sta,
 			  struct ieee80211_tx_rate *probe_rate,
 			  struct ieee80211_tx_rate *rates)
 {
 	struct ieee80211_tx_rate *ref;
 	int wcid = sta->wcid.idx;
-	u32 addr = connac_mac_wtbl_addr(dev, wcid);
+	u32 addr = mt7663_mac_wtbl_addr(dev, wcid);
 	bool stbc = false;
 	int n_rates = sta->n_rates;
 	u8 bw, bw_prev, bw_idx = 0;
@@ -540,11 +540,11 @@ void connac_mac_set_rates(struct connac_dev *dev, struct connac_sta *sta,
 		}
 	}
 
-	val[0] = connac_mac_tx_rate_val(dev, &rates[0], stbc, &bw);
+	val[0] = mt7663_mac_tx_rate_val(dev, &rates[0], stbc, &bw);
 	bw_prev = bw;
 
 	if (probe_rate) {
-		probe_val = connac_mac_tx_rate_val(dev, probe_rate, stbc, &bw);
+		probe_val = mt7663_mac_tx_rate_val(dev, probe_rate, stbc, &bw);
 		if (bw)
 			bw_idx = 1;
 		else
@@ -553,19 +553,19 @@ void connac_mac_set_rates(struct connac_dev *dev, struct connac_sta *sta,
 		probe_val = val[0];
 	}
 
-	val[1] = connac_mac_tx_rate_val(dev, &rates[1], stbc, &bw);
+	val[1] = mt7663_mac_tx_rate_val(dev, &rates[1], stbc, &bw);
 	if (bw_prev) {
 		bw_idx = 3;
 		bw_prev = bw;
 	}
 
-	val[2] = connac_mac_tx_rate_val(dev, &rates[2], stbc, &bw);
+	val[2] = mt7663_mac_tx_rate_val(dev, &rates[2], stbc, &bw);
 	if (bw_prev) {
 		bw_idx = 5;
 		bw_prev = bw;
 	}
 
-	val[3] = connac_mac_tx_rate_val(dev, &rates[3], stbc, &bw);
+	val[3] = mt7663_mac_tx_rate_val(dev, &rates[3], stbc, &bw);
 	if (bw_prev)
 		bw_idx = 7;
 
@@ -612,16 +612,16 @@ void connac_mac_set_rates(struct connac_dev *dev, struct connac_sta *sta,
 	if (!(sta->wcid.tx_info & MT_WCID_TX_INFO_SET))
 		mt76_poll(dev, MT_WTBL_UPDATE, MT_WTBL_UPDATE_BUSY, 0, 5000);
 
-	sta->rate_count = 2 * CONNAC_RATE_RETRY * n_rates;
+	sta->rate_count = 2 * MT7663_RATE_RETRY * n_rates;
 	sta->wcid.tx_info |= MT_WCID_TX_INFO_SET;
 }
-EXPORT_SYMBOL_GPL(connac_mac_set_rates);
+EXPORT_SYMBOL_GPL(mt7663_mac_set_rates);
 
-void connac_usb_mac_set_rates(struct connac_dev *dev, struct connac_sta *sta,
-			      struct ieee80211_tx_rate *probe_rate,
-			      struct ieee80211_tx_rate *rates)
+void mt7663u_mac_set_rates(struct mt7663_dev *dev, struct mt7663_sta *sta,
+			   struct ieee80211_tx_rate *probe_rate,
+			   struct ieee80211_tx_rate *rates)
 {
-	struct connac_rate_desc *rc_desc;
+	struct mt7663_rate_desc *rc_desc;
 	struct ieee80211_tx_rate *ref;
 	int wcid = sta->wcid.idx;
 	bool stbc = false;
@@ -677,11 +677,11 @@ void connac_usb_mac_set_rates(struct connac_dev *dev, struct connac_sta *sta,
 		}
 	}
 
-	val[0] = connac_mac_tx_rate_val(dev, &rates[0], stbc, &bw);
+	val[0] = mt7663_mac_tx_rate_val(dev, &rates[0], stbc, &bw);
 	bw_prev = bw;
 
 	if (probe_rate) {
-		probe_val = connac_mac_tx_rate_val(dev, probe_rate, stbc, &bw);
+		probe_val = mt7663_mac_tx_rate_val(dev, probe_rate, stbc, &bw);
 		if (bw)
 			bw_idx = 1;
 		else
@@ -690,19 +690,19 @@ void connac_usb_mac_set_rates(struct connac_dev *dev, struct connac_sta *sta,
 		probe_val = val[0];
 	}
 
-	val[1] = connac_mac_tx_rate_val(dev, &rates[1], stbc, &bw);
+	val[1] = mt7663_mac_tx_rate_val(dev, &rates[1], stbc, &bw);
 	if (bw_prev) {
 		bw_idx = 3;
 		bw_prev = bw;
 	}
 
-	val[2] = connac_mac_tx_rate_val(dev, &rates[2], stbc, &bw);
+	val[2] = mt7663_mac_tx_rate_val(dev, &rates[2], stbc, &bw);
 	if (bw_prev) {
 		bw_idx = 5;
 		bw_prev = bw;
 	}
 
-	val[3] = connac_mac_tx_rate_val(dev, &rates[3], stbc, &bw);
+	val[3] = mt7663_mac_tx_rate_val(dev, &rates[3], stbc, &bw);
 	if (bw_prev)
 		bw_idx = 7;
 
@@ -721,9 +721,9 @@ void connac_usb_mac_set_rates(struct connac_dev *dev, struct connac_sta *sta,
 	ieee80211_queue_work(mt76_hw(dev), &dev->rc_work);
 	queue_work(dev->mt76.usb.wq, &dev->rc_work);
 }
-EXPORT_SYMBOL_GPL(connac_usb_mac_set_rates);
+EXPORT_SYMBOL_GPL(mt7663u_mac_set_rates);
 
-int connac_mac_wtbl_update_key(struct connac_dev *dev, struct mt76_wcid *wcid,
+int mt7663_mac_wtbl_update_key(struct mt7663_dev *dev, struct mt76_wcid *wcid,
 			       u32 base_addr, struct ieee80211_key_conf *key,
 			       int cipher, enum set_key_cmd cmd)
 {
@@ -759,9 +759,9 @@ int connac_mac_wtbl_update_key(struct connac_dev *dev, struct mt76_wcid *wcid,
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(connac_mac_wtbl_update_key);
+EXPORT_SYMBOL_GPL(mt7663_mac_wtbl_update_key);
 
-void connac_mac_wtbl_update_cipher(struct connac_dev *dev,
+void mt7663_mac_wtbl_update_cipher(struct mt7663_dev *dev,
 				   struct mt76_wcid *wcid, u32 addr,
 				   int cipher, enum set_key_cmd cmd)
 {
@@ -779,13 +779,13 @@ void connac_mac_wtbl_update_cipher(struct connac_dev *dev,
 			mt76_clear(dev, addr + 2 * 4, MT_WTBL_W2_KEY_TYPE);
 	}
 }
-EXPORT_SYMBOL_GPL(connac_mac_wtbl_update_cipher);
+EXPORT_SYMBOL_GPL(mt7663_mac_wtbl_update_cipher);
 
-static bool connac_fill_txs(struct connac_dev *dev, struct connac_sta *sta,
+static bool mt7663_fill_txs(struct mt7663_dev *dev, struct mt7663_sta *sta,
 			    struct ieee80211_tx_info *info, __le32 *txs_data)
 {
 	struct ieee80211_supported_band *sband;
-	struct connac_rate_set *rs;
+	struct mt7663_rate_set *rs;
 	int first_idx = 0, last_idx;
 	int i, idx, count;
 	bool fixed_rate, ack_timeout;
@@ -824,7 +824,7 @@ static bool connac_fill_txs(struct connac_dev *dev, struct connac_sta *sta,
 	if (ampdu || (info->flags & IEEE80211_TX_CTL_AMPDU))
 		info->flags |= IEEE80211_TX_STAT_AMPDU | IEEE80211_TX_CTL_AMPDU;
 
-	first_idx = max_t(int, 0, last_idx - (count + 1) / CONNAC_RATE_RETRY);
+	first_idx = max_t(int, 0, last_idx - (count + 1) / MT7663_RATE_RETRY);
 
 	if (fixed_rate && !probe) {
 		info->status.rates[0].count = count;
@@ -844,10 +844,10 @@ static bool connac_fill_txs(struct connac_dev *dev, struct connac_sta *sta,
 		spin_lock_bh(&dev->mt76.lock);
 		if (sta->rate_probe) {
 			if (mt76_is_usb(&dev->mt76))
-				connac_usb_mac_set_rates(dev, sta, NULL,
-							 sta->rates);
+				mt7663u_mac_set_rates(dev, sta, NULL,
+						      sta->rates);
 			else
-				connac_mac_set_rates(dev, sta, NULL,
+				mt7663_mac_set_rates(dev, sta, NULL,
 						     sta->rates);
 			sta->rate_probe = false;
 		}
@@ -862,7 +862,7 @@ static bool connac_fill_txs(struct connac_dev *dev, struct connac_sta *sta,
 		int cur_count;
 
 		cur_rate = &rs->rates[idx / 2];
-		cur_count = min_t(int, CONNAC_RATE_RETRY, count);
+		cur_count = min_t(int, MT7663_RATE_RETRY, count);
 		count -= cur_count;
 
 		if (idx && (cur_rate->idx != info->status.rates[i].idx ||
@@ -921,8 +921,8 @@ out:
 	return true;
 }
 
-static bool connac_mac_add_txs_skb(struct connac_dev *dev,
-				   struct connac_sta *sta, int pid,
+static bool mt7663_mac_add_txs_skb(struct mt7663_dev *dev,
+				   struct mt7663_sta *sta, int pid,
 				   __le32 *txs_data)
 {
 	struct mt76_dev *mdev = &dev->mt76;
@@ -937,7 +937,7 @@ static bool connac_mac_add_txs_skb(struct connac_dev *dev,
 	if (skb) {
 		struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
 
-		if (!connac_fill_txs(dev, sta, info, txs_data)) {
+		if (!mt7663_fill_txs(dev, sta, info, txs_data)) {
 			ieee80211_tx_info_clear_status(info);
 			info->status.rates[0].idx = -1;
 		}
@@ -949,11 +949,11 @@ static bool connac_mac_add_txs_skb(struct connac_dev *dev,
 	return !!skb;
 }
 
-void connac_mac_add_txs(struct connac_dev *dev, void *data)
+void mt7663_mac_add_txs(struct mt7663_dev *dev, void *data)
 {
 	struct ieee80211_tx_info info = {};
 	struct ieee80211_sta *sta = NULL;
-	struct connac_sta *msta = NULL;
+	struct mt7663_sta *msta = NULL;
 	struct mt76_wcid *wcid;
 	__le32 *txs_data = data;
 	u32 txs;
@@ -977,25 +977,25 @@ void connac_mac_add_txs(struct connac_dev *dev, void *data)
 	if (!wcid)
 		goto out;
 
-	msta = container_of(wcid, struct connac_sta, wcid);
+	msta = container_of(wcid, struct mt7663_sta, wcid);
 	sta = wcid_to_sta(wcid);
 
-	if (connac_mac_add_txs_skb(dev, msta, pid, txs_data))
+	if (mt7663_mac_add_txs_skb(dev, msta, pid, txs_data))
 		goto out;
 
-	if (wcidx >= CONNAC_WTBL_STA || !sta)
+	if (wcidx >= MT7663_WTBL_STA || !sta)
 		goto out;
 
-	if (connac_fill_txs(dev, msta, &info, txs_data))
+	if (mt7663_fill_txs(dev, msta, &info, txs_data))
 		ieee80211_tx_status_noskb(mt76_hw(dev), sta, &info);
 
 out:
 	rcu_read_unlock();
 }
 
-void connac_mac_tx_free(struct connac_dev *dev, struct sk_buff *skb)
+void mt7663_mac_tx_free(struct mt7663_dev *dev, struct sk_buff *skb)
 {
-	struct connac_tx_free *free = (struct connac_tx_free *)skb->data;
+	struct mt7663_tx_free *free = (struct mt7663_tx_free *)skb->data;
 	struct mt76_dev *mdev = &dev->mt76;
 	struct mt76_txwi_cache *txwi;
 	u8 i, count;
@@ -1011,7 +1011,7 @@ void connac_mac_tx_free(struct connac_dev *dev, struct sk_buff *skb)
 		if (!txwi)
 			continue;
 
-		connac_txp_skb_unmap(mdev, txwi);
+		mt7663_txp_skb_unmap(mdev, txwi);
 		if (txwi->skb) {
 			mt76_tx_complete_skb(mdev, txwi->skb);
 			txwi->skb = NULL;
@@ -1022,15 +1022,9 @@ void connac_mac_tx_free(struct connac_dev *dev, struct sk_buff *skb)
 	dev_kfree_skb(skb);
 }
 
-void connac_mac_cca_stats_reset(struct connac_dev *dev)
+void mt7663_update_channel(struct mt76_dev *mdev)
 {
-	mt76_clear(dev, MT_WF_PHY_R0_B0_PHYMUX_5, GENMASK(22, 20));
-	mt76_set(dev, MT_WF_PHY_R0_B0_PHYMUX_5, BIT(22) | BIT(20));
-}
-
-void connac_update_channel(struct mt76_dev *mdev)
-{
-	struct connac_dev *dev = container_of(mdev, struct connac_dev, mt76);
+	struct mt7663_dev *dev = container_of(mdev, struct mt7663_dev, mt76);
 	struct mt76_channel_state *state;
 	u64 busy_time, tx_time, rx_time, obss_time;
 
@@ -1056,20 +1050,20 @@ void connac_update_channel(struct mt76_dev *mdev)
 	/* reset obss airtime */
 	mt76_set(dev, MT_WF_RMAC_MIB_TIME0, MT_WF_RMAC_MIB_RXTIME_CLR);
 }
-EXPORT_SYMBOL_GPL(connac_update_channel);
+EXPORT_SYMBOL_GPL(mt7663_update_channel);
 
-void connac_mac_work(struct work_struct *work)
+void mt7663_mac_work(struct work_struct *work)
 {
-	struct connac_dev *dev;
+	struct mt7663_dev *dev;
 
-	dev = (struct connac_dev *)container_of(work, struct mt76_dev,
+	dev = (struct mt7663_dev *)container_of(work, struct mt76_dev,
 						mac_work.work);
 
 	mutex_lock(&dev->mt76.mutex);
-	connac_update_channel(&dev->mt76);
+	mt7663_update_channel(&dev->mt76);
 	if (++dev->mac_work_count == 5) {
-#if 0	/* connac TBD */
-		connac_mac_scs_check(dev);
+#if 0	/* mt7663 TBD */
+		mt7663_mac_scs_check(dev);
 #endif
 		dev->mac_work_count = 0;
 	}
@@ -1077,58 +1071,58 @@ void connac_mac_work(struct work_struct *work)
 
 	mt76_tx_status_check(&dev->mt76, NULL, false);
 	ieee80211_queue_delayed_work(mt76_hw(dev), &dev->mt76.mac_work,
-				     CONNAC_WATCHDOG_TIME);
+				     MT7663_WATCHDOG_TIME);
 }
 
-int connac_dfs_stop_radar_detector(struct connac_dev *dev)
+int mt7663_dfs_stop_radar_detector(struct mt7663_dev *dev)
 {
 	struct cfg80211_chan_def *chandef = &dev->mphy.chandef;
 	int err;
 
-	err = connac_mcu_rdd_cmd(dev, RDD_STOP, MT_HW_RDD0,
+	err = mt7663_mcu_rdd_cmd(dev, RDD_STOP, MT_HW_RDD0,
 				 MT_RX_SEL0, 0);
 	if (err < 0)
 		return err;
 
 	if (chandef->width == NL80211_CHAN_WIDTH_160 ||
 	    chandef->width == NL80211_CHAN_WIDTH_80P80)
-		err = connac_mcu_rdd_cmd(dev, RDD_STOP, MT_HW_RDD1,
+		err = mt7663_mcu_rdd_cmd(dev, RDD_STOP, MT_HW_RDD1,
 					 MT_RX_SEL0, 0);
 	return err;
 }
 
-static int connac_dfs_start_rdd(struct connac_dev *dev, int chain)
+static int mt7663_dfs_start_rdd(struct mt7663_dev *dev, int chain)
 {
 	int err;
 
-	err = connac_mcu_rdd_cmd(dev, RDD_START, chain, MT_RX_SEL0, 0);
+	err = mt7663_mcu_rdd_cmd(dev, RDD_START, chain, MT_RX_SEL0, 0);
 	if (err < 0)
 		return err;
 
-	return connac_mcu_rdd_cmd(dev, RDD_DET_MODE, chain,
+	return mt7663_mcu_rdd_cmd(dev, RDD_DET_MODE, chain,
 				  MT_RX_SEL0, 1);
 }
 
-int connac_dfs_start_radar_detector(struct connac_dev *dev)
+int mt7663_dfs_start_radar_detector(struct mt7663_dev *dev)
 {
 	struct cfg80211_chan_def *chandef = &dev->mphy.chandef;
 	int err;
 
 	/* start CAC */
-	err = connac_mcu_rdd_cmd(dev, RDD_CAC_START, MT_HW_RDD0,
+	err = mt7663_mcu_rdd_cmd(dev, RDD_CAC_START, MT_HW_RDD0,
 				 MT_RX_SEL0, 0);
 	if (err < 0)
 		return err;
 
 	/* TODO: DBDC support */
 
-	err = connac_dfs_start_rdd(dev, MT_HW_RDD0);
+	err = mt7663_dfs_start_rdd(dev, MT_HW_RDD0);
 	if (err < 0)
 		return err;
 
 	if (chandef->width == NL80211_CHAN_WIDTH_160 ||
 	    chandef->width == NL80211_CHAN_WIDTH_80P80) {
-		err = connac_dfs_start_rdd(dev, MT_HW_RDD1);
+		err = mt7663_dfs_start_rdd(dev, MT_HW_RDD1);
 		if (err < 0)
 			return err;
 	}
@@ -1136,7 +1130,7 @@ int connac_dfs_start_radar_detector(struct connac_dev *dev)
 	return 0;
 }
 
-int connac_dfs_init_radar_detector(struct connac_dev *dev)
+int mt7663_dfs_init_radar_detector(struct mt7663_dev *dev)
 {
 	struct cfg80211_chan_def *chandef = &dev->mphy.chandef;
 	int err;
@@ -1154,17 +1148,17 @@ int connac_dfs_init_radar_detector(struct connac_dev *dev)
 
 	if (chandef->chan->flags & IEEE80211_CHAN_RADAR) {
 		if (chandef->chan->dfs_state != NL80211_DFS_AVAILABLE)
-			return connac_dfs_start_radar_detector(dev);
+			return mt7663_dfs_start_radar_detector(dev);
 		else
-			return connac_mcu_rdd_cmd(dev, RDD_CAC_END, MT_HW_RDD0,
+			return mt7663_mcu_rdd_cmd(dev, RDD_CAC_END, MT_HW_RDD0,
 						  MT_RX_SEL0, 0);
 	} else {
-		err = connac_mcu_rdd_cmd(dev, RDD_NORMAL_START,
+		err = mt7663_mcu_rdd_cmd(dev, RDD_NORMAL_START,
 					 MT_HW_RDD0, MT_RX_SEL0, 0);
 		if (err < 0)
 			return err;
 
-		return connac_dfs_stop_radar_detector(dev);
+		return mt7663_dfs_stop_radar_detector(dev);
 	}
 }
-EXPORT_SYMBOL_GPL(connac_dfs_init_radar_detector);
+EXPORT_SYMBOL_GPL(mt7663_dfs_init_radar_detector);

@@ -17,28 +17,28 @@
 #include "regs.h"
 
 static struct sk_buff *
-connac_mcu_msg_alloc(const void *data, int len)
+mt7663_mcu_msg_alloc(const void *data, int len)
 {
-	return mt76_mcu_msg_alloc(data, sizeof(struct connac_mcu_txd),
+	return mt76_mcu_msg_alloc(data, sizeof(struct mt7663_mcu_txd),
 				  len, 0);
 }
 
 static int
-connac_mcu_msg_send(struct mt76_dev *mdev, int cmd, const void *data,
+mt7663_mcu_msg_send(struct mt76_dev *mdev, int cmd, const void *data,
 		    int len, bool wait_resp)
 {
-	struct connac_dev *dev = container_of(mdev, struct connac_dev, mt76);
+	struct mt7663_dev *dev = container_of(mdev, struct mt7663_dev, mt76);
 	enum mt76_txq_id qid;
 	struct sk_buff *skb;
 	int ret, seq;
 
-	skb = connac_mcu_msg_alloc(data, len);
+	skb = mt7663_mcu_msg_alloc(data, len);
 	if (!skb)
 		return -ENOMEM;
 
 	mutex_lock(&mdev->mcu.mutex);
 
-	connac_mcu_fill_msg(dev, skb, cmd, &seq);
+	mt7663_mcu_fill_msg(dev, skb, cmd, &seq);
 	if (test_bit(MT76_STATE_MCU_RUNNING, &dev->mphy.state))
 		qid = MT_TXQ_MCU;
 	else
@@ -49,14 +49,14 @@ connac_mcu_msg_send(struct mt76_dev *mdev, int cmd, const void *data,
 		goto out;
 
 	if (wait_resp)
-		ret = connac_mcu_wait_response(dev, cmd, seq);
+		ret = mt7663_mcu_wait_response(dev, cmd, seq);
 out:
 	mutex_unlock(&mdev->mcu.mutex);
 
 	return ret;
 }
 
-static int connac_driver_own(struct connac_dev *dev)
+static int mt7663_driver_own(struct mt7663_dev *dev)
 {
 	mt76_wr(dev, MT_CONN_HIF_ON_LPCTL, MT_CFG_LPCR_HOST_DRV_OWN);
 	if (!mt76_poll_msec(dev, MT_CONN_HIF_ON_LPCTL,
@@ -68,7 +68,7 @@ static int connac_driver_own(struct connac_dev *dev)
 	return 0;
 }
 
-static int mt7629_fw_ram_emi_setup(struct connac_dev *dev)
+static int mt7629_fw_ram_emi_setup(struct mt7663_dev *dev)
 {
 #define OF_EMI_RESERVED_MEMORY_STR "mediatek,leopard-N9-reserved"
 	const struct firmware *fw_iemi, *fw_demi;
@@ -159,7 +159,7 @@ out:
 	return ret;
 }
 
-static void fwdl_datapath_setup(struct connac_dev *dev, bool init)
+static void fwdl_datapath_setup(struct mt7663_dev *dev, bool init)
 {
 	u32 val;
 
@@ -172,7 +172,7 @@ static void fwdl_datapath_setup(struct connac_dev *dev, bool init)
 	mt76_wr(dev, MT_WPDMA_GLO_CFG, val);
 }
 
-static int connac_load_firmware(struct connac_dev *dev)
+static int mt7663_load_firmware(struct mt7663_dev *dev)
 {
 	bool emi_load = false;
 	int ret;
@@ -199,11 +199,11 @@ static int connac_load_firmware(struct connac_dev *dev)
 		return -EIO;
 	}
 
-	ret = connac_load_patch(dev);
+	ret = mt7663_load_patch(dev);
 	if (ret)
 		return ret;
 
-	ret = connac_load_ram(dev);
+	ret = mt7663_load_ram(dev);
 	if (ret)
 		return ret;
 
@@ -222,21 +222,21 @@ static int connac_load_firmware(struct connac_dev *dev)
 	return 0;
 }
 
-int connac_mcu_init(struct connac_dev *dev)
+int mt7663_mcu_init(struct mt7663_dev *dev)
 {
-	static const struct mt76_mcu_ops connac_mcu_ops = {
-		.mcu_send_msg = connac_mcu_msg_send,
-		.mcu_restart = connac_mcu_restart,
+	static const struct mt76_mcu_ops mt7663_mcu_ops = {
+		.mcu_send_msg = mt7663_mcu_msg_send,
+		.mcu_restart = mt7663_mcu_restart,
 	};
 	int ret;
 
-	dev->mt76.mcu_ops = &connac_mcu_ops,
+	dev->mt76.mcu_ops = &mt7663_mcu_ops,
 
-	ret = connac_driver_own(dev);
+	ret = mt7663_driver_own(dev);
 	if (ret)
 		return ret;
 
-	ret = connac_load_firmware(dev);
+	ret = mt7663_load_firmware(dev);
 	if (ret)
 		return ret;
 

@@ -17,13 +17,13 @@
 #include "regs.h"
 #include "../dma.h"
 
-static void connac_phy_init(struct connac_dev *dev)
+static void mt7663_phy_init(struct mt7663_dev *dev)
 {
-	/* CONNAC : no need */
+	/* MT7663 : no need */
 }
 
 static int
-connac_init_tx_queue(struct connac_dev *dev, struct mt76_sw_queue *q,
+mt7663_init_tx_queue(struct mt7663_dev *dev, struct mt76_sw_queue *q,
 		     int idx, int n_desc)
 {
 	struct mt76_queue *hwq;
@@ -40,14 +40,13 @@ connac_init_tx_queue(struct connac_dev *dev, struct mt76_sw_queue *q,
 	INIT_LIST_HEAD(&q->swq);
 	q->q = hwq;
 
-	if (mt76_is_mmio(&dev->mt76))
-		connac_irq_enable(dev, MT_INT_TX_DONE(idx));
+	mt7663_irq_enable(dev, MT_INT_TX_DONE(idx));
 
 	return 0;
 }
 
 static int
-connac_mmio_dma_init(struct connac_dev *dev)
+mt7663_mmio_dma_init(struct mt7663_dev *dev)
 {
 	int i, ret;
 	static const u8 wmm_queue_map[] = {
@@ -79,41 +78,41 @@ connac_mmio_dma_init(struct connac_dev *dev)
 	mt76_wr(dev, MT_WPDMA_RST_IDX, ~0);
 
 	for (i = 0; i < ARRAY_SIZE(wmm_queue_map); i++) {
-		ret = connac_init_tx_queue(dev, &dev->mt76.q_tx[i],
+		ret = mt7663_init_tx_queue(dev, &dev->mt76.q_tx[i],
 					   wmm_queue_map[i],
-					   CONNAC_TX_RING_SIZE);
+					   MT7663_TX_RING_SIZE);
 		if (ret)
 			return ret;
 	}
 
-	ret = connac_init_tx_queue(dev, &dev->mt76.q_tx[MT_TXQ_PSD],
-				   CONNAC_TXQ_MGMT, CONNAC_TX_RING_SIZE);
+	ret = mt7663_init_tx_queue(dev, &dev->mt76.q_tx[MT_TXQ_PSD],
+				   MT7663_TXQ_MGMT, MT7663_TX_RING_SIZE);
 	if (ret)
 		return ret;
 
-	ret = connac_init_tx_queue(dev, &dev->mt76.q_tx[MT_TXQ_MCU],
-				   CONNAC_TXQ_MCU, CONNAC_TX_MCU_RING_SIZE);
+	ret = mt7663_init_tx_queue(dev, &dev->mt76.q_tx[MT_TXQ_MCU],
+				   MT7663_TXQ_MCU, MT7663_TX_MCU_RING_SIZE);
 	if (ret)
 		return ret;
 
-	ret = connac_init_tx_queue(dev, &dev->mt76.q_tx[MT_TXQ_FWDL],
-				   CONNAC_TXQ_FWDL, CONNAC_TX_FWDL_RING_SIZE);
+	ret = mt7663_init_tx_queue(dev, &dev->mt76.q_tx[MT_TXQ_FWDL],
+				   MT7663_TXQ_FWDL, MT7663_TX_FWDL_RING_SIZE);
 	if (ret)
 		return ret;
 
 	/* bcn quueue init,only use for hw queue idx mapping */
-	ret = connac_init_tx_queue(dev, &dev->mt76.q_tx[MT_TXQ_BEACON],
-				   MT_LMAC_BCN0, CONNAC_TX_RING_SIZE);
+	ret = mt7663_init_tx_queue(dev, &dev->mt76.q_tx[MT_TXQ_BEACON],
+				   MT_LMAC_BCN0, MT7663_TX_RING_SIZE);
 
 	/* init rx queues */
 	ret = mt76_queue_alloc(dev, &dev->mt76.q_rx[MT_RXQ_MCU], 1,
-			       CONNAC_RX_MCU_RING_SIZE, MT_RX_BUF_SIZE,
+			       MT7663_RX_MCU_RING_SIZE, MT_RX_BUF_SIZE,
 			       MT_RX_RING_BASE);
 	if (ret)
 		return ret;
 
 	ret = mt76_queue_alloc(dev, &dev->mt76.q_rx[MT_RXQ_MAIN], 0,
-			       CONNAC_RX_RING_SIZE, MT_RX_BUF_SIZE,
+			       MT7663_RX_RING_SIZE, MT_RX_BUF_SIZE,
 			       MT_RX_RING_BASE);
 	if (ret)
 		return ret;
@@ -125,7 +124,7 @@ connac_mmio_dma_init(struct connac_dev *dev)
 		return ret;
 
 	netif_tx_napi_add(&dev->mt76.napi_dev, &dev->mt76.tx_napi,
-			  connac_poll_tx, NAPI_POLL_WEIGHT);
+			  mt7663_poll_tx, NAPI_POLL_WEIGHT);
 	napi_enable(&dev->mt76.tx_napi);
 
 	mt76_poll(dev, MT_WPDMA_GLO_CFG,
@@ -138,13 +137,13 @@ connac_mmio_dma_init(struct connac_dev *dev)
 		 MT_WPDMA_GLO_CFG_RX_DMA_EN);
 
 	/* enable interrupts for TX/RX rings */
-	connac_irq_enable(dev, MT_INT_RX_DONE_ALL | MT_INT_TX_DONE_ALL);
+	mt7663_irq_enable(dev, MT_INT_RX_DONE_ALL | MT_INT_TX_DONE_ALL);
 
 	return 0;
 }
 
 static int
-connac_mmio_dma_sched_init(struct connac_dev *dev)
+mt7663_mmio_dma_sched_init(struct mt7663_dev *dev)
 {
 	u32 val;
 
@@ -185,7 +184,7 @@ connac_mmio_dma_sched_init(struct connac_dev *dev)
 	return 0;
 }
 
-static void connac_mac_init(struct connac_dev *dev)
+static void mt7663_mac_init(struct mt7663_dev *dev)
 {
 	bool init_mac1 = dev->mt76.rev == 0x76630010;
 	u32 val;
@@ -213,15 +212,15 @@ static void connac_mac_init(struct connac_dev *dev)
 		 MT_TMAC_CTCR0_INS_DDLMT_EN,
 		 MT_TMAC_CTCR0_INS_DDLMT_VHT_SMPDU_EN |
 		 MT_TMAC_CTCR0_INS_DDLMT_EN);
-	connac_mcu_set_rts_thresh(dev, 0x92b);
+	mt7663_mcu_set_rts_thresh(dev, 0x92b);
 
 	mt76_rmw(dev, MT_AGG_SCR, MT_AGG_SCR_NLNAV_MID_PTEC_DIS,
 		 MT_AGG_SCR_NLNAV_MID_PTEC_DIS);
 
-	connac_mcu_init_mac(dev, 0);
+	mt7663_mcu_init_mac(dev, 0);
 
 	if (init_mac1)
-		connac_mcu_init_mac(dev, 1);
+		mt7663_mcu_init_mac(dev, 1);
 
 #define RF_LOW_BEACON_BAND0 0x11900
 #define RF_LOW_BEACON_BAND1 0x11d00
@@ -236,9 +235,9 @@ static void connac_mac_init(struct connac_dev *dev)
 	mt76_wr(dev, MT_WF_DMA(0x0), 0x0046f000);
 }
 
-static int connac_mmio_init_hardware(struct connac_dev *dev)
+static int mt7663_mmio_init_hardware(struct mt7663_dev *dev)
 {
-	u32 base = connac_reg_map(dev, MT_EFUSE_BASE);
+	u32 base = mt7663_reg_map(dev, MT_EFUSE_BASE);
 	bool init_dbdc = true;
 	int ret, idx;
 
@@ -253,39 +252,39 @@ static int connac_mmio_init_hardware(struct connac_dev *dev)
 	spin_lock_init(&dev->token_lock);
 	idr_init(&dev->token);
 
-	ret = connac_eeprom_init(dev, base);
+	ret = mt7663_eeprom_init(dev, base);
 	if (ret < 0)
 		return ret;
 
-	ret = connac_mmio_dma_init(dev);
+	ret = mt7663_mmio_dma_init(dev);
 	if (ret)
 		return ret;
 
-	/* CONNAC : init before f/w download*/
-	ret = connac_mmio_dma_sched_init(dev);
+	/* MT7663 : init before f/w download*/
+	ret = mt7663_mmio_dma_sched_init(dev);
 	if (ret)
 		return ret;
 
 	set_bit(MT76_STATE_INITIALIZED, &dev->mphy.state);
 
-	ret = connac_mcu_init(dev);
+	ret = mt7663_mcu_init(dev);
 	if (ret)
 		return ret;
 
-	connac_mcu_set_eeprom(dev);
+	mt7663_mcu_set_eeprom(dev);
 
 	if (init_dbdc)
-		connac_mcu_dbdc_ctrl(dev);
+		mt7663_mcu_dbdc_ctrl(dev);
 
-	connac_mac_init(dev);
-	connac_phy_init(dev);
+	mt7663_mac_init(dev);
+	mt7663_phy_init(dev);
 
-	connac_mcu_ctrl_pm_state(dev, 0);
-	/* CONNAC : F/W halWtblClearAllWtbl() will do this in init. */
-	/* connac_mcu_del_wtbl_all(dev); */
+	mt7663_mcu_ctrl_pm_state(dev, 0);
+	/* MT7663 : F/W halWtblClearAllWtbl() will do this in init. */
+	/* mt7663_mcu_del_wtbl_all(dev); */
 
 	/* Beacon and mgmt frames should occupy wcid 0 */
-	idx = mt76_wcid_alloc(dev->mt76.wcid_mask, CONNAC_WTBL_STA - 1);
+	idx = mt76_wcid_alloc(dev->mt76.wcid_mask, MT7663_WTBL_STA - 1);
 	if (idx)
 		return -ENOSPC;
 
@@ -296,47 +295,47 @@ static int connac_mmio_init_hardware(struct connac_dev *dev)
 	return 0;
 }
 
-int connac_mmio_init_device(struct connac_dev *dev, int irq)
+int mt7663_init_device(struct mt7663_dev *dev, int irq)
 {
 	struct ieee80211_hw *hw = mt76_hw(dev);
 	int err;
 
-	err = devm_request_irq(dev->mt76.dev, irq, connac_irq_handler,
+	err = devm_request_irq(dev->mt76.dev, irq, mt7663_irq_handler,
 			       IRQF_SHARED, KBUILD_MODNAME, dev);
 	if (err)
 		return err;
 
-	err = connac_mmio_init_hardware(dev);
+	err = mt7663_mmio_init_hardware(dev);
 	if (err)
 		return err;
 
 	hw->max_tx_fragments = MT_TXP_MAX_BUF_NUM;
 
-	return connac_register_device(dev);
+	return mt7663_register_device(dev);
 }
 
-static int __init connac_mmio_init(void)
+static int __init mt7663_mmio_init(void)
 {
 	int ret;
 
-	ret = pci_register_driver(&connac_pci_driver);
+	ret = pci_register_driver(&mt7663_pci_driver);
 	if (ret)
 		return ret;
 
 	ret = platform_driver_register(&mt7629_wmac_driver);
 	if (ret)
-		pci_unregister_driver(&connac_pci_driver);
+		pci_unregister_driver(&mt7663_pci_driver);
 
 	return ret;
 }
 
-static void __exit connac_mmio_exit(void)
+static void __exit mt7663_mmio_exit(void)
 {
 	platform_driver_unregister(&mt7629_wmac_driver);
-	pci_unregister_driver(&connac_pci_driver);
+	pci_unregister_driver(&mt7663_pci_driver);
 }
 
-module_init(connac_mmio_init);
-module_exit(connac_mmio_exit);
+module_init(mt7663_mmio_init);
+module_exit(mt7663_mmio_exit);
 
 MODULE_LICENSE("Dual BSD/GPL");

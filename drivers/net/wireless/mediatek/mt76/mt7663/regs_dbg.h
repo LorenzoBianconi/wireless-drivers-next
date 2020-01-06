@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: ISC */
 /* Copyright (C) 2019 MediaTek Inc. */
 
-#ifndef __CONNAC_REGS_DBG_H
-#define __CONNAC_REGS_DBG_H
+#ifndef __MT7663_REGS_DBG_H
+#define __MT7663_REGS_DBG_H
 
 #define MT_WTBL_BTCR_N		MT_WTBL_ON(0x100)
 #define MT_WTBL_BTBCR_N		MT_WTBL_ON(0x110)
@@ -629,4 +629,4 @@
 #define CONN_HIF_PDMA_TX_RING15_BASE	MT_HIF(0x3f0)
 #define CONN_HIF_PDMA_RX_RING0_BASE		MT_HIF(0x400)
 #define CONN_HIF_PDMA_RX_RING1_BASE		MT_HIF(0x410)
-#endif
+#endif /* __MT7663_REGS_DBG_H */

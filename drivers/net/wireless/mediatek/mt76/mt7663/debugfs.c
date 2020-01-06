@@ -7,7 +7,7 @@
 
 #include "mt7663.h"
 
-int connac_init_debugfs(struct connac_dev *dev)
+int mt7663_init_debugfs(struct mt7663_dev *dev)
 {
 	struct dentry *dir;
 

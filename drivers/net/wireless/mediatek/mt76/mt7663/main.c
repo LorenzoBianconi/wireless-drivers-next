@@ -46,18 +46,18 @@ static int get_omac_idx(enum nl80211_iftype type, u32 mask)
 	return -1;
 }
 
-int connac_add_interface(struct ieee80211_hw *hw,
+int mt7663_add_interface(struct ieee80211_hw *hw,
 			 struct ieee80211_vif *vif)
 {
-	struct connac_vif *mvif = (struct connac_vif *)vif->drv_priv;
-	struct connac_dev *dev = hw->priv;
+	struct mt7663_vif *mvif = (struct mt7663_vif *)vif->drv_priv;
+	struct mt7663_dev *dev = hw->priv;
 	struct mt76_txq *mtxq;
 	int idx, ret = 0;
 
 	mutex_lock(&dev->mt76.mutex);
 
 	mvif->idx = ffs(~dev->vif_mask) - 1;
-	if (mvif->idx >= CONNAC_MAX_INTERFACES) {
+	if (mvif->idx >= MT7663_MAX_INTERFACES) {
 		ret = -ENOSPC;
 		goto out;
 	}
@@ -71,15 +71,15 @@ int connac_add_interface(struct ieee80211_hw *hw,
 
 	/* TODO: DBDC support. Use band 0 for now */
 	mvif->band_idx = 0;
-	mvif->wmm_idx = mvif->idx % CONNAC_MAX_WMM_SETS;
+	mvif->wmm_idx = mvif->idx % MT7663_MAX_WMM_SETS;
 
-	ret = connac_mcu_set_dev_info(dev, vif, 1);
+	ret = mt7663_mcu_set_dev_info(dev, vif, 1);
 	if (ret)
 		goto out;
 
 	dev->vif_mask |= BIT(mvif->idx);
 	dev->omac_mask |= BIT(mvif->omac_idx);
-	idx = CONNAC_WTBL_RESERVED - mvif->idx;
+	idx = MT7663_WTBL_RESERVED - mvif->idx;
 	mvif->sta.wcid.idx = idx;
 	mvif->sta.wcid.hw_key_idx = -1;
 
@@ -93,18 +93,18 @@ out:
 
 	return ret;
 }
-EXPORT_SYMBOL_GPL(connac_add_interface);
+EXPORT_SYMBOL_GPL(mt7663_add_interface);
 
-void connac_remove_interface(struct ieee80211_hw *hw,
+void mt7663_remove_interface(struct ieee80211_hw *hw,
 			     struct ieee80211_vif *vif)
 {
-	struct connac_vif *mvif = (struct connac_vif *)vif->drv_priv;
-	struct connac_dev *dev = hw->priv;
+	struct mt7663_vif *mvif = (struct mt7663_vif *)vif->drv_priv;
+	struct mt7663_dev *dev = hw->priv;
 	int idx = mvif->sta.wcid.idx;
 
 	/* TODO: disable beacon for the bss */
 
-	connac_mcu_set_dev_info(dev, vif, 0);
+	mt7663_mcu_set_dev_info(dev, vif, 0);
 
 	rcu_assign_pointer(dev->mt76.wcid[idx], NULL);
 	mt76_txq_remove(&dev->mt76, vif->txq);
@@ -114,42 +114,9 @@ void connac_remove_interface(struct ieee80211_hw *hw,
 	dev->omac_mask &= ~BIT(mvif->omac_idx);
 	mutex_unlock(&dev->mt76.mutex);
 }
-EXPORT_SYMBOL_GPL(connac_remove_interface);
+EXPORT_SYMBOL_GPL(mt7663_remove_interface);
 
-static int connac_set_channel(struct connac_dev *dev)
-{
-	int ret;
-
-	cancel_delayed_work_sync(&dev->mt76.mac_work);
-
-	mutex_lock(&dev->mt76.mutex);
-	set_bit(MT76_RESET, &dev->mphy.state);
-
-	connac_dfs_check_channel(dev);
-
-	mt76_set_channel(&dev->mphy);
-
-	ret = connac_mcu_set_channel(dev);
-	if (ret)
-		goto out;
-
-	ret = connac_dfs_init_radar_detector(dev);
-	connac_mac_cca_stats_reset(dev);
-	dev->mphy.survey_time = ktime_get_boottime();
-	/* TODO: add DBDC support */
-	mt76_rr(dev, MT_MIB_SDR16(0));
-
-out:
-	clear_bit(MT76_RESET, &dev->mphy.state);
-	mutex_unlock(&dev->mt76.mutex);
-
-	mt76_txq_schedule_all(&dev->mphy);
-	ieee80211_queue_delayed_work(mt76_hw(dev), &dev->mt76.mac_work,
-				     CONNAC_WATCHDOG_TIME);
-	return ret;
-}
-
-int connac_check_key(struct connac_dev *dev, enum set_key_cmd cmd,
+int mt7663_check_key(struct mt7663_dev *dev, enum set_key_cmd cmd,
 		     struct ieee80211_vif *vif, struct mt76_wcid *wcid,
 		     struct ieee80211_key_conf *key)
 {
@@ -194,41 +161,9 @@ int connac_check_key(struct connac_dev *dev, enum set_key_cmd cmd,
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(connac_check_key);
+EXPORT_SYMBOL_GPL(mt7663_check_key);
 
-int connac_config(struct ieee80211_hw *hw, u32 changed)
-{
-	struct connac_dev *dev = hw->priv;
-	int ret = 0;
-
-	if (changed & IEEE80211_CONF_CHANGE_CHANNEL) {
-		ieee80211_stop_queues(hw);
-		ret = connac_set_channel(dev);
-		ieee80211_wake_queues(hw);
-	}
-
-	mutex_lock(&dev->mt76.mutex);
-#if 0 /* CONNAC : TBD */
-	if (changed & IEEE80211_CONF_CHANGE_POWER)
-		ret = connac_mcu_set_tx_power(dev);
-#endif
-
-	if (changed & IEEE80211_CONF_CHANGE_MONITOR) {
-		if (!(hw->conf.flags & IEEE80211_CONF_MONITOR))
-			dev->mt76.rxfilter |= MT_WF_RFCR_DROP_OTHER_UC;
-		else
-			dev->mt76.rxfilter &= ~MT_WF_RFCR_DROP_OTHER_UC;
-
-		mt76_wr(dev, MT_WF_RFCR, dev->mt76.rxfilter);
-	}
-
-	mutex_unlock(&dev->mt76.mutex);
-
-	return ret;
-}
-EXPORT_SYMBOL_GPL(connac_config);
-
-int connac_conf_tx(struct ieee80211_hw *hw,
+int mt7663_conf_tx(struct ieee80211_hw *hw,
 		   struct ieee80211_vif *vif, u16 queue,
 		   const struct ieee80211_tx_queue_params *params)
 {
@@ -238,94 +173,52 @@ int connac_conf_tx(struct ieee80211_hw *hw,
 		[IEEE80211_AC_VI]/*1*/ = 2,
 		[IEEE80211_AC_VO]/*0*/ = 4,
 	};
-	struct connac_vif *mvif = (struct connac_vif *)vif->drv_priv;
-	struct connac_dev *dev = hw->priv;
-	u16 wmm_mapping = mvif->wmm_idx * CONNAC_MAX_WMM_SETS;
+	struct mt7663_vif *mvif = (struct mt7663_vif *)vif->drv_priv;
+	struct mt7663_dev *dev = hw->priv;
+	u16 wmm_mapping = mvif->wmm_idx * MT7663_MAX_WMM_SETS;
 
 	wmm_mapping += wmm_queue_map[queue];
 	/* TODO: hw wmm_set 1~3 */
-	return connac_mcu_set_wmm(dev, wmm_mapping, params);
+	return mt7663_mcu_set_wmm(dev, wmm_mapping, params);
 }
-EXPORT_SYMBOL_GPL(connac_conf_tx);
+EXPORT_SYMBOL_GPL(mt7663_conf_tx);
 
-void connac_configure_filter(struct ieee80211_hw *hw,
-			     unsigned int changed_flags,
-			     unsigned int *total_flags,
-			     u64 multicast)
-{
-	struct connac_dev *dev = hw->priv;
-	u32 flags = 0;
-
-#define MT76_FILTER(_flag, _hw) do { \
-		flags |= *total_flags & FIF_##_flag;			\
-		dev->mt76.rxfilter &= ~(_hw);				\
-		dev->mt76.rxfilter |= !(flags & FIF_##_flag) * (_hw);	\
-	} while (0)
-
-	dev->mt76.rxfilter &= ~(MT_WF_RFCR_DROP_OTHER_BSS |
-				MT_WF_RFCR_DROP_OTHER_BEACON |
-				MT_WF_RFCR_DROP_FRAME_REPORT |
-				MT_WF_RFCR_DROP_PROBEREQ |
-				MT_WF_RFCR_DROP_MCAST_FILTERED |
-				MT_WF_RFCR_DROP_MCAST |
-				MT_WF_RFCR_DROP_BCAST |
-				MT_WF_RFCR_DROP_DUPLICATE |
-				MT_WF_RFCR_DROP_A2_BSSID |
-				MT_WF_RFCR_DROP_UNWANTED_CTL |
-				MT_WF_RFCR_DROP_STBC_MULTI);
-
-	MT76_FILTER(OTHER_BSS, MT_WF_RFCR_DROP_OTHER_TIM |
-			       MT_WF_RFCR_DROP_A3_MAC |
-			       MT_WF_RFCR_DROP_A3_BSSID);
-
-	MT76_FILTER(FCSFAIL, MT_WF_RFCR_DROP_FCSFAIL);
-
-	MT76_FILTER(CONTROL, MT_WF_RFCR_DROP_CTS |
-			     MT_WF_RFCR_DROP_RTS |
-			     MT_WF_RFCR_DROP_CTL_RSV |
-			     MT_WF_RFCR_DROP_NDPA);
-
-	*total_flags = flags;
-	mt76_wr(dev, MT_WF_RFCR, dev->mt76.rxfilter);
-}
-EXPORT_SYMBOL_GPL(connac_configure_filter);
-
-void connac_bss_info_changed(struct ieee80211_hw *hw,
+void mt7663_bss_info_changed(struct ieee80211_hw *hw,
 			     struct ieee80211_vif *vif,
 			     struct ieee80211_bss_conf *info,
 			     u32 changed)
 {
-	struct connac_dev *dev = hw->priv;
+	struct mt7663_dev *dev = hw->priv;
 
 	mutex_lock(&dev->mt76.mutex);
 
 	if (changed & BSS_CHANGED_ASSOC)
-		connac_mcu_set_bss_info(dev, vif, info->assoc);
+		mt7663_mcu_set_bss_info(dev, vif, info->assoc);
 
 	/* TODO: update beacon content
 	 * BSS_CHANGED_BEACON
 	 */
 
 	if (changed & BSS_CHANGED_BEACON_ENABLED) {
-		connac_mcu_set_bss_info(dev, vif, info->enable_beacon);
-		connac_mcu_wtbl_bmc(dev, vif, info->enable_beacon);
-		connac_mcu_set_sta_rec_bmc(dev, vif, info->enable_beacon);
-		connac_mcu_set_bcn(dev, vif, info->enable_beacon);
+		mt7663_mcu_set_bss_info(dev, vif, info->enable_beacon);
+		mt7663_mcu_wtbl_bmc(dev, vif, info->enable_beacon);
+		mt7663_mcu_set_sta_rec_bmc(dev, vif, info->enable_beacon);
+		mt7663_mcu_set_bcn(dev, vif, info->enable_beacon);
 	}
 
 	mutex_unlock(&dev->mt76.mutex);
 }
-EXPORT_SYMBOL_GPL(connac_bss_info_changed);
+EXPORT_SYMBOL_GPL(mt7663_bss_info_changed);
 
-int connac_sta_add(struct mt76_dev *mdev, struct ieee80211_vif *vif,
+int mt7663_sta_add(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 		   struct ieee80211_sta *sta)
 {
-	struct connac_dev *dev = container_of(mdev, struct connac_dev, mt76);
-	struct connac_sta *msta = (struct connac_sta *)sta->drv_priv;
-	struct connac_vif *mvif = (struct connac_vif *)vif->drv_priv;
+	struct mt7663_dev *dev = container_of(mdev, struct mt7663_dev, mt76);
+	struct mt7663_sta *msta = (struct mt7663_sta *)sta->drv_priv;
+	struct mt7663_vif *mvif = (struct mt7663_vif *)vif->drv_priv;
 	int idx;
 
-	idx = mt76_wcid_alloc(dev->mt76.wcid_mask, CONNAC_WTBL_STA - 1);
+	idx = mt76_wcid_alloc(dev->mt76.wcid_mask, MT7663_WTBL_STA - 1);
 	if (idx < 0)
 		return -ENOSPC;
 
@@ -333,31 +226,31 @@ int connac_sta_add(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 	msta->wcid.sta = 1;
 	msta->wcid.idx = idx;
 
-	connac_mcu_set_sta_rec(dev, vif, sta, 1);
+	mt7663_mcu_set_sta_rec(dev, vif, sta, 1);
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(connac_sta_add);
+EXPORT_SYMBOL_GPL(mt7663_sta_add);
 
-void connac_sta_assoc(struct mt76_dev *mdev, struct ieee80211_vif *vif,
+void mt7663_sta_assoc(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 		      struct ieee80211_sta *sta)
 {
-	struct connac_dev *dev = container_of(mdev, struct connac_dev, mt76);
+	struct mt7663_dev *dev = container_of(mdev, struct mt7663_dev, mt76);
 
-	connac_mcu_set_sta_rec(dev, vif, sta, 1);
+	mt7663_mcu_set_sta_rec(dev, vif, sta, 1);
 }
-EXPORT_SYMBOL_GPL(connac_sta_assoc);
+EXPORT_SYMBOL_GPL(mt7663_sta_assoc);
 
-void connac_sta_remove(struct mt76_dev *mdev, struct ieee80211_vif *vif,
+void mt7663_sta_remove(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 		       struct ieee80211_sta *sta)
 {
-	struct connac_dev *dev = container_of(mdev, struct connac_dev, mt76);
+	struct mt7663_dev *dev = container_of(mdev, struct mt7663_dev, mt76);
 
-	connac_mcu_set_sta_rec(dev, vif, sta, 0);
+	mt7663_mcu_set_sta_rec(dev, vif, sta, 0);
 }
-EXPORT_SYMBOL_GPL(connac_sta_remove);
+EXPORT_SYMBOL_GPL(mt7663_sta_remove);
 
-void connac_tx(struct ieee80211_hw *hw,
+void mt7663_tx(struct ieee80211_hw *hw,
 	       struct ieee80211_tx_control *control,
 	       struct sk_buff *skb)
 {
@@ -365,50 +258,50 @@ void connac_tx(struct ieee80211_hw *hw,
 	struct ieee80211_vif *vif = info->control.vif;
 	struct mt76_phy *mphy = hw->priv;
 	struct mt76_wcid *wcid;
-	struct connac_dev *dev;
+	struct mt7663_dev *dev;
 
-	dev = container_of(mphy->dev, struct connac_dev, mt76);
+	dev = container_of(mphy->dev, struct mt7663_dev, mt76);
 	wcid = &dev->mt76.global_wcid;
 
 	if (control->sta) {
-		struct connac_sta *sta;
+		struct mt7663_sta *sta;
 
-		sta = (struct connac_sta *)control->sta->drv_priv;
+		sta = (struct mt7663_sta *)control->sta->drv_priv;
 		wcid = &sta->wcid;
 	}
 
 	if (vif && !control->sta) {
-		struct connac_vif *mvif;
+		struct mt7663_vif *mvif;
 
-		mvif = (struct connac_vif *)vif->drv_priv;
+		mvif = (struct mt7663_vif *)vif->drv_priv;
 		wcid = &mvif->sta.wcid;
 	}
 
 	mt76_tx(mphy, control->sta, wcid, skb);
 }
-EXPORT_SYMBOL_GPL(connac_tx);
+EXPORT_SYMBOL_GPL(mt7663_tx);
 
-int connac_set_rts_threshold(struct ieee80211_hw *hw, u32 val)
+int mt7663_set_rts_threshold(struct ieee80211_hw *hw, u32 val)
 {
-	struct connac_dev *dev = hw->priv;
+	struct mt7663_dev *dev = hw->priv;
 
 	mutex_lock(&dev->mt76.mutex);
-	connac_mcu_set_rts_thresh(dev, val);
+	mt7663_mcu_set_rts_thresh(dev, val);
 	mutex_unlock(&dev->mt76.mutex);
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(connac_set_rts_threshold);
+EXPORT_SYMBOL_GPL(mt7663_set_rts_threshold);
 
-int connac_ampdu_action(struct ieee80211_hw *hw,
+int mt7663_ampdu_action(struct ieee80211_hw *hw,
 			struct ieee80211_vif *vif,
 			struct ieee80211_ampdu_params *params)
 {
 	enum ieee80211_ampdu_mlme_action action = params->action;
-	struct connac_dev *dev = hw->priv;
+	struct mt7663_dev *dev = hw->priv;
 	struct ieee80211_sta *sta = params->sta;
 	struct ieee80211_txq *txq = sta->txq[params->tid];
-	struct connac_sta *msta = (struct connac_sta *)sta->drv_priv;
+	struct mt7663_sta *msta = (struct mt7663_sta *)sta->drv_priv;
 	u16 tid = params->tid;
 	u16 ssn = params->ssn;
 	struct mt76_txq *mtxq;
@@ -423,21 +316,21 @@ int connac_ampdu_action(struct ieee80211_hw *hw,
 	case IEEE80211_AMPDU_RX_START:
 		mt76_rx_aggr_start(&dev->mt76, &msta->wcid, tid, ssn,
 				   params->buf_size);
-		connac_mcu_set_rx_ba(dev, params, 1);
+		mt7663_mcu_set_rx_ba(dev, params, 1);
 		break;
 	case IEEE80211_AMPDU_RX_STOP:
 		mt76_rx_aggr_stop(&dev->mt76, &msta->wcid, tid);
-		connac_mcu_set_rx_ba(dev, params, 0);
+		mt7663_mcu_set_rx_ba(dev, params, 0);
 		break;
 	case IEEE80211_AMPDU_TX_OPERATIONAL:
 		mtxq->aggr = true;
 		mtxq->send_bar = false;
-		connac_mcu_set_tx_ba(dev, params, 1);
+		mt7663_mcu_set_tx_ba(dev, params, 1);
 		break;
 	case IEEE80211_AMPDU_TX_STOP_FLUSH:
 	case IEEE80211_AMPDU_TX_STOP_FLUSH_CONT:
 		mtxq->aggr = false;
-		connac_mcu_set_tx_ba(dev, params, 0);
+		mt7663_mcu_set_tx_ba(dev, params, 0);
 		break;
 	case IEEE80211_AMPDU_TX_START:
 		mtxq->agg_ssn = IEEE80211_SN_TO_SEQ(ssn);
@@ -445,7 +338,7 @@ int connac_ampdu_action(struct ieee80211_hw *hw,
 		break;
 	case IEEE80211_AMPDU_TX_STOP_CONT:
 		mtxq->aggr = false;
-		connac_mcu_set_tx_ba(dev, params, 0);
+		mt7663_mcu_set_tx_ba(dev, params, 0);
 		ieee80211_stop_tx_ba_cb_irqsafe(vif, sta->addr, tid);
 		break;
 	}
@@ -453,4 +346,4 @@ int connac_ampdu_action(struct ieee80211_hw *hw,
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(connac_ampdu_action);
+EXPORT_SYMBOL_GPL(mt7663_ampdu_action);

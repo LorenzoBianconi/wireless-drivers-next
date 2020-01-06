@@ -15,75 +15,76 @@
 #include "mcu.h"
 #include "usb_sdio_regs.h"
 
-static const struct usb_device_id connac_device_table[] = {
+static const struct usb_device_id mt7663_device_table[] = {
 	{ USB_DEVICE_AND_INTERFACE_INFO(0x0e8d, 0x7663, 0xff, 0xff, 0xff)},
 	{ },
 };
 
-static void connac_usb_cleanup(struct connac_dev *dev)
+static void mt7663u_cleanup(struct mt7663_dev *dev)
 {
 	clear_bit(MT76_STATE_INITIALIZED, &dev->mphy.state);
 	mt76u_queues_deinit(&dev->mt76);
 }
 
 static void
-connac_usb_tx_complete_skb(struct mt76_dev *mdev, enum mt76_txq_id qid,
-				struct mt76_queue_entry *e)
+mt7663u_tx_complete_skb(struct mt76_dev *mdev, enum mt76_txq_id qid,
+			struct mt76_queue_entry *e)
 {
-	skb_pull(e->skb, CONNAC_USB_TXD_SIZE);
+	skb_pull(e->skb, MT7663_USB_TXD_SIZE);
 	mt76_tx_complete_skb(mdev, e->skb);
 }
 
 static int
-connac_usb_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
-			  enum mt76_txq_id qid, struct mt76_wcid *wcid,
-			  struct ieee80211_sta *sta,
-			  struct mt76_tx_info *tx_info)
+mt7663u_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
+		       enum mt76_txq_id qid, struct mt76_wcid *wcid,
+		       struct ieee80211_sta *sta,
+		       struct mt76_tx_info *tx_info)
 {
-	struct connac_dev *dev = container_of(mdev, struct connac_dev, mt76);
+	struct mt7663_dev *dev = container_of(mdev, struct mt7663_dev, mt76);
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(tx_info->skb);
 
 	if (info->flags & IEEE80211_TX_CTL_RATE_CTRL_PROBE) {
-		struct connac_sta *msta;
+		struct mt7663_sta *msta;
 
-		msta = container_of(wcid, struct connac_sta, wcid);
+		msta = container_of(wcid, struct mt7663_sta, wcid);
 		spin_lock_bh(&dev->mt76.lock);
-		connac_usb_mac_set_rates(dev, msta, &info->control.rates[0],
-					 msta->rates);
+		mt7663u_mac_set_rates(dev, msta, &info->control.rates[0],
+				      msta->rates);
 		msta->rate_probe = true;
 		spin_unlock_bh(&dev->mt76.lock);
 	}
-	connac_usb_mac_write_txwi(dev, wcid, qid, sta, tx_info->skb);
+	mt7663u_mac_write_txwi(dev, wcid, qid, sta, tx_info->skb);
 
 	return mt76u_skb_dma_info(tx_info->skb, tx_info->skb->len);
 }
 
-static int connac_usb_probe(struct usb_interface *usb_intf,
-			    const struct usb_device_id *id)
+static int
+mt7663u_probe(struct usb_interface *usb_intf,
+	      const struct usb_device_id *id)
 {
 	static const struct mt76_driver_ops drv_ops = {
-		.txwi_size = CONNAC_USB_TXD_SIZE,
+		.txwi_size = MT7663_USB_TXD_SIZE,
 		.drv_flags = MT_DRV_RX_DMA_HDR,
-		.tx_prepare_skb = connac_usb_tx_prepare_skb,
-		.tx_complete_skb = connac_usb_tx_complete_skb,
-		.rx_skb = connac_queue_rx_skb,
-		.sta_ps = connac_sta_ps,
-		.sta_add = connac_sta_add,
-		.sta_assoc = connac_sta_assoc,
-		.sta_remove = connac_sta_remove,
-		.update_survey = connac_update_channel,
+		.tx_prepare_skb = mt7663u_tx_prepare_skb,
+		.tx_complete_skb = mt7663u_tx_complete_skb,
+		.rx_skb = mt7663_queue_rx_skb,
+		.sta_ps = mt7663_sta_ps,
+		.sta_add = mt7663_sta_add,
+		.sta_assoc = mt7663_sta_assoc,
+		.sta_remove = mt7663_sta_remove,
+		.update_survey = mt7663_update_channel,
 	};
 	struct usb_device *udev = interface_to_usbdev(usb_intf);
-	struct connac_dev *dev;
+	struct mt7663_dev *dev;
 	struct mt76_dev *mdev;
 	int ret;
 
 	mdev = mt76_alloc_device(&usb_intf->dev, sizeof(*dev),
-				 &connac_usb_ops, &drv_ops);
+				 &mt7663_usb_ops, &drv_ops);
 	if (!mdev)
 		return -ENOMEM;
 
-	dev = container_of(mdev, struct connac_dev, mt76);
+	dev = container_of(mdev, struct mt7663_dev, mt76);
 	udev = usb_get_dev(udev);
 	usb_reset_device(udev);
 
@@ -125,7 +126,7 @@ skip_poweron:
 	if (ret)
 		goto error;
 
-	ret = connac_usb_register_device(dev);
+	ret = mt7663u_register_device(dev);
 	if (ret)
 		goto error_freeq;
 
@@ -143,15 +144,15 @@ error:
 	return ret;
 }
 
-static void connac_usb_disconnect(struct usb_interface *usb_intf)
+static void mt7663u_disconnect(struct usb_interface *usb_intf)
 {
-	struct connac_dev *dev = usb_get_intfdata(usb_intf);
+	struct mt7663_dev *dev = usb_get_intfdata(usb_intf);
 
 	if (!test_bit(MT76_STATE_INITIALIZED, &dev->mphy.state))
 		return;
 
 	ieee80211_unregister_hw(dev->mt76.hw);
-	connac_usb_cleanup(dev);
+	mt7663u_cleanup(dev);
 
 	usb_set_intfdata(usb_intf, NULL);
 	usb_put_dev(interface_to_usbdev(usb_intf));
@@ -160,35 +161,37 @@ static void connac_usb_disconnect(struct usb_interface *usb_intf)
 	ieee80211_free_hw(dev->mt76.hw);
 }
 
-static int __maybe_unused connac_usb_suspend(struct usb_interface *intf,
-					     pm_message_t state)
+static int __maybe_unused
+mt7663u_suspend(struct usb_interface *intf,
+		pm_message_t state)
 {
 	return 0;
 }
 
-static int __maybe_unused connac_usb_resume(struct usb_interface *intf)
+static int __maybe_unused
+mt7663u_resume(struct usb_interface *intf)
 {
 	return 0;
 }
 
-MODULE_DEVICE_TABLE(usb, connac_device_table);
+MODULE_DEVICE_TABLE(usb, mt7663_device_table);
 MODULE_FIRMWARE(MT7663_FIRMWARE_N9);
 MODULE_FIRMWARE(MT7663_ROM_PATCH);
 
-static struct usb_driver connac_usb_driver = {
+static struct usb_driver mt7663u_driver = {
 	.name		= KBUILD_MODNAME,
-	.id_table	= connac_device_table,
-	.probe		= connac_usb_probe,
-	.disconnect	= connac_usb_disconnect,
+	.id_table	= mt7663_device_table,
+	.probe		= mt7663u_probe,
+	.disconnect	= mt7663u_disconnect,
 #ifdef CONFIG_PM
-	.suspend	= connac_usb_suspend,
-	.resume		= connac_usb_resume,
-	.reset_resume	= connac_usb_resume,
+	.suspend	= mt7663u_suspend,
+	.resume		= mt7663u_resume,
+	.reset_resume	= mt7663u_resume,
 #endif /* CONFIG_PM */
 	.soft_unbind	= 1,
 	.disable_hub_initiated_lpm = 1,
 };
-module_usb_driver(connac_usb_driver);
+module_usb_driver(mt7663u_driver);
 
 MODULE_AUTHOR("Sean Wang <sean.wang@mediatek.com>");
 MODULE_AUTHOR("Lorenzo Bianconi <lorenzo@kernel.org>");

@@ -12,7 +12,7 @@
 #include "eeprom.h"
 #include "regs.h"
 
-static int connac_efuse_read(struct connac_dev *dev, u32 base,
+static int mt7663_efuse_read(struct mt7663_dev *dev, u32 base,
 			     u16 addr, u8 *data)
 {
 	u32 val;
@@ -44,9 +44,9 @@ static int connac_efuse_read(struct connac_dev *dev, u32 base,
 	return 0;
 }
 
-static int connac_efuse_init(struct connac_dev *dev, u32 base)
+static int mt7663_efuse_init(struct mt7663_dev *dev, u32 base)
 {
-	int i, len = CONNAC_EEPROM_SIZE;
+	int i, len = MT7663_EEPROM_SIZE;
 	void *buf;
 	u32 val;
 
@@ -63,7 +63,7 @@ static int connac_efuse_init(struct connac_dev *dev, u32 base)
 	for (i = 0; i + 16 <= len; i += 16) {
 		int ret;
 
-		ret = connac_efuse_read(dev, base, i, buf + i);
+		ret = mt7663_efuse_read(dev, base, i, buf + i);
 		if (ret)
 			return ret;
 	}
@@ -71,25 +71,25 @@ static int connac_efuse_init(struct connac_dev *dev, u32 base)
 	return 0;
 }
 
-static int connac_eeprom_load(struct connac_dev *dev, u32 base)
+static int mt7663_eeprom_load(struct mt7663_dev *dev, u32 base)
 {
 	int ret;
 
-	ret = mt76_eeprom_init(&dev->mt76, CONNAC_EEPROM_SIZE);
+	ret = mt76_eeprom_init(&dev->mt76, MT7663_EEPROM_SIZE);
 	if (ret < 0)
 		return ret;
 
-	return connac_efuse_init(dev, base);
+	return mt7663_efuse_init(dev, base);
 }
 
-int connac_eeprom_get_power_index(struct ieee80211_channel *chan,
+int mt7663_eeprom_get_power_index(struct ieee80211_channel *chan,
 				  u8 chain_idx)
 {
-	/* CONNAC : f/w handle */
+	/* MT7663 : f/w handle */
 	return 0;
 }
 
-static int connac_check_eeprom(struct mt76_dev *dev)
+static int mt7663_check_eeprom(struct mt76_dev *dev)
 {
 	u16 val = get_unaligned_le16(dev->eeprom.data);
 
@@ -101,7 +101,7 @@ static int connac_check_eeprom(struct mt76_dev *dev)
 	}
 }
 
-static void connac_eeprom_parse_hw_cap(struct connac_dev *dev)
+static void mt7663_eeprom_parse_hw_cap(struct mt7663_dev *dev)
 {
 	u8 val, *eeprom = dev->mt76.eeprom.data;
 	bool init_dbdc = true;
@@ -112,7 +112,7 @@ static void connac_eeprom_parse_hw_cap(struct connac_dev *dev)
 		break;
 	}
 
-#if 1 /* CONNAC only support DBDC */
+#if 1 /* MT7663 only support DBDC */
 	val = FIELD_GET(MT_EE_NIC_WIFI_DBDC_ENABLE,
 			eeprom[MT_EE_SYS_DBDC]);
 
@@ -122,7 +122,7 @@ static void connac_eeprom_parse_hw_cap(struct connac_dev *dev)
 	else
 		val = MT_EE_DUAL_BAND;
 #else
-	if (!val) /* CONNAC : TODO , default 2G */
+	if (!val) /* MT7663 : TODO , default 2G */
 		val = MT_EE_2GHZ;
 #endif
 
@@ -145,20 +145,20 @@ static void connac_eeprom_parse_hw_cap(struct connac_dev *dev)
 	}
 }
 
-int connac_eeprom_init(struct connac_dev *dev, u32 base)
+int mt7663_eeprom_init(struct mt7663_dev *dev, u32 base)
 {
 	int ret;
 
-	ret = connac_eeprom_load(dev, base);
+	ret = mt7663_eeprom_load(dev, base);
 	if (ret < 0)
 		return ret;
 
-	ret = connac_check_eeprom(&dev->mt76);
+	ret = mt7663_check_eeprom(&dev->mt76);
 	if (ret && dev->mt76.otp.data)
 		memcpy(dev->mt76.eeprom.data, dev->mt76.otp.data,
-		       CONNAC_EEPROM_SIZE);
+		       MT7663_EEPROM_SIZE);
 
-	connac_eeprom_parse_hw_cap(dev);
+	mt7663_eeprom_parse_hw_cap(dev);
 	memcpy(dev->mt76.macaddr, dev->mt76.eeprom.data + MT_EE_MAC_ADDR,
 	       ETH_ALEN);
 
@@ -166,4 +166,4 @@ int connac_eeprom_init(struct connac_dev *dev, u32 base)
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(connac_eeprom_init);
+EXPORT_SYMBOL_GPL(mt7663_eeprom_init);
