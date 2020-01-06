@@ -370,4 +370,8 @@ irqreturn_t connac_irq_handler(int irq, void *dev_instance);
 int connac_mmio_init_device(struct connac_dev *dev, int irq);
 void connac_mmio_rx_poll_complete(struct mt76_dev *mdev,
 				  enum mt76_rxq_id q);
+int connac_mac_wtbl_set_key(struct connac_dev *dev,
+			    struct mt76_wcid *wcid,
+			    struct ieee80211_key_conf *key,
+			    enum set_key_cmd cmd);
 #endif
