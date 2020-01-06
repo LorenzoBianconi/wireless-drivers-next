@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: ISC */
 /* Copyright (C) 2019 MediaTek Inc. */
 
-#ifndef __CONNAC_MAC_H
-#define __CONNAC_MAC_H
+#ifndef __MT7663_MAC_H
+#define __MT7663_MAC_H
 
 #define MT_CT_PARSE_LEN			72
 #define MT_CT_DMA_BUF_NUM		2
@@ -236,7 +236,7 @@ enum tx_phy_bandwidth {
 #define MT_TXD6_FIXED_BW		BIT(2)
 #define MT_TXD6_BW			GENMASK(1, 0)
 
-/* CONNAC DW7 HW-AMSDU */
+/* MT7663 DW7 HW-AMSDU */
 #define MT_TXD7_HW_AMSDU_CAP		BIT(30)
 #define MT_TXD7_TYPE			GENMASK(21, 20)
 #define MT_TXD7_SUB_TYPE		GENMASK(19, 16)
@@ -260,20 +260,20 @@ enum tx_phy_bandwidth {
 
 #define MT_TXP_MAX_BUF_NUM		4
 
-struct connac_txp_ptr {
+struct mt7663_txp_ptr {
 	__le32 buf0;
 	__le16 len0;
 	__le16 len1;
 	__le32 buf1;
 } __packed __aligned(4);
 
-struct connac_txp {
+struct mt7663_txp {
 	__le16 msdu_id[MT_TXP_MAX_BUF_NUM];
-	struct connac_txp_ptr ptr[MT_TXP_MAX_BUF_NUM / 2];
+	struct mt7663_txp_ptr ptr[MT_TXP_MAX_BUF_NUM / 2];
 } __packed __aligned(4);
 
 #define MT_TX_TOKEN_MASK		GENMASK(15, 0)
-struct connac_tx_free {
+struct mt7663_tx_free {
 	__le16 rx_byte_cnt;
 	__le16 ctrl;
 	u8 txd_cnt;
@@ -336,7 +336,7 @@ struct connac_tx_free {
 #define MT_TXS6_F1_RCPI_1		GENMASK(15, 8)
 #define MT_TXS6_F1_RCPI_0		GENMASK(7, 0)
 
-enum connac_cipher_type {
+enum mt7663_cipher_type {
 	MT_CIPHER_NONE,
 	MT_CIPHER_WEP40,
 	MT_CIPHER_TKIP,
@@ -351,7 +351,7 @@ enum connac_cipher_type {
 	MT_CIPHER_GCMP_256,
 };
 
-static inline int connac_mac_get_cipher(int cipher)
+static inline int mt7663_mac_get_cipher(int cipher)
 {
 	switch (cipher) {
 	case WLAN_CIPHER_SUITE_WEP40:
@@ -377,4 +377,4 @@ static inline int connac_mac_get_cipher(int cipher)
 	}
 }
 
-#endif
+#endif /* __MT7663_MAC_H */

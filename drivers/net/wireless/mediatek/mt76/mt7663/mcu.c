@@ -15,7 +15,7 @@
 #include "eeprom.h"
 #include "regs.h"
 
-struct connac_patch_hdr {
+struct mt7663_patch_hdr {
 	char build_date[16];
 	char platform[4];
 	__be32 hw_sw_ver;
@@ -23,7 +23,7 @@ struct connac_patch_hdr {
 	__be16 checksum;
 } __packed;
 
-struct connac_fw_trailer {
+struct mt7663_fw_trailer {
 	u8 chip_id;
 	u8 eco_code;
 	u8 num_of_region;
@@ -35,7 +35,7 @@ struct connac_fw_trailer {
 	u32 crc;
 } __packed;
 
-struct connac_fw_dl_buf {
+struct mt7663_fw_dl_buf {
 	u32 decomp_crc;
 	u32 decomp_img_size;
 	u32 decomp_block_size;
@@ -62,10 +62,10 @@ struct connac_fw_dl_buf {
 #define FW_START_DLYCAL                 BIT(1)
 #define FW_START_WORKING_PDA_CR4	BIT(2)
 
-void connac_mcu_fill_msg(struct connac_dev *dev, struct sk_buff *skb,
+void mt7663_mcu_fill_msg(struct mt7663_dev *dev, struct sk_buff *skb,
 			 int cmd, int *wait_seq)
 {
-	struct connac_mcu_txd *mcu_txd;
+	struct mt7663_mcu_txd *mcu_txd;
 	u8 seq, q_idx, pkt_fmt;
 	__le32 *txd;
 	u32 val;
@@ -74,7 +74,7 @@ void connac_mcu_fill_msg(struct connac_dev *dev, struct sk_buff *skb,
 	if (!seq)
 		seq = ++dev->mt76.mcu.msg_seq & 0xf;
 
-	mcu_txd = (struct connac_mcu_txd *)skb_push(skb, sizeof(*mcu_txd));
+	mcu_txd = (struct mt7663_mcu_txd *)skb_push(skb, sizeof(*mcu_txd));
 	memset(mcu_txd, 0, sizeof(*mcu_txd));
 
 	if (cmd != -MCU_CMD_FW_SCATTER) {
@@ -115,12 +115,12 @@ void connac_mcu_fill_msg(struct connac_dev *dev, struct sk_buff *skb,
 	if (wait_seq)
 		*wait_seq = seq;
 }
-EXPORT_SYMBOL_GPL(connac_mcu_fill_msg);
+EXPORT_SYMBOL_GPL(mt7663_mcu_fill_msg);
 
-int connac_mcu_wait_response(struct connac_dev *dev, int cmd, int seq)
+int mt7663_mcu_wait_response(struct mt7663_dev *dev, int cmd, int seq)
 {
 	unsigned long expires = jiffies + 10 * HZ;
-	struct connac_mcu_rxd *rxd;
+	struct mt7663_mcu_rxd *rxd;
 	struct sk_buff *skb;
 	int ret = 0;
 
@@ -132,7 +132,7 @@ int connac_mcu_wait_response(struct connac_dev *dev, int cmd, int seq)
 			return -ETIMEDOUT;
 		}
 
-		rxd = (struct connac_mcu_rxd *)skb->data;
+		rxd = (struct mt7663_mcu_rxd *)skb->data;
 		if (seq != rxd->seq)
 			continue;
 
@@ -147,19 +147,19 @@ int connac_mcu_wait_response(struct connac_dev *dev, int cmd, int seq)
 
 	return ret;
 }
-EXPORT_SYMBOL_GPL(connac_mcu_wait_response);
+EXPORT_SYMBOL_GPL(mt7663_mcu_wait_response);
 
 static void
-connac_mcu_csa_finish(void *priv, u8 *mac, struct ieee80211_vif *vif)
+mt7663_mcu_csa_finish(void *priv, u8 *mac, struct ieee80211_vif *vif)
 {
 	if (vif->csa_active)
 		ieee80211_csa_finish(vif);
 }
 
 static void
-connac_mcu_rx_ext_event(struct connac_dev *dev, struct sk_buff *skb)
+mt7663_mcu_rx_ext_event(struct mt7663_dev *dev, struct sk_buff *skb)
 {
-	struct connac_mcu_rxd *rxd = (struct connac_mcu_rxd *)skb->data;
+	struct mt7663_mcu_rxd *rxd = (struct mt7663_mcu_rxd *)skb->data;
 
 	switch (rxd->ext_eid) {
 	case MCU_EXT_EVENT_RDD_REPORT:
@@ -169,7 +169,7 @@ connac_mcu_rx_ext_event(struct connac_dev *dev, struct sk_buff *skb)
 	case MCU_EXT_EVENT_CSA_NOTIFY:
 		ieee80211_iterate_active_interfaces_atomic(dev->mt76.hw,
 							   IEEE80211_IFACE_ITER_RESUME_ALL,
-							   connac_mcu_csa_finish, dev);
+							   mt7663_mcu_csa_finish, dev);
 		break;
 	default:
 		break;
@@ -177,13 +177,13 @@ connac_mcu_rx_ext_event(struct connac_dev *dev, struct sk_buff *skb)
 }
 
 static void
-connac_mcu_rx_unsolicited_event(struct connac_dev *dev, struct sk_buff *skb)
+mt7663_mcu_rx_unsolicited_event(struct mt7663_dev *dev, struct sk_buff *skb)
 {
-	struct connac_mcu_rxd *rxd = (struct connac_mcu_rxd *)skb->data;
+	struct mt7663_mcu_rxd *rxd = (struct mt7663_mcu_rxd *)skb->data;
 
 	switch (rxd->eid) {
 	case MCU_EVENT_EXT:
-		connac_mcu_rx_ext_event(dev, skb);
+		mt7663_mcu_rx_ext_event(dev, skb);
 		break;
 	default:
 		break;
@@ -191,21 +191,21 @@ connac_mcu_rx_unsolicited_event(struct connac_dev *dev, struct sk_buff *skb)
 	dev_kfree_skb(skb);
 }
 
-void connac_mcu_rx_event(struct connac_dev *dev, struct sk_buff *skb)
+void mt7663_mcu_rx_event(struct mt7663_dev *dev, struct sk_buff *skb)
 {
-	struct connac_mcu_rxd *rxd = (struct connac_mcu_rxd *)skb->data;
+	struct mt7663_mcu_rxd *rxd = (struct mt7663_mcu_rxd *)skb->data;
 
 	if (rxd->ext_eid == MCU_EXT_EVENT_THERMAL_PROTECT ||
 	    rxd->ext_eid == MCU_EXT_EVENT_FW_LOG_2_HOST ||
 	    rxd->ext_eid == MCU_EXT_EVENT_ASSERT_DUMP ||
 	    rxd->ext_eid == MCU_EXT_EVENT_PS_SYNC ||
 	    !rxd->seq)
-		connac_mcu_rx_unsolicited_event(dev, skb);
+		mt7663_mcu_rx_unsolicited_event(dev, skb);
 	else
 		mt76_mcu_rx_event(&dev->mt76.mcu, skb);
 }
 
-static int connac_mcu_init_download(struct connac_dev *dev, u32 addr,
+static int mt7663_mcu_init_download(struct mt7663_dev *dev, u32 addr,
 				    u32 len, u32 mode)
 {
 	struct {
@@ -222,13 +222,13 @@ static int connac_mcu_init_download(struct connac_dev *dev, u32 addr,
 				   &req, sizeof(req), true);
 }
 
-static int connac_mcu_send_firmware(struct connac_dev *dev, const void *data,
+static int mt7663_mcu_send_firmware(struct mt7663_dev *dev, const void *data,
 				    int len)
 {
 	int ret = 0, cur_len;
 
 	while (len > 0) {
-		cur_len = min_t(int, 4096 - sizeof(struct connac_mcu_txd),
+		cur_len = min_t(int, 4096 - sizeof(struct mt7663_mcu_txd),
 				len);
 
 		ret = __mt76_mcu_send_msg(&dev->mt76, -MCU_CMD_FW_SCATTER,
@@ -246,7 +246,7 @@ static int connac_mcu_send_firmware(struct connac_dev *dev, const void *data,
 	return ret;
 }
 
-static int connac_mcu_start_firmware(struct connac_dev *dev, u32 addr,
+static int mt7663_mcu_start_firmware(struct mt7663_dev *dev, u32 addr,
 				     u32 option)
 {
 	struct {
@@ -261,14 +261,14 @@ static int connac_mcu_start_firmware(struct connac_dev *dev, u32 addr,
 				   &req, sizeof(req), true);
 }
 
-int connac_mcu_restart(struct mt76_dev *dev)
+int mt7663_mcu_restart(struct mt76_dev *dev)
 {
 	return __mt76_mcu_send_msg(dev, -MCU_CMD_RESTART_DL_REQ, NULL,
 				   0, true);
 }
-EXPORT_SYMBOL_GPL(connac_mcu_restart);
+EXPORT_SYMBOL_GPL(mt7663_mcu_restart);
 
-static int connac_mcu_patch_sem_ctrl(struct connac_dev *dev, bool get)
+static int mt7663_mcu_patch_sem_ctrl(struct mt7663_dev *dev, bool get)
 {
 	struct {
 		__le32 op;
@@ -280,7 +280,7 @@ static int connac_mcu_patch_sem_ctrl(struct connac_dev *dev, bool get)
 				   &req, sizeof(req), true);
 }
 
-static int connac_mcu_start_patch(struct connac_dev *dev)
+static int mt7663_mcu_start_patch(struct mt7663_dev *dev)
 {
 	struct {
 		u8 check_crc;
@@ -293,10 +293,10 @@ static int connac_mcu_start_patch(struct connac_dev *dev)
 				   &req, sizeof(req), true);
 }
 
-int connac_load_patch(struct connac_dev *dev)
+int mt7663_load_patch(struct mt7663_dev *dev)
 {
 	const struct firmware *fw;
-	const struct connac_patch_hdr *hdr;
+	const struct mt7663_patch_hdr *hdr;
 	const char *firmware;
 	int len, ret, sem;
 	u32 addr_patch;
@@ -314,7 +314,7 @@ int connac_load_patch(struct connac_dev *dev)
 		return -EINVAL;
 	}
 
-	sem = connac_mcu_patch_sem_ctrl(dev, 1);
+	sem = mt7663_mcu_patch_sem_ctrl(dev, 1);
 	switch (sem) {
 	case PATCH_IS_DL:
 		return 0;
@@ -335,34 +335,34 @@ int connac_load_patch(struct connac_dev *dev)
 		goto out;
 	}
 
-	hdr = (const struct connac_patch_hdr *)(fw->data);
+	hdr = (const struct mt7663_patch_hdr *)(fw->data);
 
 	dev_info(dev->mt76.dev, "HW/SW Version: 0x%x, Build Time: %.16s\n",
 		 be32_to_cpu(hdr->hw_sw_ver), hdr->build_date);
 
 	len = fw->size - sizeof(*hdr);
 
-	ret = connac_mcu_init_download(dev, addr_patch, len,
+	ret = mt7663_mcu_init_download(dev, addr_patch, len,
 				       DL_MODE_NEED_RSP);
 	if (ret) {
 		dev_err(dev->mt76.dev, "Download request failed\n");
 		goto out;
 	}
 
-	ret = connac_mcu_send_firmware(dev, fw->data + sizeof(*hdr), len);
+	ret = mt7663_mcu_send_firmware(dev, fw->data + sizeof(*hdr), len);
 	if (ret) {
 		dev_err(dev->mt76.dev, "Failed to send firmware to device\n");
 		goto out;
 	}
 
-	ret = connac_mcu_start_patch(dev);
+	ret = mt7663_mcu_start_patch(dev);
 	if (ret)
 		dev_err(dev->mt76.dev, "Failed to start patch\n");
 
 out:
 	release_firmware(fw);
 
-	sem = connac_mcu_patch_sem_ctrl(dev, 0);
+	sem = mt7663_mcu_patch_sem_ctrl(dev, 0);
 	switch (sem) {
 	case PATCH_REL_SEM_SUCCESS:
 		break;
@@ -374,7 +374,7 @@ out:
 
 	return ret;
 }
-EXPORT_SYMBOL_GPL(connac_load_patch);
+EXPORT_SYMBOL_GPL(mt7663_load_patch);
 
 static u32 gen_dl_mode(u8 feature_set, bool is_cr4)
 {
@@ -390,11 +390,11 @@ static u32 gen_dl_mode(u8 feature_set, bool is_cr4)
 	return ret;
 }
 
-int connac_load_ram(struct connac_dev *dev)
+int mt7663_load_ram(struct mt7663_dev *dev)
 {
 	const struct firmware *fw;
-	const struct connac_fw_trailer *hdr;
-	const struct connac_fw_dl_buf  *region;
+	const struct mt7663_fw_trailer *hdr;
+	const struct mt7663_fw_dl_buf  *region;
 	const char *n9_firmware;
 	u32 offset, override_addr = 0, flag = 0;
 	bool extra_info = false;
@@ -421,7 +421,7 @@ int connac_load_ram(struct connac_dev *dev)
 		goto out;
 	}
 
-	hdr = (const struct connac_fw_trailer *)(fw->data + fw->size -
+	hdr = (const struct mt7663_fw_trailer *)(fw->data + fw->size -
 					FW_V3_COMMON_TAILER_SIZE);
 
 	dev_info(dev->mt76.dev, "N9 Firmware Version: %.10s, Build Time: %.15s\n",
@@ -433,7 +433,7 @@ int connac_load_ram(struct connac_dev *dev)
 
 		dev_info(dev->mt76.dev, "Parsing tailer Region: %d\n", i);
 
-		region = (const struct connac_fw_dl_buf *)
+		region = (const struct mt7663_fw_dl_buf *)
 				(fw->data + fw->size - FW_V3_COMMON_TAILER_SIZE
 				 - (hdr->num_of_region - i)
 				 * FW_V3_REGION_TAILER_SIZE);
@@ -442,13 +442,13 @@ int connac_load_ram(struct connac_dev *dev)
 		addr = le32_to_cpu(region->img_dest_addr);
 		len = le32_to_cpu(region->img_size);
 
-		ret = connac_mcu_init_download(dev, addr, len, mode);
+		ret = mt7663_mcu_init_download(dev, addr, len, mode);
 		if (ret) {
 			dev_err(dev->mt76.dev, "Download request failed\n");
 			goto out;
 		}
 
-		ret = connac_mcu_send_firmware(dev,
+		ret = mt7663_mcu_send_firmware(dev,
 					       (fw->data + offset),
 					       le32_to_cpu(region->img_size));
 		if (ret) {
@@ -476,7 +476,7 @@ int connac_load_ram(struct connac_dev *dev)
 			 override_addr, flag);
 	}
 
-	ret = connac_mcu_start_firmware(dev, override_addr, flag);
+	ret = mt7663_mcu_start_firmware(dev, override_addr, flag);
 	if (ret) {
 		dev_err(dev->mt76.dev, "Failed to start N9 firmware\n");
 		goto out;
@@ -486,9 +486,9 @@ out:
 	release_firmware(fw);
 	return ret;
 }
-EXPORT_SYMBOL_GPL(connac_load_ram);
+EXPORT_SYMBOL_GPL(mt7663_load_ram);
 
-void connac_mcu_exit(struct connac_dev *dev)
+void mt7663_mcu_exit(struct mt7663_dev *dev)
 {
 	__mt76_mcu_restart(&dev->mt76);
 	if (mt76_is_mmio(&dev->mt76))
@@ -496,7 +496,7 @@ void connac_mcu_exit(struct connac_dev *dev)
 	skb_queue_purge(&dev->mt76.mcu.res_q);
 }
 
-int connac_mcu_set_eeprom(struct connac_dev *dev)
+int mt7663_mcu_set_eeprom(struct mt7663_dev *dev)
 {
 	struct {
 		u8 buffer_mode;
@@ -525,9 +525,9 @@ int connac_mcu_set_eeprom(struct connac_dev *dev)
 
 	return ret;
 }
-EXPORT_SYMBOL_GPL(connac_mcu_set_eeprom);
+EXPORT_SYMBOL_GPL(mt7663_mcu_set_eeprom);
 
-int connac_mcu_dbdc_ctrl(struct connac_dev *dev)
+int mt7663_mcu_dbdc_ctrl(struct mt7663_dev *dev)
 {
 	struct {
 		u8 enable;
@@ -548,9 +548,9 @@ int connac_mcu_dbdc_ctrl(struct connac_dev *dev)
 	return __mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD_DBDC_CTRL,
 				   &req, sizeof(req), true);
 }
-EXPORT_SYMBOL_GPL(connac_mcu_dbdc_ctrl);
+EXPORT_SYMBOL_GPL(mt7663_mcu_dbdc_ctrl);
 
-int connac_mcu_init_mac(struct connac_dev *dev, u8 band)
+int mt7663_mcu_init_mac(struct mt7663_dev *dev, u8 band)
 {
 	struct {
 		u8 enable;
@@ -564,9 +564,9 @@ int connac_mcu_init_mac(struct connac_dev *dev, u8 band)
 	return __mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD_MAC_INIT_CTRL,
 				   &req, sizeof(req), true);
 }
-EXPORT_SYMBOL_GPL(connac_mcu_init_mac);
+EXPORT_SYMBOL_GPL(mt7663_mcu_init_mac);
 
-int connac_mcu_set_rts_thresh(struct connac_dev *dev, u32 val)
+int mt7663_mcu_set_rts_thresh(struct mt7663_dev *dev, u32 val)
 {
 	struct {
 		u8 prot_idx;
@@ -584,9 +584,9 @@ int connac_mcu_set_rts_thresh(struct connac_dev *dev, u32 val)
 	return __mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD_PROTECT_CTRL,
 				   &req, sizeof(req), true);
 }
-EXPORT_SYMBOL_GPL(connac_mcu_set_rts_thresh);
+EXPORT_SYMBOL_GPL(mt7663_mcu_set_rts_thresh);
 
-int connac_mcu_set_wmm(struct connac_dev *dev, u8 queue,
+int mt7663_mcu_set_wmm(struct mt7663_dev *dev, u8 queue,
 		       const struct ieee80211_tx_queue_params *params)
 {
 #define WMM_AIFS_SET	BIT(0)
@@ -623,7 +623,7 @@ int connac_mcu_set_wmm(struct connac_dev *dev, u8 queue,
 				   &req, sizeof(req), true);
 }
 
-int connac_mcu_ctrl_pm_state(struct connac_dev *dev, int enter)
+int mt7663_mcu_ctrl_pm_state(struct mt7663_dev *dev, int enter)
 {
 #define ENTER_PM_STATE	1
 #define EXIT_PM_STATE	2
@@ -652,12 +652,12 @@ int connac_mcu_ctrl_pm_state(struct connac_dev *dev, int enter)
 	return __mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD_PM_STATE_CTRL,
 				   &req, sizeof(req), true);
 }
-EXPORT_SYMBOL_GPL(connac_mcu_ctrl_pm_state);
+EXPORT_SYMBOL_GPL(mt7663_mcu_ctrl_pm_state);
 
-int connac_mcu_set_dev_info(struct connac_dev *dev,
+int mt7663_mcu_set_dev_info(struct mt7663_dev *dev,
 			    struct ieee80211_vif *vif, bool enable)
 {
-	struct connac_vif *mvif = (struct connac_vif *)vif->drv_priv;
+	struct mt7663_vif *mvif = (struct mt7663_vif *)vif->drv_priv;
 	struct {
 		struct req_hdr {
 			u8 omac_idx;
@@ -694,7 +694,7 @@ int connac_mcu_set_dev_info(struct connac_dev *dev,
 }
 
 static void
-connac_mcu_bss_info_omac_header(struct connac_vif *mvif, u8 *data,
+mt7663_mcu_bss_info_omac_header(struct mt7663_vif *mvif, u8 *data,
 				u32 conn_type)
 {
 	struct bss_info_omac *hdr = (struct bss_info_omac *)data;
@@ -710,11 +710,11 @@ connac_mcu_bss_info_omac_header(struct connac_vif *mvif, u8 *data,
 }
 
 static void
-connac_mcu_bss_info_basic_header(struct ieee80211_vif *vif, u8 *data,
+mt7663_mcu_bss_info_basic_header(struct ieee80211_vif *vif, u8 *data,
 				 u32 net_type, u8 tx_wlan_idx,
 				 bool enable)
 {
-	struct connac_vif *mvif = (struct connac_vif *)vif->drv_priv;
+	struct mt7663_vif *mvif = (struct mt7663_vif *)vif->drv_priv;
 	struct bss_info_basic *hdr = (struct bss_info_basic *)data;
 
 	hdr->tag = cpu_to_le16(BSS_INFO_BASIC);
@@ -729,7 +729,7 @@ connac_mcu_bss_info_basic_header(struct ieee80211_vif *vif, u8 *data,
 }
 
 static void
-connac_mcu_bss_info_ext_header(struct connac_vif *mvif, u8 *data)
+mt7663_mcu_bss_info_ext_header(struct mt7663_vif *mvif, u8 *data)
 {
 /* SIFS 20us + 512 byte beacon tranmitted by 1Mbps (3906us) */
 #define BCN_TX_ESTIMATE_TIME (4096 + 20)
@@ -746,10 +746,10 @@ connac_mcu_bss_info_ext_header(struct connac_vif *mvif, u8 *data)
 	hdr->mbss_tsf_offset = cpu_to_le32(tsf_offset);
 }
 
-int connac_mcu_set_bss_info(struct connac_dev *dev,
+int mt7663_mcu_set_bss_info(struct mt7663_dev *dev,
 			    struct ieee80211_vif *vif, int en)
 {
-	struct connac_vif *mvif = (struct connac_vif *)vif->drv_priv;
+	struct mt7663_vif *mvif = (struct mt7663_vif *)vif->drv_priv;
 	struct req_hdr {
 		u8 bss_idx;
 		u8 rsv0;
@@ -784,7 +784,7 @@ int connac_mcu_set_bss_info(struct connac_dev *dev,
 		/* TODO: enable BSS_INFO_UAPSD & BSS_INFO_PM */
 		if (en) {
 			struct ieee80211_sta *sta;
-			struct connac_sta *msta;
+			struct mt7663_sta *msta;
 
 			rcu_read_lock();
 			sta = ieee80211_find_sta(vif, vif->bss_conf.bssid);
@@ -793,7 +793,7 @@ int connac_mcu_set_bss_info(struct connac_dev *dev,
 				return -EINVAL;
 			}
 
-			msta = (struct connac_sta *)sta->drv_priv;
+			msta = (struct mt7663_sta *)sta->drv_priv;
 			tx_wlan_idx = msta->wcid.idx;
 			rcu_read_unlock();
 		}
@@ -820,17 +820,17 @@ int connac_mcu_set_bss_info(struct connac_dev *dev,
 
 		switch (tag) {
 		case BSS_INFO_OMAC:
-			connac_mcu_bss_info_omac_header(mvif, data,
+			mt7663_mcu_bss_info_omac_header(mvif, data,
 							conn_type);
 			data += sizeof(struct bss_info_omac);
 			break;
 		case BSS_INFO_BASIC:
-			connac_mcu_bss_info_basic_header(vif, data, net_type,
+			mt7663_mcu_bss_info_basic_header(vif, data, net_type,
 							 tx_wlan_idx, en);
 			data += sizeof(struct bss_info_basic);
 			break;
 		case BSS_INFO_EXT_BSS:
-			connac_mcu_bss_info_ext_header(mvif, data);
+			mt7663_mcu_bss_info_ext_header(mvif, data);
 			data += sizeof(struct bss_info_ext_bss);
 			break;
 		default:
@@ -846,8 +846,8 @@ int connac_mcu_set_bss_info(struct connac_dev *dev,
 }
 
 static int
-connac_mcu_add_wtbl_bmc(struct connac_dev *dev,
-			struct connac_vif *mvif)
+mt7663_mcu_add_wtbl_bmc(struct mt7663_dev *dev,
+			struct mt7663_vif *mvif)
 {
 	struct {
 		struct wtbl_req_hdr hdr;
@@ -878,10 +878,10 @@ connac_mcu_add_wtbl_bmc(struct connac_dev *dev,
 				   &req, sizeof(req), true);
 }
 
-int connac_mcu_wtbl_bmc(struct connac_dev *dev,
+int mt7663_mcu_wtbl_bmc(struct mt7663_dev *dev,
 			struct ieee80211_vif *vif, bool enable)
 {
-	struct connac_vif *mvif = (struct connac_vif *)vif->drv_priv;
+	struct mt7663_vif *mvif = (struct mt7663_vif *)vif->drv_priv;
 
 	if (!enable) {
 		struct wtbl_req_hdr req = {
@@ -893,14 +893,14 @@ int connac_mcu_wtbl_bmc(struct connac_dev *dev,
 					   &req, sizeof(req), true);
 	}
 
-	return connac_mcu_add_wtbl_bmc(dev, mvif);
+	return mt7663_mcu_add_wtbl_bmc(dev, mvif);
 }
 
-int connac_mcu_add_wtbl(struct connac_dev *dev, struct ieee80211_vif *vif,
+int mt7663_mcu_add_wtbl(struct mt7663_dev *dev, struct ieee80211_vif *vif,
 			struct ieee80211_sta *sta)
 {
-	struct connac_vif *mvif = (struct connac_vif *)vif->drv_priv;
-	struct connac_sta *msta = (struct connac_sta *)sta->drv_priv;
+	struct mt7663_vif *mvif = (struct mt7663_vif *)vif->drv_priv;
+	struct mt7663_sta *msta = (struct mt7663_sta *)sta->drv_priv;
 	struct {
 		struct wtbl_req_hdr hdr;
 		struct wtbl_generic g_wtbl;
@@ -932,10 +932,10 @@ int connac_mcu_add_wtbl(struct connac_dev *dev, struct ieee80211_vif *vif,
 				   &req, sizeof(req), true);
 }
 
-int connac_mcu_del_wtbl(struct connac_dev *dev,
+int mt7663_mcu_del_wtbl(struct mt7663_dev *dev,
 			struct ieee80211_sta *sta)
 {
-	struct connac_sta *msta = (struct connac_sta *)sta->drv_priv;
+	struct mt7663_sta *msta = (struct mt7663_sta *)sta->drv_priv;
 	struct wtbl_req_hdr req = {
 		.wlan_idx = msta->wcid.idx,
 		.operation = WTBL_RESET_AND_SET,
@@ -945,7 +945,7 @@ int connac_mcu_del_wtbl(struct connac_dev *dev,
 				   &req, sizeof(req), true);
 }
 
-int connac_mcu_del_wtbl_all(struct connac_dev *dev)
+int mt7663_mcu_del_wtbl_all(struct mt7663_dev *dev)
 {
 	struct wtbl_req_hdr req = {
 		.operation = WTBL_RESET_ALL,
@@ -955,11 +955,11 @@ int connac_mcu_del_wtbl_all(struct connac_dev *dev)
 				   &req, sizeof(req), true);
 }
 
-int connac_mcu_set_sta_rec_bmc(struct connac_dev *dev,
+int mt7663_mcu_set_sta_rec_bmc(struct mt7663_dev *dev,
 			       struct ieee80211_vif *vif, bool en)
 {
-	struct connac_vif *mvif = (struct connac_vif *)vif->drv_priv;
-	int len = CONNAC_STA_REC_UPDATE_MAX_SIZE;
+	struct mt7663_vif *mvif = (struct mt7663_vif *)vif->drv_priv;
+	int len = MT7663_STA_REC_UPDATE_MAX_SIZE;
 	int buf_len = sizeof(struct sta_req_hdr);
 	int ret = 0;
 
@@ -1040,7 +1040,7 @@ int connac_mcu_set_sta_rec_bmc(struct connac_dev *dev,
 }
 
 static void
-connac_mcu_sta_rec_basic_header(struct ieee80211_vif *vif, u8 *data,
+mt7663_mcu_sta_rec_basic_header(struct ieee80211_vif *vif, u8 *data,
 				struct ieee80211_sta *sta, bool en)
 {
 	struct sta_rec_basic *hdr = (struct sta_rec_basic *)data;
@@ -1075,7 +1075,7 @@ connac_mcu_sta_rec_basic_header(struct ieee80211_vif *vif, u8 *data,
 }
 
 static void
-connac_mcu_sta_rec_ht_header(struct ieee80211_vif *vif, u8 *data,
+mt7663_mcu_sta_rec_ht_header(struct ieee80211_vif *vif, u8 *data,
 			     struct ieee80211_sta *sta)
 {
 	struct sta_rec_ht *hdr = (struct sta_rec_ht *)data;
@@ -1086,7 +1086,7 @@ connac_mcu_sta_rec_ht_header(struct ieee80211_vif *vif, u8 *data,
 }
 
 static void
-connac_mcu_sta_rec_vht_header(struct ieee80211_vif *vif, u8 *data,
+mt7663_mcu_sta_rec_vht_header(struct ieee80211_vif *vif, u8 *data,
 			      struct ieee80211_sta *sta)
 {
 	struct sta_rec_vht *hdr = (struct sta_rec_vht *)data;
@@ -1101,7 +1101,7 @@ connac_mcu_sta_rec_vht_header(struct ieee80211_vif *vif, u8 *data,
 }
 
 static void
-connac_mcu_sta_rec_apps_header(struct ieee80211_vif *vif, u8 *data,
+mt7663_mcu_sta_rec_apps_header(struct ieee80211_vif *vif, u8 *data,
 			       struct ieee80211_sta *sta)
 {
 	struct sta_rec_apps *hdr = (struct sta_rec_apps *)data;
@@ -1115,7 +1115,7 @@ connac_mcu_sta_rec_apps_header(struct ieee80211_vif *vif, u8 *data,
 }
 
 static void
-connac_mcu_sta_rec_hwamsdu_header(struct ieee80211_vif *vif, u8 *data,
+mt7663_mcu_sta_rec_hwamsdu_header(struct ieee80211_vif *vif, u8 *data,
 				  struct ieee80211_sta *sta)
 {
 	struct sta_rec_hwamsdu *hdr = (struct sta_rec_hwamsdu *)data;
@@ -1128,11 +1128,11 @@ connac_mcu_sta_rec_hwamsdu_header(struct ieee80211_vif *vif, u8 *data,
 }
 
 static int
-connac_mcu_sta_rec_wtbl_header(struct ieee80211_vif *vif, u8 *data,
+mt7663_mcu_sta_rec_wtbl_header(struct ieee80211_vif *vif, u8 *data,
 			       struct ieee80211_sta *sta)
 {
-	struct connac_vif *mvif = (struct connac_vif *)vif->drv_priv;
-	struct connac_sta *msta = (struct connac_sta *)sta->drv_priv;
+	struct mt7663_vif *mvif = (struct mt7663_vif *)vif->drv_priv;
+	struct mt7663_sta *msta = (struct mt7663_sta *)sta->drv_priv;
 
 	struct sta_rec_wtbl *hdr = (struct sta_rec_wtbl *)data;
 	struct wtbl_req_hdr *hdr_wtbl;
@@ -1264,12 +1264,12 @@ connac_mcu_sta_rec_wtbl_header(struct ieee80211_vif *vif, u8 *data,
 	return buf_len;
 }
 
-int connac_mcu_set_sta_rec(struct connac_dev *dev, struct ieee80211_vif *vif,
+int mt7663_mcu_set_sta_rec(struct mt7663_dev *dev, struct ieee80211_vif *vif,
 			   struct ieee80211_sta *sta, bool en)
 {
-	struct connac_vif *mvif = (struct connac_vif *)vif->drv_priv;
-	struct connac_sta *msta = (struct connac_sta *)sta->drv_priv;
-	int len = CONNAC_STA_REC_UPDATE_MAX_SIZE;
+	struct mt7663_vif *mvif = (struct mt7663_vif *)vif->drv_priv;
+	struct mt7663_sta *msta = (struct mt7663_sta *)sta->drv_priv;
+	int len = MT7663_STA_REC_UPDATE_MAX_SIZE;
 	int i, ntlv = 0, features, buf_len = sizeof(struct sta_req_hdr);
 	struct sta_req_hdr *hdr;
 	u8 *buf, *data;
@@ -1312,7 +1312,7 @@ int connac_mcu_set_sta_rec(struct connac_dev *dev, struct ieee80211_vif *vif,
 
 		switch (tag) {
 		case STA_REC_BASIC:
-			connac_mcu_sta_rec_basic_header(vif, data, sta, en);
+			mt7663_mcu_sta_rec_basic_header(vif, data, sta, en);
 			data += sizeof(struct sta_rec_basic);
 			buf_len += sizeof(struct sta_rec_basic);
 			ntlv++;
@@ -1327,7 +1327,7 @@ int connac_mcu_set_sta_rec(struct connac_dev *dev, struct ieee80211_vif *vif,
 			break;
 		case STA_REC_HT:
 			if (sta->ht_cap.ht_supported) {
-				connac_mcu_sta_rec_ht_header(vif, data, sta);
+				mt7663_mcu_sta_rec_ht_header(vif, data, sta);
 				data += sizeof(struct sta_rec_ht);
 				buf_len += sizeof(struct sta_rec_ht);
 				ntlv++;
@@ -1335,26 +1335,26 @@ int connac_mcu_set_sta_rec(struct connac_dev *dev, struct ieee80211_vif *vif,
 			break;
 		case STA_REC_VHT:
 			if (sta->vht_cap.vht_supported) {
-				connac_mcu_sta_rec_vht_header(vif, data, sta);
+				mt7663_mcu_sta_rec_vht_header(vif, data, sta);
 				data += sizeof(struct sta_rec_vht);
 				buf_len += sizeof(struct sta_rec_vht);
 				ntlv++;
 			}
 			break;
 		case STA_REC_APPS:
-			connac_mcu_sta_rec_apps_header(vif, data, sta);
+			mt7663_mcu_sta_rec_apps_header(vif, data, sta);
 			data += sizeof(struct sta_rec_apps);
 			buf_len += sizeof(struct sta_rec_apps);
 			ntlv++;
 			break;
 		case STA_REC_WTBL:
-			connac_mcu_sta_rec_wtbl_header(vif, data, sta);
+			mt7663_mcu_sta_rec_wtbl_header(vif, data, sta);
 			data += sizeof(struct sta_rec_wtbl);
 			buf_len += sizeof(struct sta_rec_wtbl);
 			ntlv++;
 			break;
 		case STA_REC_HWAMSDU:
-			connac_mcu_sta_rec_hwamsdu_header(vif, data, sta);
+			mt7663_mcu_sta_rec_hwamsdu_header(vif, data, sta);
 			data += sizeof(struct sta_rec_hwamsdu);
 			buf_len += sizeof(struct sta_rec_hwamsdu);
 			ntlv++;
@@ -1369,10 +1369,10 @@ out:
 	return ret;
 }
 
-int connac_mcu_set_bcn(struct connac_dev *dev, struct ieee80211_vif *vif,
+int mt7663_mcu_set_bcn(struct mt7663_dev *dev, struct ieee80211_vif *vif,
 		       int en)
 {
-	struct connac_vif *mvif = (struct connac_vif *)vif->drv_priv;
+	struct mt7663_vif *mvif = (struct mt7663_vif *)vif->drv_priv;
 	struct mt76_wcid *wcid = &dev->mt76.global_wcid;
 	struct ieee80211_mutable_offsets offs;
 	struct req {
@@ -1408,7 +1408,7 @@ int connac_mcu_set_bcn(struct connac_dev *dev, struct ieee80211_vif *vif,
 		return -EINVAL;
 	}
 
-	connac_mac_write_txwi(dev, (__le32 *)(req.pkt), skb, MT_TXQ_BEACON,
+	mt7663_mac_write_txwi(dev, (__le32 *)(req.pkt), skb, MT_TXQ_BEACON,
 			      wcid, NULL, 0, NULL);
 	memcpy(req.pkt + MT_TXD_SIZE, skb->data, skb->len);
 	req.pkt_len = cpu_to_le16(MT_TXD_SIZE + skb->len);
@@ -1426,8 +1426,8 @@ int connac_mcu_set_bcn(struct connac_dev *dev, struct ieee80211_vif *vif,
 				   &req, sizeof(req), true);
 }
 
-/* CONNAC : TBD */
-int connac_mcu_set_tx_power(struct connac_dev *dev)
+/* MT7663 : TBD */
+int mt7663_mcu_set_tx_power(struct mt7663_dev *dev)
 {
 	int i, ret, n_chains = hweight8(dev->mphy.antenna_mask);
 	struct cfg80211_chan_def *chandef = &dev->mphy.chandef;
@@ -1475,7 +1475,7 @@ int connac_mcu_set_tx_power(struct connac_dev *dev)
 	for (i = 0; i < n_chains; i++) {
 		int index = -MT_EE_NIC_CONF_0;
 
-		ret = connac_eeprom_get_power_index(chandef->chan, i);
+		ret = mt7663_eeprom_get_power_index(chandef->chan, i);
 		if (ret < 0)
 			goto out;
 
@@ -1491,8 +1491,8 @@ out:
 	return ret;
 }
 
-int connac_mcu_rdd_cmd(struct connac_dev *dev,
-		       enum connac_rdd_cmd cmd, u8 index,
+int mt7663_mcu_rdd_cmd(struct mt7663_dev *dev,
+		       enum mt7663_rdd_cmd cmd, u8 index,
 		       u8 rx_sel, u8 val)
 {
 	struct {
@@ -1512,7 +1512,7 @@ int connac_mcu_rdd_cmd(struct connac_dev *dev,
 				   &req, sizeof(req), true);
 }
 
-int connac_mcu_rdd_send_pattern(struct connac_dev *dev)
+int mt7663_mcu_rdd_send_pattern(struct mt7663_dev *dev)
 {
 	struct {
 		u8 pulse_num;
@@ -1543,7 +1543,7 @@ int connac_mcu_rdd_send_pattern(struct connac_dev *dev)
 				   &req, sizeof(req), false);
 }
 
-int connac_mcu_set_channel(struct connac_dev *dev)
+int mt7663_mcu_set_channel(struct mt7663_dev *dev)
 {
 	struct cfg80211_chan_def *chandef = &dev->mphy.chandef;
 	int freq1 = chandef->center_freq1, freq2 = chandef->center_freq2;
@@ -1615,14 +1615,14 @@ int connac_mcu_set_channel(struct connac_dev *dev)
 	return __mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD_SET_RX_PATH,
 				   &req, sizeof(req), true);
 }
-EXPORT_SYMBOL_GPL(connac_mcu_set_channel);
+EXPORT_SYMBOL_GPL(mt7663_mcu_set_channel);
 
-int connac_mcu_set_tx_ba(struct connac_dev *dev,
+int mt7663_mcu_set_tx_ba(struct mt7663_dev *dev,
 			 struct ieee80211_ampdu_params *params,
 			 bool add)
 {
-	struct connac_sta *msta = (struct connac_sta *)params->sta->drv_priv;
-	struct connac_vif *mvif = msta->vif;
+	struct mt7663_sta *msta = (struct mt7663_sta *)params->sta->drv_priv;
+	struct mt7663_vif *mvif = msta->vif;
 	struct {
 		struct wtbl_req_hdr hdr;
 		struct wtbl_ba ba;
@@ -1675,12 +1675,12 @@ int connac_mcu_set_tx_ba(struct connac_dev *dev,
 				   &sta_req, sizeof(sta_req), true);
 }
 
-int connac_mcu_set_rx_ba(struct connac_dev *dev,
+int mt7663_mcu_set_rx_ba(struct mt7663_dev *dev,
 			 struct ieee80211_ampdu_params *params,
 			 bool add)
 {
-	struct connac_sta *msta = (struct connac_sta *)params->sta->drv_priv;
-	struct connac_vif *mvif = msta->vif;
+	struct mt7663_sta *msta = (struct mt7663_sta *)params->sta->drv_priv;
+	struct mt7663_vif *mvif = msta->vif;
 	struct {
 		struct wtbl_req_hdr hdr;
 		struct wtbl_ba ba;

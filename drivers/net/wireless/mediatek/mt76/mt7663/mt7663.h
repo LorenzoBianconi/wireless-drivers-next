@@ -8,30 +8,30 @@
 #include <linux/ktime.h>
 #include "../mt76.h"
 
-#define CONNAC_USB_TXD_EXTRA_SIZE	(8 * 4)
-#define CONNAC_USB_TXD_SIZE		(MT_TXD_SIZE + \
-					 CONNAC_USB_TXD_EXTRA_SIZE)
-#define CONNAC_USB_HDR_SIZE		(4)
-#define CONNAC_USB_TAIL_SIZE		(4)
+#define MT7663_USB_TXD_EXTRA_SIZE	(8 * 4)
+#define MT7663_USB_TXD_SIZE		(MT_TXD_SIZE + \
+					 MT7663_USB_TXD_EXTRA_SIZE)
+#define MT7663_USB_HDR_SIZE		(4)
+#define MT7663_USB_TAIL_SIZE		(4)
 
 #define MTK_REBB	1
 
-#define CONNAC_MAX_INTERFACES		4
-#define CONNAC_MAX_WMM_SETS		4
-#define CONNAC_WTBL_SIZE		128
-#define CONNAC_WTBL_RESERVED		(CONNAC_WTBL_SIZE - 1)
-#define CONNAC_WTBL_STA			(CONNAC_WTBL_RESERVED - \
-					 CONNAC_MAX_INTERFACES)
+#define MT7663_MAX_INTERFACES		4
+#define MT7663_MAX_WMM_SETS		4
+#define MT7663_WTBL_SIZE		128
+#define MT7663_WTBL_RESERVED		(MT7663_WTBL_SIZE - 1)
+#define MT7663_WTBL_STA			(MT7663_WTBL_RESERVED - \
+					 MT7663_MAX_INTERFACES)
 
-#define CONNAC_WATCHDOG_TIME		(HZ / 10)
-#define CONNAC_RATE_RETRY		2
+#define MT7663_WATCHDOG_TIME		(HZ / 10)
+#define MT7663_RATE_RETRY		2
 
-#define CONNAC_TX_RING_SIZE		512
-#define CONNAC_TX_MCU_RING_SIZE		128
-#define CONNAC_TX_FWDL_RING_SIZE	128
+#define MT7663_TX_RING_SIZE		512
+#define MT7663_TX_MCU_RING_SIZE		128
+#define MT7663_TX_FWDL_RING_SIZE	128
 
-#define CONNAC_RX_RING_SIZE		512
-#define CONNAC_RX_MCU_RING_SIZE		512
+#define MT7663_RX_RING_SIZE		512
+#define MT7663_RX_MCU_RING_SIZE		512
 
 #define MT7629_EMI_IEMI			"mt7629_WIFI_RAM_CODE_iemi.bin"
 #define MT7629_EMI_DEMI			"mt7629_WIFI_RAM_CODE_demi.bin"
@@ -51,33 +51,33 @@
 #define MT7663_ROM_PATCH                "mediatek/mt7663pr2h.bin"
 #endif
 
-#define CONNAC_EEPROM_SIZE		1024
-#define CONNAC_TOKEN_SIZE		4096
+#define MT7663_EEPROM_SIZE		1024
+#define MT7663_TOKEN_SIZE		4096
 
-struct connac_vif;
-struct connac_sta;
+struct mt7663_vif;
+struct mt7663_sta;
 
-enum connac_hw_txq_id {
-	CONNAC_TXQ_MAIN,
-	CONNAC_TXQ_EXT,
-	CONNAC_TXQ_FWDL = 3,
-	CONNAC_TXQ_MGMT = 5,
-	CONNAC_TXQ_MCU = 15,
+enum mt7663_hw_txq_id {
+	MT7663_TXQ_MAIN,
+	MT7663_TXQ_EXT,
+	MT7663_TXQ_FWDL = 3,
+	MT7663_TXQ_MGMT = 5,
+	MT7663_TXQ_MCU = 15,
 };
 
-struct connac_rate_set {
+struct mt7663_rate_set {
 	struct ieee80211_tx_rate probe_rate;
 	struct ieee80211_tx_rate rates[4];
 };
 
-struct connac_sta {
+struct mt7663_sta {
 	struct mt76_wcid wcid; /* must be first */
 
-	struct connac_vif *vif;
+	struct mt7663_vif *vif;
 
 	struct ieee80211_tx_rate rates[4];
 
-	struct connac_rate_set rateset[2];
+	struct mt7663_rate_set rateset[2];
 	u32 rate_set_tsf;
 
 	u8 rate_count;
@@ -86,16 +86,16 @@ struct connac_sta {
 	u8 rate_probe;
 };
 
-struct connac_vif {
+struct mt7663_vif {
 	u8 idx;
 	u8 omac_idx;
 	u8 band_idx;
 	u8 wmm_idx;
 
-	struct connac_sta sta;
+	struct mt7663_sta sta;
 };
 
-struct connac_dev {
+struct mt7663_dev {
 	union { /* must be first */
 		struct mt76_dev mt76;
 		struct mt76_phy mphy;
@@ -135,7 +135,7 @@ struct connac_dev {
 	bool required_poweroff;
 };
 
-struct connac_rate_desc {
+struct mt7663_rate_desc {
 	int wcid;
 	u8 bw;
 	u8 bw_idx;
@@ -143,7 +143,7 @@ struct connac_rate_desc {
 	u16 probe_val;
 	bool rateset;
 
-	struct connac_sta *sta;
+	struct mt7663_sta *sta;
 	struct list_head node;
 };
 
@@ -182,7 +182,7 @@ enum {
 	MT_RX_SEL1,
 };
 
-enum connac_rdd_cmd {
+enum mt7663_rdd_cmd {
 	RDD_STOP,
 	RDD_START,
 	RDD_DET_MODE,
@@ -196,56 +196,53 @@ enum connac_rdd_cmd {
 	RDD_RESUME_BF,
 };
 
-extern const struct ieee80211_ops connac_ops;
-extern struct pci_driver connac_pci_driver;
-u32 connac_reg_map(struct connac_dev *dev, u32 addr);
-
-int connac_register_device(struct connac_dev *dev);
-void connac_unregister_device(struct connac_dev *dev);
-int connac_eeprom_init(struct connac_dev *dev, u32 base);
-int connac_eeprom_get_power_index(struct ieee80211_channel *chan,
+u32 mt7663_reg_map(struct mt7663_dev *dev, u32 addr);
+int mt7663_register_device(struct mt7663_dev *dev);
+void mt7663_unregister_device(struct mt7663_dev *dev);
+int mt7663_eeprom_init(struct mt7663_dev *dev, u32 base);
+int mt7663_eeprom_get_power_index(struct ieee80211_channel *chan,
 				  u8 chain_idx);
-void connac_dma_cleanup(struct connac_dev *dev);
-int connac_mcu_init(struct connac_dev *dev);
-int connac_mcu_set_dev_info(struct connac_dev *dev,
+void mt7663_dma_cleanup(struct mt7663_dev *dev);
+int mt7663_mcu_init(struct mt7663_dev *dev);
+int mt7663_mcu_set_dev_info(struct mt7663_dev *dev,
 			    struct ieee80211_vif *vif, bool enable);
-int connac_mcu_set_bss_info(struct connac_dev *dev, struct ieee80211_vif *vif,
+int mt7663_mcu_set_bss_info(struct mt7663_dev *dev, struct ieee80211_vif *vif,
 			    int en);
-void connac_mac_set_rates(struct connac_dev *dev, struct connac_sta *sta,
+void mt7663_mac_set_rates(struct mt7663_dev *dev, struct mt7663_sta *sta,
 			  struct ieee80211_tx_rate *probe_rate,
 			  struct ieee80211_tx_rate *rates);
-int connac_mcu_wtbl_bmc(struct connac_dev *dev, struct ieee80211_vif *vif,
+int mt7663_mcu_wtbl_bmc(struct mt7663_dev *dev, struct ieee80211_vif *vif,
 			bool enable);
-int connac_mcu_add_wtbl(struct connac_dev *dev, struct ieee80211_vif *vif,
+int mt7663_mcu_add_wtbl(struct mt7663_dev *dev, struct ieee80211_vif *vif,
 			struct ieee80211_sta *sta);
-int connac_mcu_del_wtbl(struct connac_dev *dev, struct ieee80211_sta *sta);
-int connac_mcu_del_wtbl_all(struct connac_dev *dev);
-int connac_mcu_set_sta_rec_bmc(struct connac_dev *dev,
+int mt7663_mcu_del_wtbl(struct mt7663_dev *dev, struct ieee80211_sta *sta);
+int mt7663_mcu_del_wtbl_all(struct mt7663_dev *dev);
+int mt7663_mcu_set_sta_rec_bmc(struct mt7663_dev *dev,
 			       struct ieee80211_vif *vif, bool en);
-int connac_mcu_set_sta_rec(struct connac_dev *dev, struct ieee80211_vif *vif,
+int mt7663_mcu_set_sta_rec(struct mt7663_dev *dev, struct ieee80211_vif *vif,
 			   struct ieee80211_sta *sta, bool en);
-int connac_mcu_set_bcn(struct connac_dev *dev, struct ieee80211_vif *vif,
+int mt7663_mcu_set_bcn(struct mt7663_dev *dev, struct ieee80211_vif *vif,
 		       int en);
-int connac_mcu_set_channel(struct connac_dev *dev);
-int connac_mcu_set_wmm(struct connac_dev *dev, u8 queue,
+int mt7663_mcu_set_channel(struct mt7663_dev *dev);
+int mt7663_mcu_set_wmm(struct mt7663_dev *dev, u8 queue,
 		       const struct ieee80211_tx_queue_params *params);
-int connac_mcu_set_tx_ba(struct connac_dev *dev,
+int mt7663_mcu_set_tx_ba(struct mt7663_dev *dev,
 			 struct ieee80211_ampdu_params *params,
 			 bool add);
-int connac_mcu_set_rx_ba(struct connac_dev *dev,
+int mt7663_mcu_set_rx_ba(struct mt7663_dev *dev,
 			 struct ieee80211_ampdu_params *params,
 			 bool add);
-int connac_mcu_set_ht_cap(struct connac_dev *dev, struct ieee80211_vif *vif,
+int mt7663_mcu_set_ht_cap(struct mt7663_dev *dev, struct ieee80211_vif *vif,
 			  struct ieee80211_sta *sta);
-void connac_mcu_rx_event(struct connac_dev *dev, struct sk_buff *skb);
-int connac_mcu_rdd_cmd(struct connac_dev *dev,
-		       enum connac_rdd_cmd cmd, u8 index,
+void mt7663_mcu_rx_event(struct mt7663_dev *dev, struct sk_buff *skb);
+int mt7663_mcu_rdd_cmd(struct mt7663_dev *dev,
+		       enum mt7663_rdd_cmd cmd, u8 index,
 		       u8 rx_sel, u8 val);
-int connac_dfs_start_radar_detector(struct connac_dev *dev);
-int connac_dfs_stop_radar_detector(struct connac_dev *dev);
-int connac_mcu_rdd_send_pattern(struct connac_dev *dev);
+int mt7663_dfs_start_radar_detector(struct mt7663_dev *dev);
+int mt7663_dfs_stop_radar_detector(struct mt7663_dev *dev);
+int mt7663_mcu_rdd_send_pattern(struct mt7663_dev *dev);
 
-static inline void connac_dfs_check_channel(struct connac_dev *dev)
+static inline void mt7663_dfs_check_channel(struct mt7663_dev *dev)
 {
 	enum nl80211_chan_width width = dev->mphy.chandef.width;
 	u32 freq = dev->mphy.chandef.chan->center_freq;
@@ -256,121 +253,116 @@ static inline void connac_dfs_check_channel(struct connac_dev *dev)
 		dev->dfs_state = -1;
 }
 
-extern const struct ieee80211_ops connac_mmio_ops;
-extern const struct ieee80211_ops connac_usb_ops;
+extern const struct ieee80211_ops mt7663_mmio_ops;
+extern const struct ieee80211_ops mt7663_usb_ops;
 
-extern struct pci_driver connac_pci_driver;
+extern struct pci_driver mt7663_pci_driver;
 extern struct platform_driver mt7629_wmac_driver;
 
-void connac_tx(struct ieee80211_hw *hw,
+void mt7663_tx(struct ieee80211_hw *hw,
 	       struct ieee80211_tx_control *control,
 	       struct sk_buff *skb);
-int connac_add_interface(struct ieee80211_hw *hw,
+int mt7663_add_interface(struct ieee80211_hw *hw,
 			 struct ieee80211_vif *vif);
-void connac_remove_interface(struct ieee80211_hw *hw,
+void mt7663_remove_interface(struct ieee80211_hw *hw,
 			     struct ieee80211_vif *vif);
-int connac_config(struct ieee80211_hw *hw, u32 changed);
-int connac_conf_tx(struct ieee80211_hw *hw,
+int mt7663_conf_tx(struct ieee80211_hw *hw,
 		   struct ieee80211_vif *vif, u16 queue,
 		   const struct ieee80211_tx_queue_params *params);
-void connac_configure_filter(struct ieee80211_hw *hw,
-			     unsigned int changed_flags,
-			     unsigned int *total_flags,
-			     u64 multicast);
-void connac_bss_info_changed(struct ieee80211_hw *hw,
+void mt7663_bss_info_changed(struct ieee80211_hw *hw,
 			     struct ieee80211_vif *vif,
 			     struct ieee80211_bss_conf *info,
 			     u32 changed);
-int connac_check_key(struct connac_dev *dev, enum set_key_cmd cmd,
+int mt7663_check_key(struct mt7663_dev *dev, enum set_key_cmd cmd,
 		     struct ieee80211_vif *vif, struct mt76_wcid *wcid,
 		     struct ieee80211_key_conf *key);
-int connac_ampdu_action(struct ieee80211_hw *hw,
+int mt7663_ampdu_action(struct ieee80211_hw *hw,
 			struct ieee80211_vif *vif,
 			struct ieee80211_ampdu_params *params);
-int connac_set_rts_threshold(struct ieee80211_hw *hw, u32 val);
+int mt7663_set_rts_threshold(struct ieee80211_hw *hw, u32 val);
 
-void connac_update_channel(struct mt76_dev *mdev);
-void connac_mac_cca_stats_reset(struct connac_dev *dev);
+void mt7663_update_channel(struct mt76_dev *mdev);
 
-int connac_mac_write_txwi(struct connac_dev *dev, __le32 *txwi,
+int mt7663_mac_write_txwi(struct mt7663_dev *dev, __le32 *txwi,
 			  struct sk_buff *skb, enum mt76_txq_id qid,
 			  struct mt76_wcid *wcid,
 			  struct ieee80211_sta *sta, int pid,
 			  struct ieee80211_key_conf *key);
-int connac_mac_fill_rx(struct connac_dev *dev, struct sk_buff *skb);
-void connac_mac_add_txs(struct connac_dev *dev, void *data);
-void connac_mac_tx_free(struct connac_dev *dev, struct sk_buff *skb);
-int connac_mac_wtbl_update_key(struct connac_dev *dev, struct mt76_wcid *wcid,
+int mt7663_mac_fill_rx(struct mt7663_dev *dev, struct sk_buff *skb);
+void mt7663_mac_add_txs(struct mt7663_dev *dev, void *data);
+void mt7663_mac_tx_free(struct mt7663_dev *dev, struct sk_buff *skb);
+int mt7663_mac_wtbl_update_key(struct mt7663_dev *dev, struct mt76_wcid *wcid,
 			       u32 base_addr, struct ieee80211_key_conf *key,
 			       int cipher, enum set_key_cmd cmd);
-void connac_mac_wtbl_update_cipher(struct connac_dev *dev,
+void mt7663_mac_wtbl_update_cipher(struct mt7663_dev *dev,
 				   struct mt76_wcid *wcid, u32 addr,
 				   int cipher, enum set_key_cmd cmd);
-u32 connac_mac_wtbl_addr(struct connac_dev *dev, int wcid);
+u32 mt7663_mac_wtbl_addr(struct mt7663_dev *dev, int wcid);
 
-int connac_load_ram(struct connac_dev *dev);
-int connac_load_patch(struct connac_dev *dev);
-int connac_mcu_set_eeprom(struct connac_dev *dev);
-int connac_mcu_dbdc_ctrl(struct connac_dev *dev);
-int connac_mcu_init_mac(struct connac_dev *dev, u8 band);
-int connac_mcu_set_rts_thresh(struct connac_dev *dev, u32 val);
-int connac_mcu_ctrl_pm_state(struct connac_dev *dev, int enter);
-int connac_mcu_set_tx_power(struct connac_dev *dev);
-void connac_mcu_exit(struct connac_dev *dev);
-int connac_mcu_restart(struct mt76_dev *dev);
-void connac_mcu_fill_msg(struct connac_dev *dev, struct sk_buff *skb,
+int mt7663_load_ram(struct mt7663_dev *dev);
+int mt7663_load_patch(struct mt7663_dev *dev);
+int mt7663_mcu_set_eeprom(struct mt7663_dev *dev);
+int mt7663_mcu_dbdc_ctrl(struct mt7663_dev *dev);
+int mt7663_mcu_init_mac(struct mt7663_dev *dev, u8 band);
+int mt7663_mcu_set_rts_thresh(struct mt7663_dev *dev, u32 val);
+int mt7663_mcu_ctrl_pm_state(struct mt7663_dev *dev, int enter);
+int mt7663_mcu_set_tx_power(struct mt7663_dev *dev);
+void mt7663_mcu_exit(struct mt7663_dev *dev);
+int mt7663_mcu_restart(struct mt76_dev *dev);
+void mt7663_mcu_fill_msg(struct mt7663_dev *dev, struct sk_buff *skb,
 			 int cmd, int *wait_seq);
-int connac_mcu_wait_response(struct connac_dev *dev, int cmd, int seq);
+int mt7663_mcu_wait_response(struct mt7663_dev *dev, int cmd, int seq);
 
-int connac_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
+int mt7663_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 			  enum mt76_txq_id qid, struct mt76_wcid *wcid,
 			  struct ieee80211_sta *sta,
 			  struct mt76_tx_info *tx_info);
 
-void connac_tx_complete_skb(struct mt76_dev *mdev, enum mt76_txq_id qid,
+void mt7663_tx_complete_skb(struct mt76_dev *mdev, enum mt76_txq_id qid,
 			    struct mt76_queue_entry *e);
 
-void connac_queue_rx_skb(struct mt76_dev *mdev, enum mt76_rxq_id q,
+void mt7663_queue_rx_skb(struct mt76_dev *mdev, enum mt76_rxq_id q,
 			 struct sk_buff *skb);
-void connac_sta_ps(struct mt76_dev *mdev, struct ieee80211_sta *sta, bool ps);
-int connac_sta_add(struct mt76_dev *mdev, struct ieee80211_vif *vif,
+void mt7663_sta_ps(struct mt76_dev *mdev, struct ieee80211_sta *sta, bool ps);
+int mt7663_sta_add(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 		   struct ieee80211_sta *sta);
-void connac_sta_assoc(struct mt76_dev *mdev, struct ieee80211_vif *vif,
+void mt7663_sta_assoc(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 		      struct ieee80211_sta *sta);
-void connac_sta_remove(struct mt76_dev *mdev, struct ieee80211_vif *vif,
+void mt7663_sta_remove(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 		       struct ieee80211_sta *sta);
-void connac_mac_work(struct work_struct *work);
-void connac_txp_skb_unmap(struct mt76_dev *dev,
+void mt7663_mac_work(struct work_struct *work);
+void mt7663_mac_cca_stats_reset(struct mt7663_dev *dev);
+void mt7663_txp_skb_unmap(struct mt76_dev *dev,
 			  struct mt76_txwi_cache *txwi);
-int mt76_dfs_start_rdd(struct connac_dev *dev, bool force);
-int connac_dfs_init_radar_detector(struct connac_dev *dev);
+int mt76_dfs_start_rdd(struct mt7663_dev *dev, bool force);
+int mt7663_dfs_init_radar_detector(struct mt7663_dev *dev);
 
-int connac_init_debugfs(struct connac_dev *dev);
+int mt7663_init_debugfs(struct mt7663_dev *dev);
 
-int __connac_usb_mac_set_rates(struct connac_dev *dev,
-			       struct connac_rate_desc *rc);
-void connac_usb_mac_cca_stats_reset(struct connac_dev *dev);
-int connac_usb_mac_wtbl_set_key(struct connac_dev *dev, struct mt76_wcid *wcid,
-				struct ieee80211_key_conf *key,
-				enum set_key_cmd cmd);
-int connac_usb_mcu_init(struct connac_dev *dev);
-void connac_usb_mac_write_txwi(struct connac_dev *dev, struct mt76_wcid *wcid,
-			       enum mt76_txq_id qid, struct ieee80211_sta *sta,
-			       struct sk_buff *skb);
-void connac_usb_rc_work(struct work_struct *work);
-int connac_usb_register_device(struct connac_dev *dev);
-void connac_usb_mac_set_rates(struct connac_dev *dev, struct connac_sta *sta,
-			      struct ieee80211_tx_rate *probe_rate,
-			      struct ieee80211_tx_rate *rates);
+int __mt7663u_mac_set_rates(struct mt7663_dev *dev,
+			    struct mt7663_rate_desc *rc);
+void mt7663u_mac_cca_stats_reset(struct mt7663_dev *dev);
+int mt7663u_mac_wtbl_set_key(struct mt7663_dev *dev,
+			     struct mt76_wcid *wcid,
+			     struct ieee80211_key_conf *key,
+			     enum set_key_cmd cmd);
+int mt7663u_mcu_init(struct mt7663_dev *dev);
+void mt7663u_mac_write_txwi(struct mt7663_dev *dev, struct mt76_wcid *wcid,
+			    enum mt76_txq_id qid, struct ieee80211_sta *sta,
+			    struct sk_buff *skb);
+void mt7663u_rc_work(struct work_struct *work);
+int mt7663u_register_device(struct mt7663_dev *dev);
+void mt7663u_mac_set_rates(struct mt7663_dev *dev, struct mt7663_sta *sta,
+			   struct ieee80211_tx_rate *probe_rate,
+			   struct ieee80211_tx_rate *rates);
 
-int connac_poll_tx(struct napi_struct *napi, int budget);
-void connac_irq_enable(struct connac_dev *dev, u32 mask);
-void connac_irq_disable(struct connac_dev *dev, u32 mask);
-irqreturn_t connac_irq_handler(int irq, void *dev_instance);
-int connac_mmio_init_device(struct connac_dev *dev, int irq);
-void connac_mmio_rx_poll_complete(struct mt76_dev *mdev,
-				  enum mt76_rxq_id q);
-int connac_mac_wtbl_set_key(struct connac_dev *dev,
+int mt7663_poll_tx(struct napi_struct *napi, int budget);
+void mt7663_irq_enable(struct mt7663_dev *dev, u32 mask);
+void mt7663_irq_disable(struct mt7663_dev *dev, u32 mask);
+irqreturn_t mt7663_irq_handler(int irq, void *dev_instance);
+int mt7663_init_device(struct mt7663_dev *dev, int irq);
+void mt7663_rx_poll_complete(struct mt76_dev *mdev, enum mt76_rxq_id q);
+int mt7663_mac_wtbl_set_key(struct mt7663_dev *dev,
 			    struct mt76_wcid *wcid,
 			    struct ieee80211_key_conf *key,
 			    enum set_key_cmd cmd);

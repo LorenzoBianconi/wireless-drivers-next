@@ -13,15 +13,15 @@
 #include "mac.h"
 #include "usb_sdio_regs.h"
 
-static u32 connac_usb_mac_wtbl_addr(struct connac_dev *dev, int wcid)
+static u32 mt7663u_mac_wtbl_addr(struct mt7663_dev *dev, int wcid)
 {
 	return MT_WTBL(0) + wcid * MT_WTBL_ENTRY_SIZE;
 }
 
-int __connac_usb_mac_set_rates(struct connac_dev *dev,
-			       struct connac_rate_desc *rc)
+int __mt7663u_mac_set_rates(struct mt7663_dev *dev,
+			    struct mt7663_rate_desc *rc)
 {
-	u32 addr = connac_usb_mac_wtbl_addr(dev, rc->wcid);
+	u32 addr = mt7663u_mac_wtbl_addr(dev, rc->wcid);
 	u32 w5, w27;
 
 	if (!mt76_poll(dev, MT_WTBL_UPDATE, MT_WTBL_UPDATE_BUSY, 0, 5000))
@@ -72,21 +72,21 @@ int __connac_usb_mac_set_rates(struct connac_dev *dev,
 	if (!(rc->sta->wcid.tx_info & MT_WCID_TX_INFO_SET))
 		mt76_poll(dev, MT_WTBL_UPDATE, MT_WTBL_UPDATE_BUSY, 0, 5000);
 
-	rc->sta->rate_count = 2 * CONNAC_RATE_RETRY * rc->sta->n_rates;
+	rc->sta->rate_count = 2 * MT7663_RATE_RETRY * rc->sta->n_rates;
 	rc->sta->wcid.tx_info |= MT_WCID_TX_INFO_SET;
 
 	return 0;
 }
 
-void connac_usb_mac_cca_stats_reset(struct connac_dev *dev)
+void mt7663u_mac_cca_stats_reset(struct mt7663_dev *dev)
 {
 	mt76_clear(dev, MT_WF_PHY_R0_B0_PHYMUX_5, GENMASK(22, 20));
 	mt76_set(dev, MT_WF_PHY_R0_B0_PHYMUX_5, BIT(22) | BIT(20));
 }
 
-void connac_usb_mac_write_txwi(struct connac_dev *dev, struct mt76_wcid *wcid,
-			       enum mt76_txq_id qid, struct ieee80211_sta *sta,
-			       struct sk_buff *skb)
+void mt7663u_mac_write_txwi(struct mt7663_dev *dev, struct mt76_wcid *wcid,
+			    enum mt76_txq_id qid, struct ieee80211_sta *sta,
+			    struct sk_buff *skb)
 {
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
 	__le32 *txwi;
@@ -97,19 +97,19 @@ void connac_usb_mac_write_txwi(struct connac_dev *dev, struct mt76_wcid *wcid,
 
 	pid = mt76_tx_status_skb_add(&dev->mt76, wcid, skb);
 
-	txwi = (__le32 *)(skb->data - CONNAC_USB_TXD_SIZE);
-	memset(txwi, 0, CONNAC_USB_TXD_SIZE);
-	connac_mac_write_txwi(dev, txwi, skb, qid, wcid, sta,
+	txwi = (__le32 *)(skb->data - MT7663_USB_TXD_SIZE);
+	memset(txwi, 0, MT7663_USB_TXD_SIZE);
+	mt7663_mac_write_txwi(dev, txwi, skb, qid, wcid, sta,
 			      pid, info->control.hw_key);
-	skb_push(skb, CONNAC_USB_TXD_SIZE);
+	skb_push(skb, MT7663_USB_TXD_SIZE);
 }
 
 static int
-connac_usb_mac_wtbl_update_pk(struct connac_dev *dev, struct mt76_wcid *wcid,
-			      enum connac_cipher_type cipher, int keyidx,
-			      enum set_key_cmd cmd)
+mt7663u_mac_wtbl_update_pk(struct mt7663_dev *dev, struct mt76_wcid *wcid,
+			   enum mt7663_cipher_type cipher, int keyidx,
+			   enum set_key_cmd cmd)
 {
-	u32 addr = connac_usb_mac_wtbl_addr(dev, wcid->idx), w0, w1;
+	u32 addr = mt7663u_mac_wtbl_addr(dev, wcid->idx), w0, w1;
 
 	if (!mt76_poll(dev, MT_WTBL_UPDATE, MT_WTBL_UPDATE_BUSY, 0, 5000))
 		return -ETIMEDOUT;
@@ -143,27 +143,27 @@ connac_usb_mac_wtbl_update_pk(struct connac_dev *dev, struct mt76_wcid *wcid,
 	return 0;
 }
 
-int connac_usb_mac_wtbl_set_key(struct connac_dev *dev, struct mt76_wcid *wcid,
-				struct ieee80211_key_conf *key,
-				enum set_key_cmd cmd)
+int mt7663u_mac_wtbl_set_key(struct mt7663_dev *dev,
+			     struct mt76_wcid *wcid,
+			     struct ieee80211_key_conf *key,
+			     enum set_key_cmd cmd)
 {
-	u32 addr = connac_usb_mac_wtbl_addr(dev, wcid->idx);
-	enum connac_cipher_type cipher;
+	u32 addr = mt7663u_mac_wtbl_addr(dev, wcid->idx);
+	enum mt7663_cipher_type cipher;
 	int err;
 
-	cipher = connac_mac_get_cipher(key->cipher);
+	cipher = mt7663_mac_get_cipher(key->cipher);
 	if (cipher == MT_CIPHER_NONE)
 		return -EOPNOTSUPP;
 
 	mutex_lock(&dev->mt76.mutex);
 
-	connac_mac_wtbl_update_cipher(dev, wcid, addr, cipher, cmd);
-	err = connac_mac_wtbl_update_key(dev, wcid, addr, key, cipher, cmd);
+	mt7663_mac_wtbl_update_cipher(dev, wcid, addr, cipher, cmd);
+	err = mt7663_mac_wtbl_update_key(dev, wcid, addr, key, cipher, cmd);
 	if (err < 0)
 		goto out;
 
-	err = connac_usb_mac_wtbl_update_pk(dev, wcid, cipher,
-					    key->keyidx, cmd);
+	err = mt7663u_mac_wtbl_update_pk(dev, wcid, cipher, key->keyidx, cmd);
 	if (err < 0)
 		goto out;
 

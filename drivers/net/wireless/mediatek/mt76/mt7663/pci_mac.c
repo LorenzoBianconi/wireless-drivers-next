@@ -17,7 +17,13 @@
 #include "regs.h"
 #include "../dma.h"
 
-void connac_tx_complete_skb(struct mt76_dev *mdev, enum mt76_txq_id qid,
+void mt7663_mac_cca_stats_reset(struct mt7663_dev *dev)
+{
+	mt76_clear(dev, MT_WF_PHY_R0_B0_PHYMUX_5, GENMASK(22, 20));
+	mt76_set(dev, MT_WF_PHY_R0_B0_PHYMUX_5, BIT(22) | BIT(20));
+}
+
+void mt7663_tx_complete_skb(struct mt76_dev *mdev, enum mt76_txq_id qid,
 			    struct mt76_queue_entry *e)
 {
 	if (!e->txwi) {
@@ -38,10 +44,10 @@ void connac_tx_complete_skb(struct mt76_dev *mdev, enum mt76_txq_id qid,
 }
 
 static void
-connac_write_hw_txp(struct connac_dev *dev, struct mt76_tx_info *tx_info,
-		    struct connac_txp *txp, u32 id)
+mt7663_write_hw_txp(struct mt7663_dev *dev, struct mt76_tx_info *tx_info,
+		    struct mt7663_txp *txp, u32 id)
 {
-	struct connac_txp_ptr *ptr = &txp->ptr[0];
+	struct mt7663_txp_ptr *ptr = &txp->ptr[0];
 	int i, nbuf = tx_info->nbuf - 1;
 
 	memset(txp, 0, sizeof(*txp));
@@ -67,18 +73,18 @@ connac_write_hw_txp(struct connac_dev *dev, struct mt76_tx_info *tx_info,
 	}
 }
 
-int connac_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
+int mt7663_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 			  enum mt76_txq_id qid, struct mt76_wcid *wcid,
 			  struct ieee80211_sta *sta,
 			  struct mt76_tx_info *tx_info)
 {
-	struct connac_dev *dev = container_of(mdev, struct connac_dev, mt76);
-	struct connac_sta *msta = container_of(wcid, struct connac_sta, wcid);
+	struct mt7663_dev *dev = container_of(mdev, struct mt7663_dev, mt76);
+	struct mt7663_sta *msta = container_of(wcid, struct mt7663_sta, wcid);
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(tx_info->skb);
 	struct ieee80211_key_conf *key = info->control.hw_key;
 	u8 *txwi = (u8 *)txwi_ptr;
 	struct mt76_txwi_cache *t;
-	struct connac_txp *txp;
+	struct mt7663_txp *txp;
 	int pid, id;
 
 	if (!wcid)
@@ -88,7 +94,7 @@ int connac_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 
 	if (info->flags & IEEE80211_TX_CTL_RATE_CTRL_PROBE) {
 		spin_lock_bh(&dev->mt76.lock);
-		connac_mac_set_rates(dev, msta, &info->control.rates[0],
+		mt7663_mac_set_rates(dev, msta, &info->control.rates[0],
 				     msta->rates);
 		msta->rate_probe = true;
 		spin_unlock_bh(&dev->mt76.lock);
@@ -98,16 +104,16 @@ int connac_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 	t->skb = tx_info->skb;
 
 	spin_lock_bh(&dev->token_lock);
-	id = idr_alloc(&dev->token, t, 0, CONNAC_TOKEN_SIZE, GFP_ATOMIC);
+	id = idr_alloc(&dev->token, t, 0, MT7663_TOKEN_SIZE, GFP_ATOMIC);
 	spin_unlock_bh(&dev->token_lock);
 	if (id < 0)
 		return id;
 
-	connac_mac_write_txwi(dev, txwi_ptr, tx_info->skb, qid, wcid, sta,
+	mt7663_mac_write_txwi(dev, txwi_ptr, tx_info->skb, qid, wcid, sta,
 			      pid, key);
 
-	txp = (struct connac_txp *)(txwi + MT_TXD_SIZE);
-	connac_write_hw_txp(dev, tx_info, txp, id);
+	txp = (struct mt7663_txp *)(txwi + MT_TXD_SIZE);
+	mt7663_write_hw_txp(dev, tx_info, txp, id);
 
 	tx_info->skb = DMA_DUMMY_DATA;
 
@@ -115,11 +121,11 @@ int connac_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 }
 
 static int
-connac_mac_wtbl_update_pk(struct connac_dev *dev, struct mt76_wcid *wcid,
-			  enum connac_cipher_type cipher, int keyidx,
+mt7663_mac_wtbl_update_pk(struct mt7663_dev *dev, struct mt76_wcid *wcid,
+			  enum mt7663_cipher_type cipher, int keyidx,
 			  enum set_key_cmd cmd)
 {
-	u32 addr = connac_mac_wtbl_addr(dev, wcid->idx), w0, w1;
+	u32 addr = mt7663_mac_wtbl_addr(dev, wcid->idx), w0, w1;
 
 	if (!mt76_poll(dev, MT_WTBL_UPDATE, MT_WTBL_UPDATE_BUSY, 0, 5000))
 		return -ETIMEDOUT;
@@ -153,27 +159,27 @@ connac_mac_wtbl_update_pk(struct connac_dev *dev, struct mt76_wcid *wcid,
 	return 0;
 }
 
-int connac_mac_wtbl_set_key(struct connac_dev *dev,
+int mt7663_mac_wtbl_set_key(struct mt7663_dev *dev,
 			    struct mt76_wcid *wcid,
 			    struct ieee80211_key_conf *key,
 			    enum set_key_cmd cmd)
 {
-	u32 addr = connac_mac_wtbl_addr(dev, wcid->idx);
-	enum connac_cipher_type cipher;
+	u32 addr = mt7663_mac_wtbl_addr(dev, wcid->idx);
+	enum mt7663_cipher_type cipher;
 	int err;
 
-	cipher = connac_mac_get_cipher(key->cipher);
+	cipher = mt7663_mac_get_cipher(key->cipher);
 	if (cipher == MT_CIPHER_NONE)
 		return -EOPNOTSUPP;
 
 	mutex_lock(&dev->mt76.mutex);
 
-	connac_mac_wtbl_update_cipher(dev, wcid, addr, cipher, cmd);
-	err = connac_mac_wtbl_update_key(dev, wcid, addr, key, cipher, cmd);
+	mt7663_mac_wtbl_update_cipher(dev, wcid, addr, cipher, cmd);
+	err = mt7663_mac_wtbl_update_key(dev, wcid, addr, key, cipher, cmd);
 	if (err < 0)
 		goto out;
 
-	err = connac_mac_wtbl_update_pk(dev, wcid, cipher, key->keyidx,
+	err = mt7663_mac_wtbl_update_pk(dev, wcid, cipher, key->keyidx,
 					cmd);
 	if (err < 0)
 		goto out;

@@ -14,10 +14,10 @@
 #include "regs.h"
 #include "mac.h"
 
-void connac_queue_rx_skb(struct mt76_dev *mdev, enum mt76_rxq_id q,
+void mt7663_queue_rx_skb(struct mt76_dev *mdev, enum mt76_rxq_id q,
 			 struct sk_buff *skb)
 {
-	struct connac_dev *dev = container_of(mdev, struct connac_dev, mt76);
+	struct mt7663_dev *dev = container_of(mdev, struct mt7663_dev, mt76);
 	__le32 *rxd = (__le32 *)skb->data;
 	__le32 *end = (__le32 *)&skb->data[skb->len];
 	enum rx_pkt_type type;
@@ -27,17 +27,17 @@ void connac_queue_rx_skb(struct mt76_dev *mdev, enum mt76_rxq_id q,
 	switch (type) {
 	case PKT_TYPE_TXS:
 		for (rxd++; rxd + 7 <= end; rxd += 7)
-			connac_mac_add_txs(dev, rxd);
+			mt7663_mac_add_txs(dev, rxd);
 		dev_kfree_skb(skb);
 		break;
 	case PKT_TYPE_TXRX_NOTIFY:
-		connac_mac_tx_free(dev, skb);
+		mt7663_mac_tx_free(dev, skb);
 		break;
 	case PKT_TYPE_RX_EVENT:
-		connac_mcu_rx_event(dev, skb);
+		mt7663_mcu_rx_event(dev, skb);
 		break;
 	case PKT_TYPE_NORMAL:
-		if (!connac_mac_fill_rx(dev, skb)) {
+		if (!mt7663_mac_fill_rx(dev, skb)) {
 			mt76_rx(&dev->mt76, q, skb);
 			return;
 		}
@@ -47,9 +47,9 @@ void connac_queue_rx_skb(struct mt76_dev *mdev, enum mt76_rxq_id q,
 		break;
 	}
 }
-EXPORT_SYMBOL_GPL(connac_queue_rx_skb);
+EXPORT_SYMBOL_GPL(mt7663_queue_rx_skb);
 
-void connac_dma_cleanup(struct connac_dev *dev)
+void mt7663_dma_cleanup(struct mt7663_dev *dev)
 {
 	mt76_clear(dev, MT_WPDMA_GLO_CFG,
 		   MT_WPDMA_GLO_CFG_TX_DMA_EN |

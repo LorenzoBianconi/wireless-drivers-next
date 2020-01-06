@@ -26,7 +26,7 @@
 	.hw_value_short = (MT_PHY_TYPE_OFDM << 8) | (_idx),		\
 }
 
-static struct ieee80211_rate connac_rates[] = {
+static struct ieee80211_rate mt7663_rates[] = {
 	CCK_RATE(0, 10),
 	CCK_RATE(1, 20),
 	CCK_RATE(2, 55),
@@ -43,7 +43,7 @@ static struct ieee80211_rate connac_rates[] = {
 
 static const struct ieee80211_iface_limit if_limits[] = {
 	{
-		.max = CONNAC_MAX_INTERFACES,
+		.max = MT7663_MAX_INTERFACES,
 		.types = BIT(NL80211_IFTYPE_AP) |
 #ifdef CONFIG_MAC80211_MESH
 			 BIT(NL80211_IFTYPE_MESH_POINT) |
@@ -68,21 +68,21 @@ static inline void _ieee80211_hw_clear(struct ieee80211_hw *hw,
 	return __clear_bit(flg, hw->flags);
 }
 
-int connac_register_device(struct connac_dev *dev)
+int mt7663_register_device(struct mt7663_dev *dev)
 {
 	struct ieee80211_hw *hw = mt76_hw(dev);
 	struct wiphy *wiphy = hw->wiphy;
 	int ret;
 
-	INIT_DELAYED_WORK(&dev->mt76.mac_work, connac_mac_work);
+	INIT_DELAYED_WORK(&dev->mt76.mac_work, mt7663_mac_work);
 
 	hw->queues = 4;
 	hw->max_rates = 3;
 	hw->max_report_rates = 7;
 	hw->max_rate_tries = 11;
 
-	hw->sta_data_size = sizeof(struct connac_sta);
-	hw->vif_data_size = sizeof(struct connac_vif);
+	hw->sta_data_size = sizeof(struct mt7663_sta);
+	hw->vif_data_size = sizeof(struct mt7663_vif);
 
 	wiphy->iface_combinations = if_comb;
 	wiphy->n_iface_combinations = ARRAY_SIZE(if_comb);
@@ -106,27 +106,27 @@ int connac_register_device(struct connac_dev *dev)
 	ieee80211_hw_set(hw, SUPPORTS_REORDERING_BUFFER);
 	ieee80211_hw_set(hw, TX_STATUS_NO_AMPDU_LEN);
 
-	ret = mt76_register_device(&dev->mt76, true, connac_rates,
-				   ARRAY_SIZE(connac_rates));
+	ret = mt76_register_device(&dev->mt76, true, mt7663_rates,
+				   ARRAY_SIZE(mt7663_rates));
 	if (ret)
 		return ret;
 
-	return connac_init_debugfs(dev);
+	return mt7663_init_debugfs(dev);
 }
-EXPORT_SYMBOL_GPL(connac_register_device);
+EXPORT_SYMBOL_GPL(mt7663_register_device);
 
-void connac_unregister_device(struct connac_dev *dev)
+void mt7663_unregister_device(struct mt7663_dev *dev)
 {
 	struct mt76_txwi_cache *txwi;
 	int id;
 
 	mt76_unregister_device(&dev->mt76);
-	connac_mcu_exit(dev);
-	connac_dma_cleanup(dev);
+	mt7663_mcu_exit(dev);
+	mt7663_dma_cleanup(dev);
 
 	spin_lock_bh(&dev->token_lock);
 	idr_for_each_entry(&dev->token, txwi, id) {
-		connac_txp_skb_unmap(&dev->mt76, txwi);
+		mt7663_txp_skb_unmap(&dev->mt76, txwi);
 		if (txwi->skb)
 			dev_kfree_skb_any(txwi->skb);
 		mt76_put_txwi(&dev->mt76, txwi);
@@ -136,6 +136,6 @@ void connac_unregister_device(struct connac_dev *dev)
 
 	mt76_free_device(&dev->mt76);
 }
-EXPORT_SYMBOL_GPL(connac_unregister_device);
+EXPORT_SYMBOL_GPL(mt7663_unregister_device);
 
 MODULE_LICENSE("Dual BSD/GPL");

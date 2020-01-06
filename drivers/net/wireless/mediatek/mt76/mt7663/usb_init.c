@@ -14,7 +14,7 @@
 #include "usb_sdio_regs.h"
 
 static int
-connac_usb_dma_sched_init(struct connac_dev *dev)
+mt7663u_dma_sched_init(struct mt7663_dev *dev)
 {
 	u32 val;
 
@@ -89,7 +89,7 @@ connac_usb_dma_sched_init(struct connac_dev *dev)
 	return 0;
 }
 
-static void connac_usb_mac_init(struct connac_dev *dev)
+static void mt7663u_mac_init(struct mt7663_dev *dev)
 {
 	u32 val;
 
@@ -116,15 +116,15 @@ static void connac_usb_mac_init(struct connac_dev *dev)
 		 MT_TMAC_CTCR0_INS_DDLMT_EN,
 		 MT_TMAC_CTCR0_INS_DDLMT_VHT_SMPDU_EN |
 		 MT_TMAC_CTCR0_INS_DDLMT_EN);
-	connac_mcu_set_rts_thresh(dev, 0x92b);
+	mt7663_mcu_set_rts_thresh(dev, 0x92b);
 
 	mt76_rmw(dev, MT_AGG_SCR, MT_AGG_SCR_NLNAV_MID_PTEC_DIS,
 		 MT_AGG_SCR_NLNAV_MID_PTEC_DIS);
 
-	connac_mcu_init_mac(dev, 0);
+	mt7663_mcu_init_mac(dev, 0);
 
 	if (dev->mt76.rev == 0x76630010)
-		connac_mcu_init_mac(dev, 1);
+		mt7663_mcu_init_mac(dev, 1);
 
 #define RF_LOW_BEACON_BAND0 0x11900
 #define RF_LOW_BEACON_BAND1 0x11d00
@@ -139,16 +139,16 @@ static void connac_usb_mac_init(struct connac_dev *dev)
 	mt76_wr(dev, MT_WF_DMA(0x0), 0x0046f000);
 }
 
-static int connac_usb_init_hardware(struct connac_dev *dev)
+static int mt7663u_init_hardware(struct mt7663_dev *dev)
 {
 	int ret, idx;
 	u32 val;
 
-	ret = connac_eeprom_init(dev, MT_EFUSE_BASE);
+	ret = mt7663_eeprom_init(dev, MT_EFUSE_BASE);
 	if (ret < 0)
 		return ret;
 
-	ret = connac_usb_dma_sched_init(dev);
+	ret = mt7663u_dma_sched_init(dev);
 	if (ret)
 		return ret;
 
@@ -166,20 +166,20 @@ static int connac_usb_init_hardware(struct connac_dev *dev)
 	mt76_rmw_field(dev, MT_UDMA_WLCFG_1, MT_WL_RX_AGG_PKT_LMT, 1);
 	set_bit(MT76_STATE_INITIALIZED, &dev->mphy.state);
 
-	ret = connac_usb_mcu_init(dev);
+	ret = mt7663u_mcu_init(dev);
 	if (ret)
 		return ret;
 
-	connac_mcu_set_eeprom(dev);
-	connac_usb_mac_init(dev);
+	mt7663_mcu_set_eeprom(dev);
+	mt7663u_mac_init(dev);
 #if MTK_REBB
-	connac_mcu_ctrl_pm_state(dev, 0);
+	mt7663_mcu_ctrl_pm_state(dev, 0);
 #endif
 	/* MT7663e : F/W halWtblClearAllWtbl() will do this in init. */
 	/* mt7663u_mcu_del_wtbl_all(dev); */
 
 	/* Beacon and mgmt frames should occupy wcid 0 */
-	idx = mt76_wcid_alloc(dev->mt76.wcid_mask, CONNAC_WTBL_STA - 1);
+	idx = mt76_wcid_alloc(dev->mt76.wcid_mask, MT7663_WTBL_STA - 1);
 	if (idx)
 		return -ENOSPC;
 
@@ -190,23 +190,23 @@ static int connac_usb_init_hardware(struct connac_dev *dev)
 	return 0;
 }
 
-int connac_usb_register_device(struct connac_dev *dev)
+int mt7663u_register_device(struct mt7663_dev *dev)
 {
 	struct ieee80211_hw *hw = mt76_hw(dev);
 	int err;
 
-	INIT_WORK(&dev->rc_work, connac_usb_rc_work);
+	INIT_WORK(&dev->rc_work, mt7663u_rc_work);
 	INIT_LIST_HEAD(&dev->rc_processing);
 
-	err = connac_usb_init_hardware(dev);
+	err = mt7663u_init_hardware(dev);
 	if (err)
 		return err;
 
-	hw->extra_tx_headroom += CONNAC_USB_HDR_SIZE + CONNAC_USB_TXD_SIZE;
+	hw->extra_tx_headroom += MT7663_USB_HDR_SIZE + MT7663_USB_TXD_SIZE;
 	/* check hw sg support in order to enable AMSDU */
 	hw->max_tx_fragments = dev->mt76.usb.sg_en ? MT_TXP_MAX_BUF_NUM : 1;
 
-	err = connac_register_device(dev);
+	err = mt7663_register_device(dev);
 	if (err < 0)
 		return err;
 

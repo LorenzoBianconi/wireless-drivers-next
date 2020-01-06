@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: ISC */
 /* Copyright (C) 2019 MediaTek Inc. */
 
-#ifndef __CONNAC_MCU_H
-#define __CONNAC_MCU_H
+#ifndef __MT7663_MCU_H
+#define __MT7663_MCU_H
 
-struct connac_mcu_txd {
+struct mt7663_mcu_txd {
 	__le32 txd[8];
 
 	__le16 len;
@@ -45,7 +45,7 @@ enum {
 	MCU_EXT_EVENT_CSA_NOTIFY = 0x4f,
 };
 
-struct connac_mcu_rxd {
+struct mt7663_mcu_rxd {
 	__le32 rxd[4];
 
 	__le16 len;
@@ -383,7 +383,7 @@ struct wtbl_raw {
 	__le32 val;
 } __packed;
 
-#define CONNAC_WTBL_UPDATE_MAX_SIZE (sizeof(struct wtbl_req_hdr) + \
+#define MT7663_WTBL_UPDATE_MAX_SIZE (sizeof(struct wtbl_req_hdr) + \
 				     sizeof(struct wtbl_generic) + \
 				     sizeof(struct wtbl_rx) + \
 				     sizeof(struct wtbl_ht) + \
@@ -498,7 +498,7 @@ struct sta_rec_apps {
 struct sta_rec_wtbl {
 	__le16 tag;
 	__le16 len;
-	u8 buf[CONNAC_WTBL_UPDATE_MAX_SIZE];
+	u8 buf[MT7663_WTBL_UPDATE_MAX_SIZE];
 } __packed;
 
 struct sta_rec_hwamsdu {
@@ -512,7 +512,7 @@ struct sta_rec_hwamsdu {
 
 #define RVLAN BIT(0)
 
-#define CONNAC_STA_REC_UPDATE_MAX_SIZE (sizeof(struct sta_req_hdr) + \
+#define MT7663_STA_REC_UPDATE_MAX_SIZE (sizeof(struct sta_req_hdr) + \
 					sizeof(struct sta_rec_basic) + \
 					sizeof(struct sta_rec_ht) + \
 					sizeof(struct sta_rec_vht) + \
@@ -563,4 +563,4 @@ enum {
 	CH_SWITCH_SCAN_BYPASS_DPD = 9
 };
 
-#endif
+#endif /* __MT7663_MCU_H */

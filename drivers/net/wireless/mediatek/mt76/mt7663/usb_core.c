@@ -12,21 +12,21 @@
 #include "mt7663.h"
 #include "usb_sdio_regs.h"
 
-static int connac_usb_start(struct ieee80211_hw *hw)
+static int mt7663u_start(struct ieee80211_hw *hw)
 {
-	struct connac_dev *dev = hw->priv;
+	struct mt7663_dev *dev = hw->priv;
 
 	dev->mphy.survey_time = ktime_get_boottime();
 	set_bit(MT76_STATE_RUNNING, &dev->mphy.state);
 	ieee80211_queue_delayed_work(mt76_hw(dev), &dev->mt76.mac_work,
-				     CONNAC_WATCHDOG_TIME);
+				     MT7663_WATCHDOG_TIME);
 
 	return 0;
 }
 
-static void connac_usb_stop(struct ieee80211_hw *hw)
+static void mt7663u_stop(struct ieee80211_hw *hw)
 {
-	struct connac_dev *dev = hw->priv;
+	struct mt7663_dev *dev = hw->priv;
 
 	clear_bit(MT76_STATE_RUNNING, &dev->mphy.state);
 	mt76u_stop_tx(&dev->mt76);
@@ -34,12 +34,12 @@ static void connac_usb_stop(struct ieee80211_hw *hw)
 }
 
 static void
-connac_usb_sta_rate_tbl_update(struct ieee80211_hw *hw,
-			       struct ieee80211_vif *vif,
-			       struct ieee80211_sta *sta)
+mt7663u_sta_rate_tbl_update(struct ieee80211_hw *hw,
+			    struct ieee80211_vif *vif,
+			    struct ieee80211_sta *sta)
 {
-	struct connac_dev *dev = hw->priv;
-	struct connac_sta *msta = (struct connac_sta *)sta->drv_priv;
+	struct mt7663_dev *dev = hw->priv;
+	struct mt7663_sta *msta = (struct mt7663_sta *)sta->drv_priv;
 	struct ieee80211_sta_rates *sta_rates = rcu_dereference(sta->rates);
 	int i;
 
@@ -53,18 +53,18 @@ connac_usb_sta_rate_tbl_update(struct ieee80211_hw *hw,
 			break;
 	}
 	msta->n_rates = i;
-	connac_usb_mac_set_rates(dev, msta, NULL, msta->rates);
+	mt7663u_mac_set_rates(dev, msta, NULL, msta->rates);
 	msta->rate_probe = false;
 	spin_unlock_bh(&dev->mt76.lock);
 }
 
-void connac_usb_rc_work(struct work_struct *work)
+void mt7663u_rc_work(struct work_struct *work)
 {
-	struct connac_dev *dev;
-	struct connac_rate_desc *rc, *tmp_rc;
+	struct mt7663_dev *dev;
+	struct mt7663_rate_desc *rc, *tmp_rc;
 	int err;
 
-	dev = (struct connac_dev *)container_of(work, struct connac_dev,
+	dev = (struct mt7663_dev *)container_of(work, struct mt7663_dev,
 						rc_work);
 
 	list_for_each_entry_safe(rc, tmp_rc, &dev->rc_processing, node) {
@@ -72,7 +72,7 @@ void connac_usb_rc_work(struct work_struct *work)
 		list_del(&rc->node);
 		spin_unlock_bh(&dev->mt76.lock);
 
-		err = __connac_usb_mac_set_rates(dev, rc);
+		err = __mt7663u_mac_set_rates(dev, rc);
 		if (err)
 			dev_err(dev->mt76.dev, "something wrong in setting rate\n");
 
@@ -80,7 +80,7 @@ void connac_usb_rc_work(struct work_struct *work)
 	}
 }
 
-static int connac_usb_set_channel(struct connac_dev *dev)
+static int mt7663u_set_channel(struct mt7663_dev *dev)
 {
 	int ret;
 
@@ -89,16 +89,16 @@ static int connac_usb_set_channel(struct connac_dev *dev)
 	mutex_lock(&dev->mt76.mutex);
 	set_bit(MT76_RESET, &dev->mphy.state);
 
-	connac_dfs_check_channel(dev);
+	mt7663_dfs_check_channel(dev);
 	mt76_set_channel(&dev->mphy);
 
-	ret = connac_mcu_set_channel(dev);
+	ret = mt7663_mcu_set_channel(dev);
 	if (ret)
 		goto out;
 
-	ret = connac_dfs_init_radar_detector(dev);
+	ret = mt7663_dfs_init_radar_detector(dev);
 
-	connac_usb_mac_cca_stats_reset(dev);
+	mt7663u_mac_cca_stats_reset(dev);
 	dev->mphy.survey_time = ktime_get_boottime();
 	/* TODO: add DBDC support */
 	mt76_rr(dev, MT_MIB_SDR16(0));
@@ -109,19 +109,19 @@ out:
 
 	mt76_txq_schedule_all(&dev->mphy);
 	ieee80211_queue_delayed_work(mt76_hw(dev), &dev->mt76.mac_work,
-				     CONNAC_WATCHDOG_TIME);
+				     MT7663_WATCHDOG_TIME);
 	return ret;
 }
 
 static int
-connac_usb_config(struct ieee80211_hw *hw, u32 changed)
+mt7663u_config(struct ieee80211_hw *hw, u32 changed)
 {
-	struct connac_dev *dev = hw->priv;
+	struct mt7663_dev *dev = hw->priv;
 	int ret = 0;
 
 	if (changed & IEEE80211_CONF_CHANGE_CHANNEL) {
 		ieee80211_stop_queues(hw);
-		ret = connac_usb_set_channel(dev);
+		ret = mt7663u_set_channel(dev);
 		ieee80211_wake_queues(hw);
 	}
 
@@ -142,11 +142,11 @@ connac_usb_config(struct ieee80211_hw *hw, u32 changed)
 }
 
 static void
-connac_usb_configure_filter(struct ieee80211_hw *hw,
-			    unsigned int changed_flags,
-			    unsigned int *total_flags, u64 multicast)
+mt7663u_configure_filter(struct ieee80211_hw *hw,
+			 unsigned int changed_flags,
+			 unsigned int *total_flags, u64 multicast)
 {
-	struct connac_dev *dev = hw->priv;
+	struct mt7663_dev *dev = hw->priv;
 	u32 flags = 0;
 
 #define MT76_FILTER(_flag, _hw) do { \
@@ -183,39 +183,39 @@ connac_usb_configure_filter(struct ieee80211_hw *hw,
 }
 
 static int
-connac_usb_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
-		   struct ieee80211_vif *vif, struct ieee80211_sta *sta,
-		   struct ieee80211_key_conf *key)
+mt7663u_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
+		struct ieee80211_vif *vif, struct ieee80211_sta *sta,
+		struct ieee80211_key_conf *key)
 {
-	struct connac_vif *mvif = (struct connac_vif *)vif->drv_priv;
-	struct connac_dev *dev = hw->priv;
-	struct connac_sta *msta;
+	struct mt7663_vif *mvif = (struct mt7663_vif *)vif->drv_priv;
+	struct mt7663_dev *dev = hw->priv;
+	struct mt7663_sta *msta;
 	int err;
 
-	msta = sta ? (struct connac_sta *)sta->drv_priv : &mvif->sta;
-	err = connac_check_key(dev, cmd, vif, &msta->wcid, key);
+	msta = sta ? (struct mt7663_sta *)sta->drv_priv : &mvif->sta;
+	err = mt7663_check_key(dev, cmd, vif, &msta->wcid, key);
 	if (err < 0)
 		return err;
 
-	return connac_usb_mac_wtbl_set_key(dev, &msta->wcid, key, cmd);
+	return mt7663u_mac_wtbl_set_key(dev, &msta->wcid, key, cmd);
 }
 
-const struct ieee80211_ops connac_usb_ops = {
-	.tx = connac_tx,
-	.start = connac_usb_start,
-	.stop = connac_usb_stop,
-	.add_interface = connac_add_interface,
-	.remove_interface = connac_remove_interface,
-	.config = connac_usb_config,
-	.conf_tx = connac_conf_tx,
-	.configure_filter = connac_usb_configure_filter,
-	.bss_info_changed = connac_bss_info_changed,
+const struct ieee80211_ops mt7663_usb_ops = {
+	.tx = mt7663_tx,
+	.start = mt7663u_start,
+	.stop = mt7663u_stop,
+	.add_interface = mt7663_add_interface,
+	.remove_interface = mt7663_remove_interface,
+	.config = mt7663u_config,
+	.conf_tx = mt7663_conf_tx,
+	.configure_filter = mt7663u_configure_filter,
+	.bss_info_changed = mt7663_bss_info_changed,
 	.sta_state = mt76_sta_state,
-	.set_key = connac_usb_set_key,
-	.ampdu_action = connac_ampdu_action,
-	.set_rts_threshold = connac_set_rts_threshold,
+	.set_key = mt7663u_set_key,
+	.ampdu_action = mt7663_ampdu_action,
+	.set_rts_threshold = mt7663_set_rts_threshold,
 	.wake_tx_queue = mt76_wake_tx_queue,
-	.sta_rate_tbl_update = connac_usb_sta_rate_tbl_update,
+	.sta_rate_tbl_update = mt7663u_sta_rate_tbl_update,
 	.sw_scan_start = mt76_sw_scan,
 	.sw_scan_complete = mt76_sw_scan_complete,
 	.release_buffered_frames = mt76_release_buffered_frames,

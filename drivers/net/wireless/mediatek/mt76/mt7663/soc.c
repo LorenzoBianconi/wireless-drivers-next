@@ -15,7 +15,7 @@
 #include "mac.h"
 #include "regs.h"
 
-u32 connac_reg_map(struct connac_dev *dev, u32 addr)
+u32 mt7663_reg_map(struct mt7663_dev *dev, u32 addr)
 {
 	u32 base = addr & MT_MCU_PCIE_REMAP_2_BASE;
 	u32 offset = addr & MT_MCU_PCIE_REMAP_2_OFFSET;
@@ -29,20 +29,20 @@ static int mt76_wmac_probe(struct platform_device *pdev)
 {
 	static const struct mt76_driver_ops drv_ops = {
 		/* txwi_size = txd size + txp size */
-		.txwi_size = MT_TXD_SIZE + sizeof(struct connac_txp),
+		.txwi_size = MT_TXD_SIZE + sizeof(struct mt7663_txp),
 		.drv_flags = MT_DRV_TXWI_NO_FREE,
-		.tx_prepare_skb = connac_tx_prepare_skb,
-		.tx_complete_skb = connac_tx_complete_skb,
-		.rx_skb = connac_queue_rx_skb,
-		.rx_poll_complete = connac_mmio_rx_poll_complete,
-		.sta_ps = connac_sta_ps,
-		.sta_add = connac_sta_add,
-		.sta_assoc = connac_sta_assoc,
-		.sta_remove = connac_sta_remove,
-		.update_survey = connac_update_channel,
+		.tx_prepare_skb = mt7663_tx_prepare_skb,
+		.tx_complete_skb = mt7663_tx_complete_skb,
+		.rx_skb = mt7663_queue_rx_skb,
+		.rx_poll_complete = mt7663_rx_poll_complete,
+		.sta_ps = mt7663_sta_ps,
+		.sta_add = mt7663_sta_add,
+		.sta_assoc = mt7663_sta_assoc,
+		.sta_remove = mt7663_sta_remove,
+		.update_survey = mt7663_update_channel,
 	};
 	struct resource *res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	struct connac_dev *dev;
+	struct mt7663_dev *dev;
 	void __iomem *mem_base;
 	struct mt76_dev *mdev;
 	unsigned int chipid, hwver, fwver;
@@ -64,11 +64,11 @@ static int mt76_wmac_probe(struct platform_device *pdev)
 	}
 
 	mdev = mt76_alloc_device(&pdev->dev, sizeof(*dev),
-				 &connac_mmio_ops, &drv_ops);
+				 &mt7663_mmio_ops, &drv_ops);
 	if (!mdev)
 		return -ENOMEM;
 
-	dev = container_of(mdev, struct connac_dev, mt76);
+	dev = container_of(mdev, struct mt7663_dev, mt76);
 	mt76_mmio_init(mdev, mem_base);
 
 	/* CHIP ID*/
@@ -90,7 +90,7 @@ static int mt76_wmac_probe(struct platform_device *pdev)
 	dev_info(mdev->dev, "@@@ ASIC revision: %04x, fwver: %04x\n",
 		 mdev->rev, fwver);
 
-	ret = connac_mmio_init_device(dev, irq);
+	ret = mt7663_init_device(dev, irq);
 	if (ret)
 		goto error;
 
@@ -103,9 +103,9 @@ error:
 static int mt76_wmac_remove(struct platform_device *pdev)
 {
 	struct mt76_dev *mdev = platform_get_drvdata(pdev);
-	struct connac_dev *dev = container_of(mdev, struct connac_dev, mt76);
+	struct mt7663_dev *dev = container_of(mdev, struct mt7663_dev, mt76);
 
-	connac_unregister_device(dev);
+	mt7663_unregister_device(dev);
 
 	return 0;
 }
@@ -125,7 +125,7 @@ struct platform_driver mt7629_wmac_driver = {
 	.probe		= mt76_wmac_probe,
 	.remove		= mt76_wmac_remove,
 	.driver = {
-		.name = "connac_wmac",
+		.name = "mt7663_wmac",
 		.of_match_table = of_wmac_match,
 	},
 };
