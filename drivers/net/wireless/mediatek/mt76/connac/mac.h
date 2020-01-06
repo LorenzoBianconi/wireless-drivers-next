@@ -254,23 +254,25 @@ enum tx_phy_bandwidth {
 #define TXD_MSDU_ID_VLD			BIT(15)     /* MSDU valid */
 #define TXD_LEN_ML_V2			BIT(15)     /* MSDU last */
 #define TXD_LEN_MASK_V2			GENMASK(11, 0)
-#define TXD_LEN_AL			BIT(15)     /* A-MSDU last */
+
 #define TXD_LEN_ML			BIT(14)     /* MSDU last */
+#define TXD_LEN_AL			BIT(15)     /* A-MSDU last */
 
 #define MT_TXP_MAX_BUF_NUM		4
 
-struct txd_ptr_len {
-	__le32 u4ptr0;
-	__le16 u2len0; /* Bit15: AL, Bit14: ML */
-	__le16 u2len1; /* Bit15: AL, Bit14: ML */
-	__le32 u4ptr1;
-} __packed;
+struct connac_txp_ptr {
+	__le32 buf0;
+	__le16 len0;
+	__le16 len1;
+	__le32 buf1;
+} __packed __aligned(4);
 
 struct connac_txp {
-	__le16 buf[MT_TXP_MAX_BUF_NUM];
-	struct txd_ptr_len ptr_len[MT_TXP_MAX_BUF_NUM / 2];
-} __packed;
+	__le16 msdu_id[MT_TXP_MAX_BUF_NUM];
+	struct connac_txp_ptr ptr[MT_TXP_MAX_BUF_NUM / 2];
+} __packed __aligned(4);
 
+#define MT_TX_TOKEN_MASK		GENMASK(15, 0)
 struct connac_tx_free {
 	__le16 rx_byte_cnt;
 	__le16 ctrl;
@@ -279,7 +281,7 @@ struct connac_tx_free {
 	u8 ctrl2;	//bit 0-2 for version
 	u8 rev1;
 	__le32 token[];
-} __packed;
+} __packed __aligned(4);
 
 #define MT_TX_FREE_MSDU_ID_CNT		GENMASK(6, 0)
 

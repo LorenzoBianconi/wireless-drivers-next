@@ -113,6 +113,36 @@ void connac_tx_complete_skb(struct mt76_dev *mdev, enum mt76_txq_id qid,
 		mt76_tx_complete_skb(mdev, e->skb);
 }
 
+static void
+connac_write_hw_txp(struct connac_dev *dev, struct mt76_tx_info *tx_info,
+		    struct connac_txp *txp, u32 id)
+{
+	struct connac_txp_ptr *ptr = &txp->ptr[0];
+	int i, nbuf = tx_info->nbuf - 1;
+
+	memset(txp, 0, sizeof(*txp));
+	tx_info->buf[0].len = MT_TXD_SIZE + sizeof(*txp);
+	tx_info->nbuf = 1;
+
+	txp->msdu_id[0] = id | TXD_MSDU_ID_VLD;
+	for (i = 0; i < nbuf; i++) {
+		u32 addr = tx_info->buf[i + 1].addr;
+		u16 len = tx_info->buf[i + 1].len;
+
+		if (i == nbuf - 1)
+			len |= TXD_LEN_ML | TXD_LEN_AL;
+
+		if (i & 1) {
+			ptr->buf1 = cpu_to_le32(addr);
+			ptr->len1 = cpu_to_le16(len);
+			ptr++;
+		} else {
+			ptr->buf0 = cpu_to_le32(addr);
+			ptr->len0 = cpu_to_le16(len);
+		}
+	}
+}
+
 int connac_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 			  enum mt76_txq_id qid, struct mt76_wcid *wcid,
 			  struct ieee80211_sta *sta,
@@ -122,11 +152,10 @@ int connac_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 	struct connac_sta *msta = container_of(wcid, struct connac_sta, wcid);
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(tx_info->skb);
 	struct ieee80211_key_conf *key = info->control.hw_key;
-	int i, pid, id, nbuf = tx_info->nbuf - 1;
 	u8 *txwi = (u8 *)txwi_ptr;
 	struct mt76_txwi_cache *t;
 	struct connac_txp *txp;
-	struct txd_ptr_len *txp_ptr_len;
+	int pid, id;
 
 	if (!wcid)
 		wcid = &dev->mt76.global_wcid;
@@ -141,39 +170,20 @@ int connac_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 		spin_unlock_bh(&dev->mt76.lock);
 	}
 
+	t = (struct mt76_txwi_cache *)(txwi + mdev->drv->txwi_size);
+	t->skb = tx_info->skb;
+
+	spin_lock_bh(&dev->token_lock);
+	id = idr_alloc(&dev->token, t, 0, CONNAC_TOKEN_SIZE, GFP_ATOMIC);
+	spin_unlock_bh(&dev->token_lock);
+	if (id < 0)
+		return id;
+
 	connac_mac_write_txwi(dev, txwi_ptr, tx_info->skb, qid, wcid, sta,
 			      pid, key);
 
 	txp = (struct connac_txp *)(txwi + MT_TXD_SIZE);
-
-	t = (struct mt76_txwi_cache *)(txwi + mdev->drv->txwi_size);
-	t->skb = tx_info->skb;
-	//t->nbuf = nbuf;
-
-	/* Write back nbuf to minus 1, for dmad of connac only need one
-	 * segment.
-	 */
-	tx_info->nbuf = nbuf;
-
-	for (i = 0; i < nbuf; i++) {
-		txp_ptr_len = &txp->ptr_len[i / 2];
-		if ((i & 0x1) == 0x0) {
-			txp_ptr_len->u4ptr0 = cpu_to_le32(tx_info->buf[i + 1].addr);
-			txp_ptr_len->u2len0 = cpu_to_le16((tx_info->buf[i + 1].len & TXD_LEN_MASK_V2) | TXD_LEN_ML_V2);
-		} else {
-			txp_ptr_len->u4ptr1 = cpu_to_le32(tx_info->buf[i + 1].addr);
-			txp_ptr_len->u2len1 = cpu_to_le16((tx_info->buf[i + 1].len & TXD_LEN_MASK_V2) | TXD_LEN_ML_V2);
-		}
-
-		spin_lock_bh(&dev->token_lock);
-		id = idr_alloc(&dev->token, t, 0, CONNAC_TOKEN_SIZE,
-			       GFP_ATOMIC);
-		spin_unlock_bh(&dev->token_lock);
-		if (id < 0)
-			return id;
-
-		txp->buf[i] = cpu_to_le16(id | TXD_MSDU_ID_VLD);
-	}
+	connac_write_hw_txp(dev, tx_info, txp, id);
 
 	tx_info->skb = DMA_DUMMY_DATA;
 
