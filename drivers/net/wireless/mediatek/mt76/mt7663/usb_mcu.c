@@ -9,7 +9,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 
-#include "connac.h"
+#include "mt7663.h"
 #include "mac.h"
 #include "mcu.h"
 #include "usb_sdio_regs.h"

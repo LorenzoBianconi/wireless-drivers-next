@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: ISC */
 /* Copyright (C) 2019 MediaTek Inc. */
 
-#ifndef __CONNAC_H
-#define __CONNAC_H
+#ifndef __MT7663_H
+#define __MT7663_H
 
 #include <linux/interrupt.h>
 #include <linux/ktime.h>
@@ -374,4 +374,4 @@ int connac_mac_wtbl_set_key(struct connac_dev *dev,
 			    struct mt76_wcid *wcid,
 			    struct ieee80211_key_conf *key,
 			    enum set_key_cmd cmd);
-#endif
+#endif /* __MT7663_H */

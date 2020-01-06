@@ -10,7 +10,7 @@
 #include <linux/module.h>
 #include <linux/pci.h>
 
-#include "connac.h"
+#include "mt7663.h"
 #include "mac.h"
 #include "regs.h"
 

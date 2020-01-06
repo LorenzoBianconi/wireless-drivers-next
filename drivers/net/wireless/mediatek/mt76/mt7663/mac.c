@@ -11,7 +11,7 @@
 
 #include <linux/etherdevice.h>
 #include <linux/timekeeping.h>
-#include "connac.h"
+#include "mt7663.h"
 #include "../dma.h"
 #include "regs.h"
 #include "mac.h"

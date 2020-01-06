@@ -10,7 +10,7 @@
 #include <linux/module.h>
 #include <linux/usb.h>
 
-#include "connac.h"
+#include "mt7663.h"
 #include "mac.h"
 #include "mcu.h"
 #include "usb_sdio_regs.h"
