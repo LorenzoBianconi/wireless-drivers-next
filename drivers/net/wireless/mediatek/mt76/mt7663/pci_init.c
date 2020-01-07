@@ -46,7 +46,7 @@ mt7663_init_tx_queue(struct mt7663_dev *dev, struct mt76_sw_queue *q,
 }
 
 static int
-mt7663_mmio_dma_init(struct mt7663_dev *dev)
+mt7663_dma_init(struct mt7663_dev *dev)
 {
 	int i, ret;
 	static const u8 wmm_queue_map[] = {
@@ -143,14 +143,14 @@ mt7663_mmio_dma_init(struct mt7663_dev *dev)
 }
 
 static int
-mt7663_mmio_dma_sched_init(struct mt7663_dev *dev)
+mt7663_dma_sched_init(struct mt7663_dev *dev)
 {
 	u32 val;
 
 	val = mt76_rr(dev, MT_HIF_DMA_SHDL_PKT_MAX_SIZE);
-	val &= ~(PLE_PKT_MAX_SIZE_MASK | PSE_PKT_MAX_SIZE_MASK);
-	val |= PLE_PKT_MAX_SIZE_NUM(0x1);
-	val |= PSE_PKT_MAX_SIZE_NUM(0x8);
+	val &= ~(MT_PLE_PKT_MAX_SIZE_MASK | MT_PSE_PKT_MAX_SIZE_MASK);
+	val |= MT_PLE_PKT_MAX_SIZE_NUM(0x1);
+	val |= MT_PSE_PKT_MAX_SIZE_NUM(0x8);
 	mt76_wr(dev, MT_HIF_DMA_SHDL_PKT_MAX_SIZE, val);
 
 	/* Enable refill Control Group 0, 1, 2, 4, 5 */
@@ -235,7 +235,7 @@ static void mt7663_mac_init(struct mt7663_dev *dev)
 	mt76_wr(dev, MT_WF_DMA(0x0), 0x0046f000);
 }
 
-static int mt7663_mmio_init_hardware(struct mt7663_dev *dev)
+static int mt7663_init_hardware(struct mt7663_dev *dev)
 {
 	u32 base = mt7663_reg_map(dev, MT_EFUSE_BASE);
 	bool init_dbdc = true;
@@ -256,12 +256,12 @@ static int mt7663_mmio_init_hardware(struct mt7663_dev *dev)
 	if (ret < 0)
 		return ret;
 
-	ret = mt7663_mmio_dma_init(dev);
+	ret = mt7663_dma_init(dev);
 	if (ret)
 		return ret;
 
 	/* MT7663 : init before f/w download*/
-	ret = mt7663_mmio_dma_sched_init(dev);
+	ret = mt7663_dma_sched_init(dev);
 	if (ret)
 		return ret;
 
@@ -305,7 +305,7 @@ int mt7663_init_device(struct mt7663_dev *dev, int irq)
 	if (err)
 		return err;
 
-	err = mt7663_mmio_init_hardware(dev);
+	err = mt7663_init_hardware(dev);
 	if (err)
 		return err;
 
@@ -314,7 +314,7 @@ int mt7663_init_device(struct mt7663_dev *dev, int irq)
 	return mt7663_register_device(dev);
 }
 
-static int __init mt7663_mmio_init(void)
+static int __init mt7663_init(void)
 {
 	int ret;
 
@@ -329,13 +329,13 @@ static int __init mt7663_mmio_init(void)
 	return ret;
 }
 
-static void __exit mt7663_mmio_exit(void)
+static void __exit mt7663_exit(void)
 {
 	platform_driver_unregister(&mt7629_wmac_driver);
 	pci_unregister_driver(&mt7663_pci_driver);
 }
 
-module_init(mt7663_mmio_init);
-module_exit(mt7663_mmio_exit);
+module_init(mt7663_init);
+module_exit(mt7663_exit);
 
 MODULE_LICENSE("Dual BSD/GPL");

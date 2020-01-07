@@ -199,11 +199,11 @@ static int mt7663_load_firmware(struct mt7663_dev *dev)
 		return -EIO;
 	}
 
-	ret = mt7663_load_patch(dev);
+	ret = mt7663_mcu_load_patch(dev);
 	if (ret)
 		return ret;
 
-	ret = mt7663_load_ram(dev);
+	ret = mt7663_mcu_load_ram(dev);
 	if (ret)
 		return ret;
 

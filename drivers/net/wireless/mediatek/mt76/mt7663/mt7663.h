@@ -132,7 +132,6 @@ struct mt7663_dev {
 
 	struct work_struct rc_work;     /* deferred rate tuning */
 	struct list_head rc_processing;
-	bool required_poweroff;
 };
 
 struct mt7663_rate_desc {
@@ -299,8 +298,8 @@ void mt7663_mac_wtbl_update_cipher(struct mt7663_dev *dev,
 				   int cipher, enum set_key_cmd cmd);
 u32 mt7663_mac_wtbl_addr(struct mt7663_dev *dev, int wcid);
 
-int mt7663_load_ram(struct mt7663_dev *dev);
-int mt7663_load_patch(struct mt7663_dev *dev);
+int mt7663_mcu_load_ram(struct mt7663_dev *dev);
+int mt7663_mcu_load_patch(struct mt7663_dev *dev);
 int mt7663_mcu_set_eeprom(struct mt7663_dev *dev);
 int mt7663_mcu_dbdc_ctrl(struct mt7663_dev *dev);
 int mt7663_mcu_init_mac(struct mt7663_dev *dev, u8 band);

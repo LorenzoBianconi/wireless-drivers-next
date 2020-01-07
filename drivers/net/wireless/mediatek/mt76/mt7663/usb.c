@@ -100,9 +100,9 @@ mt7663u_probe(struct usb_interface *usb_intf,
 
 	if (mt76_poll_msec(dev, MT_CONN_ON_MISC, MT_TOP_MISC2_FW_PWR_ON,
 			   FW_STATE_PWR_ON << 1, 500)) {
-		dev_dbg(dev->mt76.dev, "Dongle have been powered on\n");
-		dev->required_poweroff = true;
-		goto skip_poweron;
+		dev_dbg(dev->mt76.dev, "Usb device already powered on\n");
+		set_bit(MT76_STATE_POWER_OFF, &dev->mphy.state);
+		goto alloc_queues;
 	}
 
 	ret = mt76u_vendor_request(&dev->mt76, MT_VEND_POWER_ON,
@@ -117,7 +117,7 @@ mt7663u_probe(struct usb_interface *usb_intf,
 		return -EIO;
 	}
 
-skip_poweron:
+alloc_queues:
 	ret = mt76u_alloc_mcu_queue(&dev->mt76);
 	if (ret)
 		goto error;

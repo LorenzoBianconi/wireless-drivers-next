@@ -18,60 +18,60 @@ mt7663u_dma_sched_init(struct mt7663_dev *dev)
 {
 	u32 val;
 
-	val = mt76_rr(dev, DMASHDL_PKT_MAX_SIZE);
-	val &= ~(PLE_PACKET_MAX_SIZE | PSE_PACKET_MAX_SIZE);
-	val |= FIELD_PREP(PLE_PACKET_MAX_SIZE, 0x1) |
-	       FIELD_PREP(PSE_PACKET_MAX_SIZE, 0x8);
-	mt76_wr(dev, DMASHDL_PKT_MAX_SIZE, val);
+	val = mt76_rr(dev, MT_DMA_SHDL_PKT_MAX_SIZE);
+	val &= ~(MT_PLE_PACKET_MAX_SIZE | MT_PSE_PACKET_MAX_SIZE);
+	val |= FIELD_PREP(MT_PLE_PACKET_MAX_SIZE, 0x1) |
+	       FIELD_PREP(MT_PSE_PACKET_MAX_SIZE, 0x8);
+	mt76_wr(dev, MT_DMA_SHDL_PKT_MAX_SIZE, val);
 
 	/* disable refill group 5 - group 15 and raise group 2
 	 * and 3 as high priority.
 	 */
-	mt76_wr(dev, DMASHDL_REFILL_CONTROL, 0xffe00006);
+	mt76_wr(dev, MT_DMA_SHDL_REFILL_CONTROL, 0xffe00006);
 
-	mt76_clear(dev, DMASHDL_PAGE_SETTING,
-		   GROUP_SEQUENCE_ORDER_TYPE);
+	mt76_clear(dev, MT_DMA_SHDL_PAGE_SETTING,
+		   MT_GROUP_SEQUENCE_ORDER_TYPE);
 
-	val = FIELD_PREP(MIN_QUOTA, 0x3) |
-	      FIELD_PREP(MAX_QUOTA, 0x1ff);
-	mt76_wr(dev, DMASHDL_GROUP1_CONTROL, val);
-	mt76_wr(dev, DMASHDL_GROUP0_CONTROL, val);
-	mt76_wr(dev, DMASHDL_GROUP2_CONTROL, val);
-	mt76_wr(dev, DMASHDL_GROUP3_CONTROL, val);
-	mt76_wr(dev, DMASHDL_GROUP4_CONTROL, val);
+	val = FIELD_PREP(MT_MIN_QUOTA, 0x3) |
+	      FIELD_PREP(MT_MAX_QUOTA, 0x1ff);
+	mt76_wr(dev, MT_DMA_SHDL_GROUP1_CONTROL, val);
+	mt76_wr(dev, MT_DMA_SHDL_GROUP0_CONTROL, val);
+	mt76_wr(dev, MT_DMA_SHDL_GROUP2_CONTROL, val);
+	mt76_wr(dev, MT_DMA_SHDL_GROUP3_CONTROL, val);
+	mt76_wr(dev, MT_DMA_SHDL_GROUP4_CONTROL, val);
 
-	mt76_wr(dev, DMASHDL_QUEUE_MAPPING0,
-		FIELD_PREP(QUEUE0_MAP, 0x0) | /* ac0 group 0 */
-		FIELD_PREP(QUEUE1_MAP, 0x1) | /* ac1 group 1 */
-		FIELD_PREP(QUEUE2_MAP, 0x2) | /* ac2 group 2 */
-		FIELD_PREP(QUEUE3_MAP, 0x3) | /* ac3 group 3 */
-		FIELD_PREP(QUEUE4_MAP, 0x0) | /* ac10 group 4*/
-		FIELD_PREP(QUEUE5_MAP, 0x1) | /* ac11 */
-		FIELD_PREP(QUEUE6_MAP, 0x2) |
-		FIELD_PREP(QUEUE7_MAP, 0x3));
+	mt76_wr(dev, MT_DMA_SHDL_QUEUE_MAPPING0,
+		FIELD_PREP(MT_QUEUE0_MAP, 0x0) | /* ac0 group 0 */
+		FIELD_PREP(MT_QUEUE1_MAP, 0x1) | /* ac1 group 1 */
+		FIELD_PREP(MT_QUEUE2_MAP, 0x2) | /* ac2 group 2 */
+		FIELD_PREP(MT_QUEUE3_MAP, 0x3) | /* ac3 group 3 */
+		FIELD_PREP(MT_QUEUE4_MAP, 0x0) | /* ac10 group 4*/
+		FIELD_PREP(MT_QUEUE5_MAP, 0x1) | /* ac11 */
+		FIELD_PREP(MT_QUEUE6_MAP, 0x2) |
+		FIELD_PREP(MT_QUEUE7_MAP, 0x3));
 
-	mt76_wr(dev, DMASHDL_QUEUE_MAPPING1,
-		FIELD_PREP(QUEUE8_MAP, 0x0) | /* ac20 group 4*/
-		FIELD_PREP(QUEUE9_MAP, 0x1) |
-		FIELD_PREP(QUEUE10_MAP, 0x2) |
-		FIELD_PREP(QUEUE11_MAP, 0x3) |
-		FIELD_PREP(QUEUE12_MAP, 0x0) | /* ac30 group 4*/
-		FIELD_PREP(QUEUE13_MAP, 0x1) |
-		FIELD_PREP(QUEUE14_MAP, 0x2) |
-		FIELD_PREP(QUEUE15_MAP, 0x3));
+	mt76_wr(dev, MT_DMA_SHDL_QUEUE_MAPPING1,
+		FIELD_PREP(MT_QUEUE8_MAP, 0x0) | /* ac20 group 4*/
+		FIELD_PREP(MT_QUEUE9_MAP, 0x1) |
+		FIELD_PREP(MT_QUEUE10_MAP, 0x2) |
+		FIELD_PREP(MT_QUEUE11_MAP, 0x3) |
+		FIELD_PREP(MT_QUEUE12_MAP, 0x0) | /* ac30 group 4*/
+		FIELD_PREP(MT_QUEUE13_MAP, 0x1) |
+		FIELD_PREP(MT_QUEUE14_MAP, 0x2) |
+		FIELD_PREP(MT_QUEUE15_MAP, 0x3));
 
-	mt76_wr(dev, DMASHDL_QUEUE_MAPPING2,
-		FIELD_PREP(QUEUE16_MAP, 0x4) | /* altx group 4*/
-		FIELD_PREP(QUEUE17_MAP, 0x4) | /* bmc */
-		FIELD_PREP(QUEUE18_MAP, 0x4) | /* bcn */
-		FIELD_PREP(QUEUE19_MAP, 0x4));  /* psmp */
+	mt76_wr(dev, MT_DMA_SHDL_QUEUE_MAPPING2,
+		FIELD_PREP(MT_QUEUE16_MAP, 0x4) | /* altx group 4*/
+		FIELD_PREP(MT_QUEUE17_MAP, 0x4) | /* bmc */
+		FIELD_PREP(MT_QUEUE18_MAP, 0x4) | /* bcn */
+		FIELD_PREP(MT_QUEUE19_MAP, 0x4));  /* psmp */
 
 	/* group pririority from high to low:
 	 * 15 (cmd groups) > 4 > 3 > 2 > 1 > 0.
 	 */
-	mt76_wr(dev, DMASHDL_SCHED_SETTING0, 0x6501234f);
-	mt76_wr(dev, DMASHDL_SCHED_SETTING1, 0xedcba987);
-	mt76_wr(dev, DMASHDL_OPTIONAL_CONTROL, 0x7004801c);
+	mt76_wr(dev, MT_DMA_SHDL_SCHED_SETTING0, 0x6501234f);
+	mt76_wr(dev, MT_DMA_SHDL_SCHED_SETTING1, 0xedcba987);
+	mt76_wr(dev, MT_DMA_SHDL_OPTIONAL_CONTROL, 0x7004801c);
 
 	/* setup UDMA Tx timeout */
 	mt76_rmw_field(dev, MT_UDMA_WLCFG_1, MT_WL_TX_TMOUT_LMT, 80000);
