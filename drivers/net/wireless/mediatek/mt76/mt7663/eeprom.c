@@ -101,50 +101,6 @@ static int mt7663_check_eeprom(struct mt76_dev *dev)
 	}
 }
 
-static void mt7663_eeprom_parse_hw_cap(struct mt7663_dev *dev)
-{
-	u8 val, *eeprom = dev->mt76.eeprom.data;
-	bool init_dbdc = true;
-
-	switch (dev->mt76.rev) {
-	case 0x76630010:
-		init_dbdc = false;
-		break;
-	}
-
-#if 1 /* MT7663 only support DBDC */
-	val = FIELD_GET(MT_EE_NIC_WIFI_DBDC_ENABLE,
-			eeprom[MT_EE_SYS_DBDC]);
-
-#if 1 /* DBDC TODO */
-	if (init_dbdc)
-		val = MT_EE_2GHZ;
-	else
-		val = MT_EE_DUAL_BAND;
-#else
-	if (!val) /* MT7663 : TODO , default 2G */
-		val = MT_EE_2GHZ;
-#endif
-
-#else
-	val = FIELD_GET(MT_EE_NIC_WIFI_CONF_BAND_SEL,
-			eeprom[MT_EE_WIFI_CONF]);
-
-#endif
-	switch (val) {
-	case MT_EE_5GHZ:
-		dev->mt76.cap.has_5ghz = true;
-		break;
-	case MT_EE_2GHZ:
-		dev->mt76.cap.has_2ghz = true;
-		break;
-	default:
-		dev->mt76.cap.has_2ghz = true;
-		dev->mt76.cap.has_5ghz = true;
-		break;
-	}
-}
-
 int mt7663_eeprom_init(struct mt7663_dev *dev, u32 base)
 {
 	int ret;
@@ -158,7 +114,8 @@ int mt7663_eeprom_init(struct mt7663_dev *dev, u32 base)
 		memcpy(dev->mt76.eeprom.data, dev->mt76.otp.data,
 		       MT7663_EEPROM_SIZE);
 
-	mt7663_eeprom_parse_hw_cap(dev);
+	dev->mt76.cap.has_2ghz = true;
+	dev->mt76.cap.has_5ghz = true;
 	memcpy(dev->mt76.macaddr, dev->mt76.eeprom.data + MT_EE_MAC_ADDR,
 	       ETH_ALEN);
 

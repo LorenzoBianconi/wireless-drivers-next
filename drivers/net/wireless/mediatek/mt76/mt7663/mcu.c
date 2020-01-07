@@ -526,29 +526,6 @@ int mt7663_mcu_set_eeprom(struct mt7663_dev *dev)
 }
 EXPORT_SYMBOL_GPL(mt7663_mcu_set_eeprom);
 
-int mt7663_mcu_dbdc_ctrl(struct mt7663_dev *dev)
-{
-	struct {
-		u8 enable;
-		u8 totalnum;
-		u8 rsv[2];
-		struct {
-			u8 type;
-			u8 index;
-			u8 bandidx;
-			u8 rsv;
-		} ctrl_entry[64];
-	} __packed req = {
-		.enable = 1,
-		.totalnum = 6,
-		.ctrl_entry = {},
-	};
-
-	return __mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD_DBDC_CTRL,
-				   &req, sizeof(req), true);
-}
-EXPORT_SYMBOL_GPL(mt7663_mcu_dbdc_ctrl);
-
 int mt7663_mcu_init_mac(struct mt7663_dev *dev, u8 band)
 {
 	struct {

@@ -12,7 +12,6 @@ enum mt7663_eeprom_field {
 	MT_EE_MAC_ADDR =			0x004,
 	MT_EE_NIC_CONF_0 =			0x034, /* MT7663 : useless */
 	MT_EE_WIFI_CONF =			0x03e,
-	MT_EE_SYS_DBDC =			0x062,
 	/* MT7663 : assigin for f/w only */
 	MT_EE_TX0_2G_TARGET_POWER =		0x123, /*~ 0x120~0x14f for 2G*/
 	MT_EE_TX0_5G_G0_TARGET_POWER =		0x070,
@@ -21,14 +20,12 @@ enum mt7663_eeprom_field {
 	__MT_EE_MAX =				0x400
 };
 
-#define MT_EE_NIC_WIFI_DBDC_ENABLE		BIT(3)
 #define MT_EE_NIC_WIFI_CONF_BAND_SEL		GENMASK(5, 4)
 
 enum mt7663_eeprom_band {
 	MT_EE_DUAL_BAND,
 	MT_EE_5GHZ,
 	MT_EE_2GHZ,
-	MT_EE_DBDC,
 };
 
 enum mt7663_channel_group {

@@ -518,7 +518,6 @@
 /* VOW Ctrl */
 #define VOW_RESET_DISABLE	BIT(26)
 #define STA_MAX_DEFICIT_MASK    (0x0000FFFF)
-#define VOW_DBDC_BW_GROUP_CTRL  (PLE_BASE + 0x2ec)
 #define VOW_CONTROL             (PLE_BASE + 0x370)
 #define AIRTIME_DRR_SIZE        (PLE_BASE + 0x374)
 
