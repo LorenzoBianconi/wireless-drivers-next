@@ -72,11 +72,11 @@ static int mt7663u_load_firmware(struct mt7663_dev *dev)
 		return -EIO;
 	}
 
-	ret = mt7663_load_patch(dev);
+	ret = mt7663_mcu_load_patch(dev);
 	if (ret)
 		return ret;
 
-	ret = mt7663_load_ram(dev);
+	ret = mt7663_mcu_load_ram(dev);
 	if (ret)
 		return ret;
 
@@ -105,11 +105,10 @@ int mt7663u_mcu_init(struct mt7663_dev *dev)
 
 	mt76_set(dev, MT_UDMA_TX_QSEL, MT_FW_DL_EN);
 
-	if (dev->required_poweroff) {
+	if (test_and_clear_bit(MT76_STATE_POWER_OFF, &dev->mphy.state)) {
 		mt7663_mcu_restart(&dev->mt76);
-
 		if (!mt76_poll_msec(dev, MT_CONN_ON_MISC,
-				   MT_TOP_MISC2_FW_PWR_ON, 0, 500))
+				    MT_TOP_MISC2_FW_PWR_ON, 0, 500))
 			return -EIO;
 
 		ret = mt76u_vendor_request(&dev->mt76, MT_VEND_POWER_ON,

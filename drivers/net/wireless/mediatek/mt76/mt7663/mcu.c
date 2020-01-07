@@ -293,7 +293,7 @@ static int mt7663_mcu_start_patch(struct mt7663_dev *dev)
 				   &req, sizeof(req), true);
 }
 
-int mt7663_load_patch(struct mt7663_dev *dev)
+int mt7663_mcu_load_patch(struct mt7663_dev *dev)
 {
 	const struct firmware *fw;
 	const struct mt7663_patch_hdr *hdr;
@@ -374,23 +374,22 @@ out:
 
 	return ret;
 }
-EXPORT_SYMBOL_GPL(mt7663_load_patch);
+EXPORT_SYMBOL_GPL(mt7663_mcu_load_patch);
 
-static u32 gen_dl_mode(u8 feature_set, bool is_cr4)
+static u32 mt7663_mcu_gen_dl_mode(u8 feature_set, bool is_cr4)
 {
-	u32 ret = 0;
+	u32 ret = DL_MODE_NEED_RSP |
+		  FIELD_PREP(DL_MODE_KEY_IDX,
+			     FIELD_GET(FW_FEATURE_SET_KEY_IDX, feature_set));
 
 	ret |= (feature_set & FW_FEATURE_SET_ENCRYPT) ?
-	       (DL_MODE_ENCRYPT | DL_MODE_RESET_SEC_IV) : 0;
-	ret |= FIELD_PREP(DL_MODE_KEY_IDX,
-			  FIELD_GET(FW_FEATURE_SET_KEY_IDX, feature_set));
-	ret |= DL_MODE_NEED_RSP;
+	       DL_MODE_ENCRYPT | DL_MODE_RESET_SEC_IV : 0;
 	ret |= is_cr4 ? DL_MODE_WORKING_PDA_CR4 : 0;
 
 	return ret;
 }
 
-int mt7663_load_ram(struct mt7663_dev *dev)
+int mt7663_mcu_load_ram(struct mt7663_dev *dev)
 {
 	const struct firmware *fw;
 	const struct mt7663_fw_trailer *hdr;
@@ -438,7 +437,7 @@ int mt7663_load_ram(struct mt7663_dev *dev)
 				 - (hdr->num_of_region - i)
 				 * FW_V3_REGION_TAILER_SIZE);
 
-		mode = gen_dl_mode(region->feature_set, false);
+		mode = mt7663_mcu_gen_dl_mode(region->feature_set, false);
 		addr = le32_to_cpu(region->img_dest_addr);
 		len = le32_to_cpu(region->img_size);
 
@@ -486,7 +485,7 @@ out:
 	release_firmware(fw);
 	return ret;
 }
-EXPORT_SYMBOL_GPL(mt7663_load_ram);
+EXPORT_SYMBOL_GPL(mt7663_mcu_load_ram);
 
 void mt7663_mcu_exit(struct mt7663_dev *dev)
 {
