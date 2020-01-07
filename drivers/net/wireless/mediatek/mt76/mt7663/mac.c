@@ -66,7 +66,6 @@ int mt7663_mac_fill_rx(struct mt7663_dev *dev, struct sk_buff *skb)
 	idx = FIELD_GET(MT_RXD2_NORMAL_WLAN_IDX, rxd2);
 	status->wcid = mt7663_rx_get_wcid(dev, idx, unicast);
 
-	/* TODO: properly support DBDC */
 	status->freq = dev->mphy.chandef.chan->center_freq;
 	status->band = dev->mphy.chandef.chan->band;
 	if (status->band == NL80211_BAND_5GHZ)
@@ -1032,7 +1031,6 @@ void mt7663_update_channel(struct mt76_dev *mdev)
 	if (mt76_is_usb(mdev))
 		return;
 
-	/* TODO: add DBDC support */
 	busy_time = mt76_get_field(dev, MT_MIB_SDR9(0), MT_MIB_SDR9_BUSY_MASK);
 	tx_time = mt76_get_field(dev, MT_MIB_SDR36(0),
 				 MT_MIB_SDR36_TXTIME_MASK);
@@ -1113,8 +1111,6 @@ int mt7663_dfs_start_radar_detector(struct mt7663_dev *dev)
 				 MT_RX_SEL0, 0);
 	if (err < 0)
 		return err;
-
-	/* TODO: DBDC support */
 
 	err = mt7663_dfs_start_rdd(dev, MT_HW_RDD0);
 	if (err < 0)

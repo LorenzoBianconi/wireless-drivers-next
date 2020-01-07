@@ -238,14 +238,7 @@ static void mt7663_mac_init(struct mt7663_dev *dev)
 static int mt7663_init_hardware(struct mt7663_dev *dev)
 {
 	u32 base = mt7663_reg_map(dev, MT_EFUSE_BASE);
-	bool init_dbdc = true;
 	int ret, idx;
-
-	switch (dev->mt76.rev) {
-	case 0x76630010:
-		init_dbdc = false;
-		break;
-	}
 
 	mt76_wr(dev, MT_INT_SOURCE_CSR, ~0);
 
@@ -272,9 +265,6 @@ static int mt7663_init_hardware(struct mt7663_dev *dev)
 		return ret;
 
 	mt7663_mcu_set_eeprom(dev);
-
-	if (init_dbdc)
-		mt7663_mcu_dbdc_ctrl(dev);
 
 	mt7663_mac_init(dev);
 	mt7663_phy_init(dev);

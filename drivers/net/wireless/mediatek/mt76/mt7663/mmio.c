@@ -210,7 +210,6 @@ static int mt7663_set_channel(struct mt7663_dev *dev)
 	ret = mt7663_dfs_init_radar_detector(dev);
 	mt7663_mac_cca_stats_reset(dev);
 	dev->mphy.survey_time = ktime_get_boottime();
-	/* TODO: add DBDC support */
 	mt76_rr(dev, MT_MIB_SDR16(0));
 
 out:

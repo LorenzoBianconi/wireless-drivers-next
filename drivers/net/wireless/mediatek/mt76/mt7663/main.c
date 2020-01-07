@@ -69,7 +69,6 @@ int mt7663_add_interface(struct ieee80211_hw *hw,
 	}
 	mvif->omac_idx = idx;
 
-	/* TODO: DBDC support. Use band 0 for now */
 	mvif->band_idx = 0;
 	mvif->wmm_idx = mvif->idx % MT7663_MAX_WMM_SETS;
 

@@ -301,7 +301,6 @@ u32 mt7663_mac_wtbl_addr(struct mt7663_dev *dev, int wcid);
 int mt7663_mcu_load_ram(struct mt7663_dev *dev);
 int mt7663_mcu_load_patch(struct mt7663_dev *dev);
 int mt7663_mcu_set_eeprom(struct mt7663_dev *dev);
-int mt7663_mcu_dbdc_ctrl(struct mt7663_dev *dev);
 int mt7663_mcu_init_mac(struct mt7663_dev *dev, u8 band);
 int mt7663_mcu_set_rts_thresh(struct mt7663_dev *dev, u32 val);
 int mt7663_mcu_ctrl_pm_state(struct mt7663_dev *dev, int enter);
