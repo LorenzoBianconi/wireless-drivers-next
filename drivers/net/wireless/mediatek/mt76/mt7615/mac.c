@@ -11,6 +11,7 @@
 #include <linux/timekeeping.h>
 #include "mt7615.h"
 #include "../dma.h"
+#include "regs.h"
 #include "mac.h"
 
 #define to_rssi(field, rxv)		((FIELD_GET(field, rxv) - 220) / 2)

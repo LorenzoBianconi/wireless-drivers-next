@@ -10,6 +10,7 @@
 #include <linux/pci.h>
 
 #include "mt7615.h"
+#include "regs.h"
 #include "mac.h"
 
 static const struct pci_device_id mt7615_pci_device_table[] = {

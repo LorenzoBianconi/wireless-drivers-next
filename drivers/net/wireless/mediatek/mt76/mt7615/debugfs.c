@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: ISC
 
 #include "mt7615.h"
+#include "regs.h"
 
 static int
 mt7615_radar_pattern_set(void *data, u64 val)

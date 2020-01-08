@@ -11,6 +11,7 @@
 #include <linux/pci.h>
 #include <linux/module.h>
 #include "mt7615.h"
+#include "regs.h"
 
 static bool mt7615_dev_running(struct mt7615_dev *dev)
 {

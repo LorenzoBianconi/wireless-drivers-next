@@ -7,6 +7,7 @@
 
 #include "mt7615.h"
 #include "eeprom.h"
+#include "regs.h"
 
 static int mt7615_efuse_read(struct mt7615_dev *dev, u32 base,
 			     u16 addr, u8 *data)

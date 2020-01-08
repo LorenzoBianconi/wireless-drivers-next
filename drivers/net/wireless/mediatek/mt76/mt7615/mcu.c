@@ -10,6 +10,7 @@
 #include "mcu.h"
 #include "mac.h"
 #include "eeprom.h"
+#include "regs.h"
 
 struct mt7615_patch_hdr {
 	char build_date[16];

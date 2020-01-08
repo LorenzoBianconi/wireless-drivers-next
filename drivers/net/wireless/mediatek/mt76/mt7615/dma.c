@@ -9,7 +9,18 @@
 
 #include "mt7615.h"
 #include "../dma.h"
+#include "regs.h"
 #include "mac.h"
+
+void mt7615_irq_enable(struct mt7615_dev *dev, u32 mask)
+{
+	mt76_set_irq_mask(&dev->mt76, MT_INT_MASK_CSR, 0, mask);
+}
+
+void mt7615_irq_disable(struct mt7615_dev *dev, u32 mask)
+{
+	mt76_set_irq_mask(&dev->mt76, MT_INT_MASK_CSR, mask, 0);
+}
 
 static int
 mt7615_init_tx_queues(struct mt7615_dev *dev, int n_desc)

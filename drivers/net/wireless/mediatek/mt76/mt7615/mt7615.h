@@ -7,7 +7,6 @@
 #include <linux/interrupt.h>
 #include <linux/ktime.h>
 #include "../mt76.h"
-#include "regs.h"
 
 #define MT7615_MAX_INTERFACES		4
 #define MT7615_MAX_WMM_SETS		4
@@ -275,15 +274,8 @@ static inline bool is_mt7622(struct mt76_dev *dev)
 	return mt76_chip(dev) == 0x7622;
 }
 
-static inline void mt7615_irq_enable(struct mt7615_dev *dev, u32 mask)
-{
-	mt76_set_irq_mask(&dev->mt76, MT_INT_MASK_CSR, 0, mask);
-}
-
-static inline void mt7615_irq_disable(struct mt7615_dev *dev, u32 mask)
-{
-	mt76_set_irq_mask(&dev->mt76, MT_INT_MASK_CSR, mask, 0);
-}
+void mt7615_irq_enable(struct mt7615_dev *dev, u32 mask);
+void mt7615_irq_disable(struct mt7615_dev *dev, u32 mask);
 
 void mt7615_update_channel(struct mt76_dev *mdev);
 bool mt7615_mac_wtbl_update(struct mt7615_dev *dev, int idx, u32 mask);

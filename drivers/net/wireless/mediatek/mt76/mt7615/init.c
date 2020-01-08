@@ -10,6 +10,7 @@
 #include "mt7615.h"
 #include "mac.h"
 #include "eeprom.h"
+#include "regs.h"
 
 static void mt7615_phy_init(struct mt7615_dev *dev)
 {
