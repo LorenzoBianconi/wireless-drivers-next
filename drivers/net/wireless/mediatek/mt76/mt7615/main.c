@@ -346,16 +346,17 @@ static int mt7615_config(struct ieee80211_hw *hw, u32 changed)
 	return ret;
 }
 
-static int
-mt7615_conf_tx(struct ieee80211_hw *hw, struct ieee80211_vif *vif, u16 queue,
-	       const struct ieee80211_tx_queue_params *params)
+int mt7615_conf_tx(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
+		   u16 queue, const struct ieee80211_tx_queue_params *params)
 {
 	struct mt7615_vif *mvif = (struct mt7615_vif *)vif->drv_priv;
 	struct mt7615_dev *dev = mt7615_hw_dev(hw);
+	u16 wmm_q;
 
-	queue += mvif->wmm_idx * MT7615_MAX_WMM_SETS;
+	wmm_q = mt7615_wmm_queue_map(dev, queue);
+	wmm_q += mvif->wmm_idx * MT7615_MAX_WMM_SETS;
 
-	return mt7615_mcu_set_wmm(dev, queue, params);
+	return mt7615_mcu_set_wmm(dev, wmm_q, params);
 }
 
 static void mt7615_configure_filter(struct ieee80211_hw *hw,

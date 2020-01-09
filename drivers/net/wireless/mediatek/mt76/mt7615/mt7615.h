@@ -237,6 +237,8 @@ extern struct pci_driver mt7615_pci_driver;
 
 u32 mt7615_reg_map(struct mt7615_dev *dev, u32 addr);
 
+int mt7615_conf_tx(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
+		   u16 queue, const struct ieee80211_tx_queue_params *params);
 int mt7615_setup_interface(struct ieee80211_hw *hw,
 			   struct ieee80211_vif *vif);
 void mt7615_remove_interface(struct ieee80211_hw *hw,
@@ -293,6 +295,31 @@ int mt7615_mcu_rdd_send_pattern(struct mt7615_dev *dev);
 static inline bool is_mt7622(struct mt76_dev *dev)
 {
 	return mt76_chip(dev) == 0x7622;
+}
+
+static inline bool is_mt7663(struct mt76_dev *dev)
+{
+	return mt76_chip(dev) == 0x7663;
+}
+
+static inline u8
+mt7615_wmm_queue_map(struct mt7615_dev *dev, u8 queue)
+{
+	static const u8 wmm_queue_map[] = {
+		[IEEE80211_AC_BK] = 0,
+		[IEEE80211_AC_BE] = 1,
+		[IEEE80211_AC_VI] = 2,
+		[IEEE80211_AC_VO] = 3,
+	};
+
+	if (is_mt7663(&dev->mt76)) {
+		if (queue > ARRAY_SIZE(wmm_queue_map) - 1)
+			return 1; /* BE */
+
+		return wmm_queue_map[queue];
+	}
+
+	return queue;
 }
 
 void mt7615_irq_enable(struct mt7615_dev *dev, u32 mask);
