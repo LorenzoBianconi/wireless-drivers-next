@@ -162,6 +162,9 @@ struct mt7615_dev {
 
 	spinlock_t token_lock;
 	struct idr token;
+
+	struct work_struct rate_work;
+	struct list_head rd_head;
 };
 
 enum {
