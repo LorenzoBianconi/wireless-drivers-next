@@ -544,26 +544,6 @@ int mt7663_mcu_init_mac(struct mt7615_dev *dev, u8 band)
 }
 EXPORT_SYMBOL_GPL(mt7663_mcu_init_mac);
 
-int mt7663_mcu_set_rts_thresh(struct mt7615_dev *dev, u32 val)
-{
-	struct {
-		u8 prot_idx;
-		u8 band;
-		u8 rsv[2];
-		__le32 len_thresh;
-		__le32 pkt_thresh;
-	} __packed req = {
-		.prot_idx = 1,
-		.band = 0,
-		.len_thresh = cpu_to_le32(val),
-		.pkt_thresh = cpu_to_le32(0x2),
-	};
-
-	return __mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD_PROTECT_CTRL,
-				   &req, sizeof(req), true);
-}
-EXPORT_SYMBOL_GPL(mt7663_mcu_set_rts_thresh);
-
 int mt7663_mcu_set_wmm(struct mt7615_dev *dev, u8 queue,
 		       const struct ieee80211_tx_queue_params *params)
 {

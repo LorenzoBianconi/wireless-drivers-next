@@ -111,18 +111,6 @@ void mt7663_bss_info_changed(struct ieee80211_hw *hw,
 }
 EXPORT_SYMBOL_GPL(mt7663_bss_info_changed);
 
-int mt7663_set_rts_threshold(struct ieee80211_hw *hw, u32 val)
-{
-	struct mt7615_dev *dev = hw->priv;
-
-	mutex_lock(&dev->mt76.mutex);
-	mt7663_mcu_set_rts_thresh(dev, val);
-	mutex_unlock(&dev->mt76.mutex);
-
-	return 0;
-}
-EXPORT_SYMBOL_GPL(mt7663_set_rts_threshold);
-
 int mt7663_ampdu_action(struct ieee80211_hw *hw,
 			struct ieee80211_vif *vif,
 			struct ieee80211_ampdu_params *params)

@@ -172,7 +172,6 @@ int mt7663_check_key(struct mt7615_dev *dev, enum set_key_cmd cmd,
 int mt7663_ampdu_action(struct ieee80211_hw *hw,
 			struct ieee80211_vif *vif,
 			struct ieee80211_ampdu_params *params);
-int mt7663_set_rts_threshold(struct ieee80211_hw *hw, u32 val);
 
 void mt7663_update_channel(struct mt76_dev *mdev);
 
@@ -196,7 +195,6 @@ int mt7663_mcu_load_ram(struct mt7615_dev *dev);
 int mt7663_mcu_load_patch(struct mt7615_dev *dev);
 int mt7663_mcu_set_eeprom(struct mt7615_dev *dev);
 int mt7663_mcu_init_mac(struct mt7615_dev *dev, u8 band);
-int mt7663_mcu_set_rts_thresh(struct mt7615_dev *dev, u32 val);
 int mt7663_mcu_ctrl_pm_state(struct mt7615_dev *dev, int enter);
 void mt7663_mcu_exit(struct mt7615_dev *dev);
 int mt7663_mcu_restart(struct mt76_dev *dev);
