@@ -118,9 +118,6 @@ u32 mt7663_reg_map(struct mt7615_dev *dev, u32 addr);
 int mt7663_eeprom_init(struct mt7615_dev *dev, u32 base);
 void mt7663_dma_cleanup(struct mt7615_dev *dev);
 int mt7663_mcu_init(struct mt7615_dev *dev);
-void mt7663_mac_set_rates(struct mt7615_dev *dev, struct mt7615_sta *sta,
-			  struct ieee80211_tx_rate *probe_rate,
-			  struct ieee80211_tx_rate *rates);
 int mt7663_mcu_add_wtbl(struct mt7615_dev *dev, struct ieee80211_vif *vif,
 			struct ieee80211_sta *sta);
 int mt7663_mcu_del_wtbl(struct mt7615_dev *dev, struct ieee80211_sta *sta);
@@ -150,8 +147,6 @@ extern struct platform_driver mt7629_wmac_driver;
 int mt7663_ampdu_action(struct ieee80211_hw *hw,
 			struct ieee80211_vif *vif,
 			struct ieee80211_ampdu_params *params);
-
-void mt7663_update_channel(struct mt76_dev *mdev);
 
 int mt7663_mac_write_txwi(struct mt7615_dev *dev, __le32 *txwi,
 			  struct sk_buff *skb, enum mt76_txq_id qid,

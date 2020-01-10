@@ -406,6 +406,7 @@ int mt7615_init_debugfs(struct mt7615_dev *dev);
 void mt7615_init_device_cap(struct mt7615_dev *dev);
 
 /* mt7663u */
+void mt7663u_update_channel(struct mt76_dev *mdev);
 void mt7663u_rate_work(struct work_struct *work);
 int __mt7663u_mac_set_rates(struct mt7615_dev *dev,
 			    struct mt7615_rate_desc *rd);

@@ -19,6 +19,30 @@ static u32 mt7663u_mac_wtbl_addr(struct mt7615_dev *dev, int wcid)
 	return MT_WTBL(0) + wcid * MT_WTBL_ENTRY_SIZE;
 }
 
+void mt7663u_update_channel(struct mt76_dev *mdev)
+{
+	struct mt7615_dev *dev = container_of(mdev, struct mt7615_dev, mt76);
+	u64 busy_time, tx_time, rx_time, obss_time;
+	struct mt76_channel_state *state;
+
+	busy_time = mt76_get_field(dev, MT_MIB_SDR9(0), MT_MIB_SDR9_BUSY_MASK);
+	tx_time = mt76_get_field(dev, MT_MIB_SDR36(0),
+				 MT_MIB_SDR36_TXTIME_MASK);
+	rx_time = mt76_get_field(dev, MT_MIB_SDR37(0),
+				 MT_MIB_SDR37_RXTIME_MASK);
+	obss_time = mt76_get_field(dev, MT_WF_RMAC_MIB_TIME5,
+				   MT_MIB_OBSSTIME_MASK);
+
+	state = mdev->phy.chan_state;
+	state->cc_busy += busy_time;
+	state->cc_tx += tx_time;
+	state->cc_rx += rx_time + obss_time;
+	state->cc_bss_rx += rx_time;
+
+	/* reset obss airtime */
+	mt76_set(dev, MT_WF_RMAC_MIB_TIME0, MT_WF_RMAC_MIB_RXTIME_CLR);
+}
+
 void mt7663u_mac_work(struct work_struct *work)
 {
 	struct mt7615_dev *dev;
@@ -27,7 +51,7 @@ void mt7663u_mac_work(struct work_struct *work)
 						mac_work.work);
 
 	mutex_lock(&dev->mt76.mutex);
-	//mt7663_update_channel(&dev->mt76);
+	mt7663u_update_channel(&dev->mt76);
 	mutex_unlock(&dev->mt76.mutex);
 
 	mt76_tx_status_check(&dev->mt76, NULL, false);
