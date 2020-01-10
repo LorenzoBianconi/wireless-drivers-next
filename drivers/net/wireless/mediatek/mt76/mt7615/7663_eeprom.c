@@ -9,10 +9,11 @@
  */
 
 #include "mt7663.h"
+#include "mt7615.h"
 #include "7663_eeprom.h"
 #include "regs.h"
 
-static int mt7663_efuse_read(struct mt7663_dev *dev, u32 base,
+static int mt7663_efuse_read(struct mt7615_dev *dev, u32 base,
 			     u16 addr, u8 *data)
 {
 	u32 val;
@@ -44,7 +45,7 @@ static int mt7663_efuse_read(struct mt7663_dev *dev, u32 base,
 	return 0;
 }
 
-static int mt7663_efuse_init(struct mt7663_dev *dev, u32 base)
+static int mt7663_efuse_init(struct mt7615_dev *dev, u32 base)
 {
 	int i, len = MT7663_EEPROM_SIZE;
 	void *buf;
@@ -71,7 +72,7 @@ static int mt7663_efuse_init(struct mt7663_dev *dev, u32 base)
 	return 0;
 }
 
-static int mt7663_eeprom_load(struct mt7663_dev *dev, u32 base)
+static int mt7663_eeprom_load(struct mt7615_dev *dev, u32 base)
 {
 	int ret;
 
@@ -101,7 +102,7 @@ static int mt7663_check_eeprom(struct mt76_dev *dev)
 	}
 }
 
-int mt7663_eeprom_init(struct mt7663_dev *dev, u32 base)
+int mt7663_eeprom_init(struct mt7615_dev *dev, u32 base)
 {
 	int ret;
 

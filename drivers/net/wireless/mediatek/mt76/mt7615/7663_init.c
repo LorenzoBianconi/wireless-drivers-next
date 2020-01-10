@@ -10,6 +10,7 @@
 
 #include <linux/etherdevice.h>
 #include "mt7663.h"
+#include "mt7615.h"
 #include "regs.h"
 #include "mac.h"
 
@@ -68,7 +69,7 @@ static inline void _ieee80211_hw_clear(struct ieee80211_hw *hw,
 	return __clear_bit(flg, hw->flags);
 }
 
-int mt7663_register_device(struct mt7663_dev *dev)
+int mt7663_register_device(struct mt7615_dev *dev)
 {
 	struct ieee80211_hw *hw = mt76_hw(dev);
 	struct wiphy *wiphy = hw->wiphy;
@@ -115,7 +116,7 @@ int mt7663_register_device(struct mt7663_dev *dev)
 }
 EXPORT_SYMBOL_GPL(mt7663_register_device);
 
-void mt7663_unregister_device(struct mt7663_dev *dev)
+void mt7663_unregister_device(struct mt7615_dev *dev)
 {
 	struct mt76_txwi_cache *txwi;
 	int id;

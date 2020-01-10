@@ -10,11 +10,12 @@
 #include <linux/module.h>
 
 #include "mt7663.h"
+#include "mt7615.h"
 #include "mac.h"
 #include "usb_sdio_regs.h"
 
 static int
-mt7663u_dma_sched_init(struct mt7663_dev *dev)
+mt7663u_dma_sched_init(struct mt7615_dev *dev)
 {
 	u32 val;
 
@@ -89,7 +90,7 @@ mt7663u_dma_sched_init(struct mt7663_dev *dev)
 	return 0;
 }
 
-static void mt7663u_mac_init(struct mt7663_dev *dev)
+static void mt7663u_mac_init(struct mt7615_dev *dev)
 {
 	u32 val;
 
@@ -139,7 +140,7 @@ static void mt7663u_mac_init(struct mt7663_dev *dev)
 	mt76_wr(dev, MT_WF_DMA(0x0), 0x0046f000);
 }
 
-static int mt7663u_init_hardware(struct mt7663_dev *dev)
+static int mt7663u_init_hardware(struct mt7615_dev *dev)
 {
 	int ret, idx;
 	u32 val;
@@ -190,7 +191,7 @@ static int mt7663u_init_hardware(struct mt7663_dev *dev)
 	return 0;
 }
 
-int mt7663u_register_device(struct mt7663_dev *dev)
+int mt7663u_register_device(struct mt7615_dev *dev)
 {
 	struct ieee80211_hw *hw = mt76_hw(dev);
 	int err;

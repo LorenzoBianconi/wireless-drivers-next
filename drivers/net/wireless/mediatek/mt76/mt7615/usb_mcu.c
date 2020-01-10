@@ -10,6 +10,7 @@
 #include <linux/module.h>
 
 #include "mt7663.h"
+#include "mt7615.h"
 #include "7663_mac.h"
 #include "7663_mcu.h"
 #include "usb_sdio_regs.h"
@@ -26,7 +27,7 @@ static int
 mt7663u_mcu_msg_send(struct mt76_dev *mdev, int cmd, const void *data,
 		     int len, bool wait_resp)
 {
-	struct mt7663_dev *dev = container_of(mdev, struct mt7663_dev, mt76);
+	struct mt7615_dev *dev = container_of(mdev, struct mt7615_dev, mt76);
 	struct sk_buff *skb;
 	int ret, seq, ep;
 
@@ -61,7 +62,7 @@ out:
 	return ret;
 }
 
-static int mt7663u_load_firmware(struct mt7663_dev *dev)
+static int mt7663u_load_firmware(struct mt7615_dev *dev)
 {
 	int ret;
 	u32 val;
@@ -93,7 +94,7 @@ static int mt7663u_load_firmware(struct mt7663_dev *dev)
 	return 0;
 }
 
-int mt7663u_mcu_init(struct mt7663_dev *dev)
+int mt7663u_mcu_init(struct mt7615_dev *dev)
 {
 	static const struct mt76_mcu_ops mt7663u_mcu_ops = {
 		.mcu_send_msg = mt7663u_mcu_msg_send,

@@ -56,6 +56,7 @@
 
 struct mt7663_vif;
 struct mt7663_sta;
+struct mt7615_dev;
 
 enum mt7663_hw_txq_id {
 	MT7663_TXQ_MAIN,
@@ -147,110 +148,54 @@ struct mt7663_rate_desc {
 };
 
 enum {
-	HW_BSSID_0 = 0x0,
-	HW_BSSID_1,
-	HW_BSSID_2,
-	HW_BSSID_3,
-	HW_BSSID_MAX,
-	EXT_BSSID_START = 0x10,
-	EXT_BSSID_1,
-	EXT_BSSID_2,
-	EXT_BSSID_3,
-	EXT_BSSID_4,
-	EXT_BSSID_5,
-	EXT_BSSID_6,
-	EXT_BSSID_7,
-	EXT_BSSID_8,
-	EXT_BSSID_9,
-	EXT_BSSID_10,
-	EXT_BSSID_11,
-	EXT_BSSID_12,
-	EXT_BSSID_13,
-	EXT_BSSID_14,
-	EXT_BSSID_15,
-	EXT_BSSID_END
-};
-
-enum {
 	MT_HW_RDD0,
 	MT_HW_RDD1,
 };
 
-enum {
-	MT_RX_SEL0,
-	MT_RX_SEL1,
-};
-
-enum mt7663_rdd_cmd {
-	RDD_STOP,
-	RDD_START,
-	RDD_DET_MODE,
-	RDD_DET_STOP,
-	RDD_CAC_START,
-	RDD_CAC_END,
-	RDD_NORMAL_START,
-	RDD_DISABLE_DFS_CAL,
-	RDD_PULSE_DBG,
-	RDD_READ_PULSE,
-	RDD_RESUME_BF,
-};
-
-u32 mt7663_reg_map(struct mt7663_dev *dev, u32 addr);
-int mt7663_register_device(struct mt7663_dev *dev);
-void mt7663_unregister_device(struct mt7663_dev *dev);
-int mt7663_eeprom_init(struct mt7663_dev *dev, u32 base);
+u32 mt7663_reg_map(struct mt7615_dev *dev, u32 addr);
+int mt7663_register_device(struct mt7615_dev *dev);
+void mt7663_unregister_device(struct mt7615_dev *dev);
+int mt7663_eeprom_init(struct mt7615_dev *dev, u32 base);
 int mt7663_eeprom_get_power_index(struct ieee80211_channel *chan,
 				  u8 chain_idx);
-void mt7663_dma_cleanup(struct mt7663_dev *dev);
-int mt7663_mcu_init(struct mt7663_dev *dev);
-int mt7663_mcu_set_dev_info(struct mt7663_dev *dev,
+void mt7663_dma_cleanup(struct mt7615_dev *dev);
+int mt7663_mcu_init(struct mt7615_dev *dev);
+int mt7663_mcu_set_dev_info(struct mt7615_dev *dev,
 			    struct ieee80211_vif *vif, bool enable);
-int mt7663_mcu_set_bss_info(struct mt7663_dev *dev, struct ieee80211_vif *vif,
+int mt7663_mcu_set_bss_info(struct mt7615_dev *dev, struct ieee80211_vif *vif,
 			    int en);
-void mt7663_mac_set_rates(struct mt7663_dev *dev, struct mt7663_sta *sta,
+void mt7663_mac_set_rates(struct mt7615_dev *dev, struct mt7663_sta *sta,
 			  struct ieee80211_tx_rate *probe_rate,
 			  struct ieee80211_tx_rate *rates);
-int mt7663_mcu_wtbl_bmc(struct mt7663_dev *dev, struct ieee80211_vif *vif,
+int mt7663_mcu_wtbl_bmc(struct mt7615_dev *dev, struct ieee80211_vif *vif,
 			bool enable);
-int mt7663_mcu_add_wtbl(struct mt7663_dev *dev, struct ieee80211_vif *vif,
+int mt7663_mcu_add_wtbl(struct mt7615_dev *dev, struct ieee80211_vif *vif,
 			struct ieee80211_sta *sta);
-int mt7663_mcu_del_wtbl(struct mt7663_dev *dev, struct ieee80211_sta *sta);
-int mt7663_mcu_del_wtbl_all(struct mt7663_dev *dev);
-int mt7663_mcu_set_sta_rec_bmc(struct mt7663_dev *dev,
+int mt7663_mcu_del_wtbl(struct mt7615_dev *dev, struct ieee80211_sta *sta);
+int mt7663_mcu_del_wtbl_all(struct mt7615_dev *dev);
+int mt7663_mcu_set_sta_rec_bmc(struct mt7615_dev *dev,
 			       struct ieee80211_vif *vif, bool en);
-int mt7663_mcu_set_sta_rec(struct mt7663_dev *dev, struct ieee80211_vif *vif,
+int mt7663_mcu_set_sta_rec(struct mt7615_dev *dev, struct ieee80211_vif *vif,
 			   struct ieee80211_sta *sta, bool en);
-int mt7663_mcu_set_bcn(struct mt7663_dev *dev, struct ieee80211_vif *vif,
+int mt7663_mcu_set_bcn(struct mt7615_dev *dev, struct ieee80211_vif *vif,
 		       int en);
-int mt7663_mcu_set_channel(struct mt7663_dev *dev);
-int mt7663_mcu_set_wmm(struct mt7663_dev *dev, u8 queue,
+int mt7663_mcu_set_channel(struct mt7615_dev *dev);
+int mt7663_mcu_set_wmm(struct mt7615_dev *dev, u8 queue,
 		       const struct ieee80211_tx_queue_params *params);
-int mt7663_mcu_set_tx_ba(struct mt7663_dev *dev,
+int mt7663_mcu_set_tx_ba(struct mt7615_dev *dev,
 			 struct ieee80211_ampdu_params *params,
 			 bool add);
-int mt7663_mcu_set_rx_ba(struct mt7663_dev *dev,
+int mt7663_mcu_set_rx_ba(struct mt7615_dev *dev,
 			 struct ieee80211_ampdu_params *params,
 			 bool add);
-int mt7663_mcu_set_ht_cap(struct mt7663_dev *dev, struct ieee80211_vif *vif,
+int mt7663_mcu_set_ht_cap(struct mt7615_dev *dev, struct ieee80211_vif *vif,
 			  struct ieee80211_sta *sta);
-void mt7663_mcu_rx_event(struct mt7663_dev *dev, struct sk_buff *skb);
-int mt7663_mcu_rdd_cmd(struct mt7663_dev *dev,
-		       enum mt7663_rdd_cmd cmd, u8 index,
+void mt7663_mcu_rx_event(struct mt7615_dev *dev, struct sk_buff *skb);
+int mt7663_mcu_rdd_cmd(struct mt7615_dev *dev, int cmd, u8 index,
 		       u8 rx_sel, u8 val);
-int mt7663_dfs_start_radar_detector(struct mt7663_dev *dev);
-int mt7663_dfs_stop_radar_detector(struct mt7663_dev *dev);
-int mt7663_mcu_rdd_send_pattern(struct mt7663_dev *dev);
-
-static inline void mt7663_dfs_check_channel(struct mt7663_dev *dev)
-{
-	enum nl80211_chan_width width = dev->mphy.chandef.width;
-	u32 freq = dev->mphy.chandef.chan->center_freq;
-	struct ieee80211_hw *hw = mt76_hw(dev);
-
-	if (hw->conf.chandef.chan->center_freq != freq ||
-	    hw->conf.chandef.width != width)
-		dev->dfs_state = -1;
-}
+int mt7663_dfs_start_radar_detector(struct mt7615_dev *dev);
+int mt7663_dfs_stop_radar_detector(struct mt7615_dev *dev);
+int mt7663_mcu_rdd_send_pattern(struct mt7615_dev *dev);
 
 extern const struct ieee80211_ops mt7663_mmio_ops;
 extern const struct ieee80211_ops mt7663_usb_ops;
@@ -272,7 +217,7 @@ void mt7663_bss_info_changed(struct ieee80211_hw *hw,
 			     struct ieee80211_vif *vif,
 			     struct ieee80211_bss_conf *info,
 			     u32 changed);
-int mt7663_check_key(struct mt7663_dev *dev, enum set_key_cmd cmd,
+int mt7663_check_key(struct mt7615_dev *dev, enum set_key_cmd cmd,
 		     struct ieee80211_vif *vif, struct mt76_wcid *wcid,
 		     struct ieee80211_key_conf *key);
 int mt7663_ampdu_action(struct ieee80211_hw *hw,
@@ -282,34 +227,34 @@ int mt7663_set_rts_threshold(struct ieee80211_hw *hw, u32 val);
 
 void mt7663_update_channel(struct mt76_dev *mdev);
 
-int mt7663_mac_write_txwi(struct mt7663_dev *dev, __le32 *txwi,
+int mt7663_mac_write_txwi(struct mt7615_dev *dev, __le32 *txwi,
 			  struct sk_buff *skb, enum mt76_txq_id qid,
 			  struct mt76_wcid *wcid,
 			  struct ieee80211_sta *sta, int pid,
 			  struct ieee80211_key_conf *key);
-int mt7663_mac_fill_rx(struct mt7663_dev *dev, struct sk_buff *skb);
-void mt7663_mac_add_txs(struct mt7663_dev *dev, void *data);
-void mt7663_mac_tx_free(struct mt7663_dev *dev, struct sk_buff *skb);
-int mt7663_mac_wtbl_update_key(struct mt7663_dev *dev, struct mt76_wcid *wcid,
+int mt7663_mac_fill_rx(struct mt7615_dev *dev, struct sk_buff *skb);
+void mt7663_mac_add_txs(struct mt7615_dev *dev, void *data);
+void mt7663_mac_tx_free(struct mt7615_dev *dev, struct sk_buff *skb);
+int mt7663_mac_wtbl_update_key(struct mt7615_dev *dev, struct mt76_wcid *wcid,
 			       u32 base_addr, struct ieee80211_key_conf *key,
 			       int cipher, enum set_key_cmd cmd);
-void mt7663_mac_wtbl_update_cipher(struct mt7663_dev *dev,
+void mt7663_mac_wtbl_update_cipher(struct mt7615_dev *dev,
 				   struct mt76_wcid *wcid, u32 addr,
 				   int cipher, enum set_key_cmd cmd);
-u32 mt7663_mac_wtbl_addr(struct mt7663_dev *dev, int wcid);
+u32 mt7663_mac_wtbl_addr(struct mt7615_dev *dev, int wcid);
 
-int mt7663_mcu_load_ram(struct mt7663_dev *dev);
-int mt7663_mcu_load_patch(struct mt7663_dev *dev);
-int mt7663_mcu_set_eeprom(struct mt7663_dev *dev);
-int mt7663_mcu_init_mac(struct mt7663_dev *dev, u8 band);
-int mt7663_mcu_set_rts_thresh(struct mt7663_dev *dev, u32 val);
-int mt7663_mcu_ctrl_pm_state(struct mt7663_dev *dev, int enter);
-int mt7663_mcu_set_tx_power(struct mt7663_dev *dev);
-void mt7663_mcu_exit(struct mt7663_dev *dev);
+int mt7663_mcu_load_ram(struct mt7615_dev *dev);
+int mt7663_mcu_load_patch(struct mt7615_dev *dev);
+int mt7663_mcu_set_eeprom(struct mt7615_dev *dev);
+int mt7663_mcu_init_mac(struct mt7615_dev *dev, u8 band);
+int mt7663_mcu_set_rts_thresh(struct mt7615_dev *dev, u32 val);
+int mt7663_mcu_ctrl_pm_state(struct mt7615_dev *dev, int enter);
+int mt7663_mcu_set_tx_power(struct mt7615_dev *dev);
+void mt7663_mcu_exit(struct mt7615_dev *dev);
 int mt7663_mcu_restart(struct mt76_dev *dev);
-void mt7663_mcu_fill_msg(struct mt7663_dev *dev, struct sk_buff *skb,
+void mt7663_mcu_fill_msg(struct mt7615_dev *dev, struct sk_buff *skb,
 			 int cmd, int *wait_seq);
-int mt7663_mcu_wait_response(struct mt7663_dev *dev, int cmd, int seq);
+int mt7663_mcu_wait_response(struct mt7615_dev *dev, int cmd, int seq);
 
 int mt7663_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 			  enum mt76_txq_id qid, struct mt76_wcid *wcid,
@@ -329,38 +274,37 @@ void mt7663_sta_assoc(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 void mt7663_sta_remove(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 		       struct ieee80211_sta *sta);
 void mt7663_mac_work(struct work_struct *work);
-void mt7663_mac_cca_stats_reset(struct mt7663_dev *dev);
+void mt7663_mac_cca_stats_reset(struct mt7615_dev *dev);
 void mt7663_txp_skb_unmap(struct mt76_dev *dev,
 			  struct mt76_txwi_cache *txwi);
-int mt76_dfs_start_rdd(struct mt7663_dev *dev, bool force);
-int mt7663_dfs_init_radar_detector(struct mt7663_dev *dev);
+int mt7663_dfs_init_radar_detector(struct mt7615_dev *dev);
 
-int mt7663_init_debugfs(struct mt7663_dev *dev);
+int mt7663_init_debugfs(struct mt7615_dev *dev);
 
-int __mt7663u_mac_set_rates(struct mt7663_dev *dev,
+int __mt7663u_mac_set_rates(struct mt7615_dev *dev,
 			    struct mt7663_rate_desc *rc);
-void mt7663u_mac_cca_stats_reset(struct mt7663_dev *dev);
-int mt7663u_mac_wtbl_set_key(struct mt7663_dev *dev,
+void mt7663u_mac_cca_stats_reset(struct mt7615_dev *dev);
+int mt7663u_mac_wtbl_set_key(struct mt7615_dev *dev,
 			     struct mt76_wcid *wcid,
 			     struct ieee80211_key_conf *key,
 			     enum set_key_cmd cmd);
-int mt7663u_mcu_init(struct mt7663_dev *dev);
-void mt7663u_mac_write_txwi(struct mt7663_dev *dev, struct mt76_wcid *wcid,
+int mt7663u_mcu_init(struct mt7615_dev *dev);
+void mt7663u_mac_write_txwi(struct mt7615_dev *dev, struct mt76_wcid *wcid,
 			    enum mt76_txq_id qid, struct ieee80211_sta *sta,
 			    struct sk_buff *skb);
 void mt7663u_rc_work(struct work_struct *work);
-int mt7663u_register_device(struct mt7663_dev *dev);
-void mt7663u_mac_set_rates(struct mt7663_dev *dev, struct mt7663_sta *sta,
+int mt7663u_register_device(struct mt7615_dev *dev);
+void mt7663u_mac_set_rates(struct mt7615_dev *dev, struct mt7663_sta *sta,
 			   struct ieee80211_tx_rate *probe_rate,
 			   struct ieee80211_tx_rate *rates);
 
 int mt7663_poll_tx(struct napi_struct *napi, int budget);
-void mt7663_irq_enable(struct mt7663_dev *dev, u32 mask);
-void mt7663_irq_disable(struct mt7663_dev *dev, u32 mask);
+void mt7663_irq_enable(struct mt7615_dev *dev, u32 mask);
+void mt7663_irq_disable(struct mt7615_dev *dev, u32 mask);
 irqreturn_t mt7663_irq_handler(int irq, void *dev_instance);
-int mt7663_init_device(struct mt7663_dev *dev, int irq);
+int mt7663_init_device(struct mt7615_dev *dev, int irq);
 void mt7663_rx_poll_complete(struct mt76_dev *mdev, enum mt76_rxq_id q);
-int mt7663_mac_wtbl_set_key(struct mt7663_dev *dev,
+int mt7663_mac_wtbl_set_key(struct mt7615_dev *dev,
 			    struct mt76_wcid *wcid,
 			    struct ieee80211_key_conf *key,
 			    enum set_key_cmd cmd);

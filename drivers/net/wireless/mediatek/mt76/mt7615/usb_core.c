@@ -10,11 +10,12 @@
 #include <linux/module.h>
 
 #include "mt7663.h"
+#include "mt7615.h"
 #include "usb_sdio_regs.h"
 
 static int mt7663u_start(struct ieee80211_hw *hw)
 {
-	struct mt7663_dev *dev = hw->priv;
+	struct mt7615_dev *dev = hw->priv;
 
 	dev->mphy.survey_time = ktime_get_boottime();
 	set_bit(MT76_STATE_RUNNING, &dev->mphy.state);
@@ -26,7 +27,7 @@ static int mt7663u_start(struct ieee80211_hw *hw)
 
 static void mt7663u_stop(struct ieee80211_hw *hw)
 {
-	struct mt7663_dev *dev = hw->priv;
+	struct mt7615_dev *dev = hw->priv;
 
 	clear_bit(MT76_STATE_RUNNING, &dev->mphy.state);
 	mt76u_stop_tx(&dev->mt76);
@@ -38,7 +39,7 @@ mt7663u_sta_rate_tbl_update(struct ieee80211_hw *hw,
 			    struct ieee80211_vif *vif,
 			    struct ieee80211_sta *sta)
 {
-	struct mt7663_dev *dev = hw->priv;
+	struct mt7615_dev *dev = hw->priv;
 	struct mt7663_sta *msta = (struct mt7663_sta *)sta->drv_priv;
 	struct ieee80211_sta_rates *sta_rates = rcu_dereference(sta->rates);
 	int i;
@@ -60,11 +61,11 @@ mt7663u_sta_rate_tbl_update(struct ieee80211_hw *hw,
 
 void mt7663u_rc_work(struct work_struct *work)
 {
-	struct mt7663_dev *dev;
+	struct mt7615_dev *dev;
 	struct mt7663_rate_desc *rc, *tmp_rc;
 	int err;
 
-	dev = (struct mt7663_dev *)container_of(work, struct mt7663_dev,
+	dev = (struct mt7615_dev *)container_of(work, struct mt7615_dev,
 						rc_work);
 
 	list_for_each_entry_safe(rc, tmp_rc, &dev->rc_processing, node) {
@@ -80,7 +81,7 @@ void mt7663u_rc_work(struct work_struct *work)
 	}
 }
 
-static int mt7663u_set_channel(struct mt7663_dev *dev)
+static int mt7663u_set_channel(struct mt7615_dev *dev)
 {
 	int ret;
 
@@ -89,7 +90,6 @@ static int mt7663u_set_channel(struct mt7663_dev *dev)
 	mutex_lock(&dev->mt76.mutex);
 	set_bit(MT76_RESET, &dev->mphy.state);
 
-	mt7663_dfs_check_channel(dev);
 	mt76_set_channel(&dev->mphy);
 
 	ret = mt7663_mcu_set_channel(dev);
@@ -116,7 +116,7 @@ out:
 static int
 mt7663u_config(struct ieee80211_hw *hw, u32 changed)
 {
-	struct mt7663_dev *dev = hw->priv;
+	struct mt7615_dev *dev = hw->priv;
 	int ret = 0;
 
 	if (changed & IEEE80211_CONF_CHANGE_CHANNEL) {
@@ -146,7 +146,7 @@ mt7663u_configure_filter(struct ieee80211_hw *hw,
 			 unsigned int changed_flags,
 			 unsigned int *total_flags, u64 multicast)
 {
-	struct mt7663_dev *dev = hw->priv;
+	struct mt7615_dev *dev = hw->priv;
 	u32 flags = 0;
 
 #define MT76_FILTER(_flag, _hw) do { \
@@ -188,7 +188,7 @@ mt7663u_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 		struct ieee80211_key_conf *key)
 {
 	struct mt7663_vif *mvif = (struct mt7663_vif *)vif->drv_priv;
-	struct mt7663_dev *dev = hw->priv;
+	struct mt7615_dev *dev = hw->priv;
 	struct mt7663_sta *msta;
 	int err;
 

@@ -12,6 +12,7 @@
 #include <linux/etherdevice.h>
 #include <linux/timekeeping.h>
 #include "mt7663.h"
+#include "mt7615.h"
 #include "../dma.h"
 #include "7663_regs.h"
 #include "7663_mac.h"
@@ -22,7 +23,7 @@ static inline s8 to_rssi(u32 field, u32 rxv)
 }
 
 static struct mt76_wcid *
-mt7663_rx_get_wcid(struct mt7663_dev *dev,
+mt7663_rx_get_wcid(struct mt7615_dev *dev,
 		   u8 idx, bool unicast)
 {
 	struct mt7663_sta *sta;
@@ -45,7 +46,7 @@ mt7663_rx_get_wcid(struct mt7663_dev *dev,
 	return &sta->vif->sta.wcid;
 }
 
-int mt7663_mac_fill_rx(struct mt7663_dev *dev, struct sk_buff *skb)
+int mt7663_mac_fill_rx(struct mt7615_dev *dev, struct sk_buff *skb)
 {
 	struct mt76_rx_status *status = (struct mt76_rx_status *)skb->cb;
 	struct ieee80211_supported_band *sband;
@@ -224,7 +225,7 @@ void mt7663_sta_ps(struct mt76_dev *mdev, struct ieee80211_sta *sta, bool ps)
 EXPORT_SYMBOL_GPL(mt7663_sta_ps);
 
 static u16
-mt7663_mac_tx_rate_val(struct mt7663_dev *dev,
+mt7663_mac_tx_rate_val(struct mt7615_dev *dev,
 		       const struct ieee80211_tx_rate *rate,
 		       bool stbc, u8 *bw)
 {
@@ -279,7 +280,7 @@ mt7663_mac_tx_rate_val(struct mt7663_dev *dev,
 	return rateval;
 }
 
-int mt7663_mac_write_txwi(struct mt7663_dev *dev, __le32 *txwi,
+int mt7663_mac_write_txwi(struct mt7615_dev *dev, __le32 *txwi,
 			  struct sk_buff *skb, enum mt76_txq_id qid,
 			  struct mt76_wcid *wcid,
 			  struct ieee80211_sta *sta, int pid,
@@ -473,13 +474,13 @@ void mt7663_txp_skb_unmap(struct mt76_dev *dev,
 	}
 }
 
-u32 mt7663_mac_wtbl_addr(struct mt7663_dev *dev, int wcid)
+u32 mt7663_mac_wtbl_addr(struct mt7615_dev *dev, int wcid)
 {
 	return MT_WTBL(0) + wcid * MT_WTBL_ENTRY_SIZE;
 }
 EXPORT_SYMBOL_GPL(mt7663_mac_wtbl_addr);
 
-void mt7663_mac_set_rates(struct mt7663_dev *dev, struct mt7663_sta *sta,
+void mt7663_mac_set_rates(struct mt7615_dev *dev, struct mt7663_sta *sta,
 			  struct ieee80211_tx_rate *probe_rate,
 			  struct ieee80211_tx_rate *rates)
 {
@@ -616,7 +617,7 @@ void mt7663_mac_set_rates(struct mt7663_dev *dev, struct mt7663_sta *sta,
 }
 EXPORT_SYMBOL_GPL(mt7663_mac_set_rates);
 
-void mt7663u_mac_set_rates(struct mt7663_dev *dev, struct mt7663_sta *sta,
+void mt7663u_mac_set_rates(struct mt7615_dev *dev, struct mt7663_sta *sta,
 			   struct ieee80211_tx_rate *probe_rate,
 			   struct ieee80211_tx_rate *rates)
 {
@@ -722,7 +723,7 @@ void mt7663u_mac_set_rates(struct mt7663_dev *dev, struct mt7663_sta *sta,
 }
 EXPORT_SYMBOL_GPL(mt7663u_mac_set_rates);
 
-int mt7663_mac_wtbl_update_key(struct mt7663_dev *dev, struct mt76_wcid *wcid,
+int mt7663_mac_wtbl_update_key(struct mt7615_dev *dev, struct mt76_wcid *wcid,
 			       u32 base_addr, struct ieee80211_key_conf *key,
 			       int cipher, enum set_key_cmd cmd)
 {
@@ -760,7 +761,7 @@ int mt7663_mac_wtbl_update_key(struct mt7663_dev *dev, struct mt76_wcid *wcid,
 }
 EXPORT_SYMBOL_GPL(mt7663_mac_wtbl_update_key);
 
-void mt7663_mac_wtbl_update_cipher(struct mt7663_dev *dev,
+void mt7663_mac_wtbl_update_cipher(struct mt7615_dev *dev,
 				   struct mt76_wcid *wcid, u32 addr,
 				   int cipher, enum set_key_cmd cmd)
 {
@@ -780,7 +781,7 @@ void mt7663_mac_wtbl_update_cipher(struct mt7663_dev *dev,
 }
 EXPORT_SYMBOL_GPL(mt7663_mac_wtbl_update_cipher);
 
-static bool mt7663_fill_txs(struct mt7663_dev *dev, struct mt7663_sta *sta,
+static bool mt7663_fill_txs(struct mt7615_dev *dev, struct mt7663_sta *sta,
 			    struct ieee80211_tx_info *info, __le32 *txs_data)
 {
 	struct ieee80211_supported_band *sband;
@@ -920,7 +921,7 @@ out:
 	return true;
 }
 
-static bool mt7663_mac_add_txs_skb(struct mt7663_dev *dev,
+static bool mt7663_mac_add_txs_skb(struct mt7615_dev *dev,
 				   struct mt7663_sta *sta, int pid,
 				   __le32 *txs_data)
 {
@@ -948,7 +949,7 @@ static bool mt7663_mac_add_txs_skb(struct mt7663_dev *dev,
 	return !!skb;
 }
 
-void mt7663_mac_add_txs(struct mt7663_dev *dev, void *data)
+void mt7663_mac_add_txs(struct mt7615_dev *dev, void *data)
 {
 	struct ieee80211_tx_info info = {};
 	struct ieee80211_sta *sta = NULL;
@@ -992,7 +993,7 @@ out:
 	rcu_read_unlock();
 }
 
-void mt7663_mac_tx_free(struct mt7663_dev *dev, struct sk_buff *skb)
+void mt7663_mac_tx_free(struct mt7615_dev *dev, struct sk_buff *skb)
 {
 	struct mt7663_tx_free *free = (struct mt7663_tx_free *)skb->data;
 	struct mt76_dev *mdev = &dev->mt76;
@@ -1023,7 +1024,7 @@ void mt7663_mac_tx_free(struct mt7663_dev *dev, struct sk_buff *skb)
 
 void mt7663_update_channel(struct mt76_dev *mdev)
 {
-	struct mt7663_dev *dev = container_of(mdev, struct mt7663_dev, mt76);
+	struct mt7615_dev *dev = container_of(mdev, struct mt7615_dev, mt76);
 	struct mt76_channel_state *state;
 	u64 busy_time, tx_time, rx_time, obss_time;
 
@@ -1052,9 +1053,9 @@ EXPORT_SYMBOL_GPL(mt7663_update_channel);
 
 void mt7663_mac_work(struct work_struct *work)
 {
-	struct mt7663_dev *dev;
+	struct mt7615_dev *dev;
 
-	dev = (struct mt7663_dev *)container_of(work, struct mt76_dev,
+	dev = (struct mt7615_dev *)container_of(work, struct mt76_dev,
 						mac_work.work);
 
 	mutex_lock(&dev->mt76.mutex);
@@ -1072,7 +1073,7 @@ void mt7663_mac_work(struct work_struct *work)
 				     MT7663_WATCHDOG_TIME);
 }
 
-int mt7663_dfs_stop_radar_detector(struct mt7663_dev *dev)
+int mt7663_dfs_stop_radar_detector(struct mt7615_dev *dev)
 {
 	struct cfg80211_chan_def *chandef = &dev->mphy.chandef;
 	int err;
@@ -1089,7 +1090,7 @@ int mt7663_dfs_stop_radar_detector(struct mt7663_dev *dev)
 	return err;
 }
 
-static int mt7663_dfs_start_rdd(struct mt7663_dev *dev, int chain)
+static int mt7663_dfs_start_rdd(struct mt7615_dev *dev, int chain)
 {
 	int err;
 
@@ -1101,7 +1102,7 @@ static int mt7663_dfs_start_rdd(struct mt7663_dev *dev, int chain)
 				  MT_RX_SEL0, 1);
 }
 
-int mt7663_dfs_start_radar_detector(struct mt7663_dev *dev)
+int mt7663_dfs_start_radar_detector(struct mt7615_dev *dev)
 {
 	struct cfg80211_chan_def *chandef = &dev->mphy.chandef;
 	int err;
@@ -1126,9 +1127,10 @@ int mt7663_dfs_start_radar_detector(struct mt7663_dev *dev)
 	return 0;
 }
 
-int mt7663_dfs_init_radar_detector(struct mt7663_dev *dev)
+int mt7663_dfs_init_radar_detector(struct mt7615_dev *dev)
 {
 	struct cfg80211_chan_def *chandef = &dev->mphy.chandef;
+	struct mt7615_phy *phy = &dev->phy;
 	int err;
 
 	if (dev->mt76.region == NL80211_DFS_UNSET)
@@ -1137,10 +1139,10 @@ int mt7663_dfs_init_radar_detector(struct mt7663_dev *dev)
 	if (test_bit(MT76_SCANNING, &dev->mphy.state))
 		return 0;
 
-	if (dev->dfs_state == chandef->chan->dfs_state)
+	if (phy->dfs_state == chandef->chan->dfs_state)
 		return 0;
 
-	dev->dfs_state = chandef->chan->dfs_state;
+	phy->dfs_state = chandef->chan->dfs_state;
 
 	if (chandef->chan->flags & IEEE80211_CHAN_RADAR) {
 		if (chandef->chan->dfs_state != NL80211_DFS_AVAILABLE)

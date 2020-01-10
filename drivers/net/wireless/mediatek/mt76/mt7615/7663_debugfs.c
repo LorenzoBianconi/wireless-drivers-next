@@ -6,8 +6,9 @@
  */
 
 #include "mt7663.h"
+#include "mt7615.h"
 
-int mt7663_init_debugfs(struct mt7663_dev *dev)
+int mt7663_init_debugfs(struct mt7615_dev *dev)
 {
 	struct dentry *dir;
 

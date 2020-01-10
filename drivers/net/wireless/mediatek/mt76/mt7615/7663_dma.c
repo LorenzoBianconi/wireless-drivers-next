@@ -10,6 +10,7 @@
  */
 
 #include "mt7663.h"
+#include "mt7615.h"
 #include "../dma.h"
 #include "regs.h"
 #include "mac.h"
@@ -17,7 +18,7 @@
 void mt7663_queue_rx_skb(struct mt76_dev *mdev, enum mt76_rxq_id q,
 			 struct sk_buff *skb)
 {
-	struct mt7663_dev *dev = container_of(mdev, struct mt7663_dev, mt76);
+	struct mt7615_dev *dev = container_of(mdev, struct mt7615_dev, mt76);
 	__le32 *rxd = (__le32 *)skb->data;
 	__le32 *end = (__le32 *)&skb->data[skb->len];
 	enum rx_pkt_type type;
@@ -49,7 +50,7 @@ void mt7663_queue_rx_skb(struct mt76_dev *mdev, enum mt76_rxq_id q,
 }
 EXPORT_SYMBOL_GPL(mt7663_queue_rx_skb);
 
-void mt7663_dma_cleanup(struct mt7663_dev *dev)
+void mt7663_dma_cleanup(struct mt7615_dev *dev)
 {
 	mt76_clear(dev, MT_WPDMA_GLO_CFG,
 		   MT_WPDMA_GLO_CFG_TX_DMA_EN |

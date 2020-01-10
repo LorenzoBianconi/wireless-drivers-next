@@ -12,7 +12,9 @@
 #include <linux/platform_device.h>
 #include <linux/pci.h>
 #include <linux/module.h>
+
 #include "mt7663.h"
+#include "mt7615.h"
 #include "regs.h"
 
 static int get_omac_idx(enum nl80211_iftype type, u32 mask)
@@ -50,7 +52,7 @@ int mt7663_add_interface(struct ieee80211_hw *hw,
 			 struct ieee80211_vif *vif)
 {
 	struct mt7663_vif *mvif = (struct mt7663_vif *)vif->drv_priv;
-	struct mt7663_dev *dev = hw->priv;
+	struct mt7615_dev *dev = hw->priv;
 	struct mt76_txq *mtxq;
 	int idx, ret = 0;
 
@@ -98,7 +100,7 @@ void mt7663_remove_interface(struct ieee80211_hw *hw,
 			     struct ieee80211_vif *vif)
 {
 	struct mt7663_vif *mvif = (struct mt7663_vif *)vif->drv_priv;
-	struct mt7663_dev *dev = hw->priv;
+	struct mt7615_dev *dev = hw->priv;
 	int idx = mvif->sta.wcid.idx;
 
 	/* TODO: disable beacon for the bss */
@@ -115,7 +117,7 @@ void mt7663_remove_interface(struct ieee80211_hw *hw,
 }
 EXPORT_SYMBOL_GPL(mt7663_remove_interface);
 
-int mt7663_check_key(struct mt7663_dev *dev, enum set_key_cmd cmd,
+int mt7663_check_key(struct mt7615_dev *dev, enum set_key_cmd cmd,
 		     struct ieee80211_vif *vif, struct mt76_wcid *wcid,
 		     struct ieee80211_key_conf *key)
 {
@@ -173,7 +175,7 @@ int mt7663_conf_tx(struct ieee80211_hw *hw,
 		[IEEE80211_AC_VO]/*0*/ = 4,
 	};
 	struct mt7663_vif *mvif = (struct mt7663_vif *)vif->drv_priv;
-	struct mt7663_dev *dev = hw->priv;
+	struct mt7615_dev *dev = hw->priv;
 	u16 wmm_mapping = mvif->wmm_idx * MT7663_MAX_WMM_SETS;
 
 	wmm_mapping += wmm_queue_map[queue];
@@ -187,7 +189,7 @@ void mt7663_bss_info_changed(struct ieee80211_hw *hw,
 			     struct ieee80211_bss_conf *info,
 			     u32 changed)
 {
-	struct mt7663_dev *dev = hw->priv;
+	struct mt7615_dev *dev = hw->priv;
 
 	mutex_lock(&dev->mt76.mutex);
 
@@ -212,7 +214,7 @@ EXPORT_SYMBOL_GPL(mt7663_bss_info_changed);
 int mt7663_sta_add(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 		   struct ieee80211_sta *sta)
 {
-	struct mt7663_dev *dev = container_of(mdev, struct mt7663_dev, mt76);
+	struct mt7615_dev *dev = container_of(mdev, struct mt7615_dev, mt76);
 	struct mt7663_sta *msta = (struct mt7663_sta *)sta->drv_priv;
 	struct mt7663_vif *mvif = (struct mt7663_vif *)vif->drv_priv;
 	int idx;
@@ -234,7 +236,7 @@ EXPORT_SYMBOL_GPL(mt7663_sta_add);
 void mt7663_sta_assoc(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 		      struct ieee80211_sta *sta)
 {
-	struct mt7663_dev *dev = container_of(mdev, struct mt7663_dev, mt76);
+	struct mt7615_dev *dev = container_of(mdev, struct mt7615_dev, mt76);
 
 	mt7663_mcu_set_sta_rec(dev, vif, sta, 1);
 }
@@ -243,7 +245,7 @@ EXPORT_SYMBOL_GPL(mt7663_sta_assoc);
 void mt7663_sta_remove(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 		       struct ieee80211_sta *sta)
 {
-	struct mt7663_dev *dev = container_of(mdev, struct mt7663_dev, mt76);
+	struct mt7615_dev *dev = container_of(mdev, struct mt7615_dev, mt76);
 
 	mt7663_mcu_set_sta_rec(dev, vif, sta, 0);
 }
@@ -257,9 +259,9 @@ void mt7663_tx(struct ieee80211_hw *hw,
 	struct ieee80211_vif *vif = info->control.vif;
 	struct mt76_phy *mphy = hw->priv;
 	struct mt76_wcid *wcid;
-	struct mt7663_dev *dev;
+	struct mt7615_dev *dev;
 
-	dev = container_of(mphy->dev, struct mt7663_dev, mt76);
+	dev = container_of(mphy->dev, struct mt7615_dev, mt76);
 	wcid = &dev->mt76.global_wcid;
 
 	if (control->sta) {
@@ -282,7 +284,7 @@ EXPORT_SYMBOL_GPL(mt7663_tx);
 
 int mt7663_set_rts_threshold(struct ieee80211_hw *hw, u32 val)
 {
-	struct mt7663_dev *dev = hw->priv;
+	struct mt7615_dev *dev = hw->priv;
 
 	mutex_lock(&dev->mt76.mutex);
 	mt7663_mcu_set_rts_thresh(dev, val);
@@ -297,7 +299,7 @@ int mt7663_ampdu_action(struct ieee80211_hw *hw,
 			struct ieee80211_ampdu_params *params)
 {
 	enum ieee80211_ampdu_mlme_action action = params->action;
-	struct mt7663_dev *dev = hw->priv;
+	struct mt7615_dev *dev = hw->priv;
 	struct ieee80211_sta *sta = params->sta;
 	struct ieee80211_txq *txq = sta->txq[params->tid];
 	struct mt7663_sta *msta = (struct mt7663_sta *)sta->drv_priv;

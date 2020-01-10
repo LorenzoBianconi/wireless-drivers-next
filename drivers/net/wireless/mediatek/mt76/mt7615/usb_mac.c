@@ -10,15 +10,16 @@
 #include <linux/module.h>
 
 #include "mt7663.h"
+#include "mt7615.h"
 #include "7663_mac.h"
 #include "usb_sdio_regs.h"
 
-static u32 mt7663u_mac_wtbl_addr(struct mt7663_dev *dev, int wcid)
+static u32 mt7663u_mac_wtbl_addr(struct mt7615_dev *dev, int wcid)
 {
 	return MT_WTBL(0) + wcid * MT_WTBL_ENTRY_SIZE;
 }
 
-int __mt7663u_mac_set_rates(struct mt7663_dev *dev,
+int __mt7663u_mac_set_rates(struct mt7615_dev *dev,
 			    struct mt7663_rate_desc *rc)
 {
 	u32 addr = mt7663u_mac_wtbl_addr(dev, rc->wcid);
@@ -78,13 +79,13 @@ int __mt7663u_mac_set_rates(struct mt7663_dev *dev,
 	return 0;
 }
 
-void mt7663u_mac_cca_stats_reset(struct mt7663_dev *dev)
+void mt7663u_mac_cca_stats_reset(struct mt7615_dev *dev)
 {
 	mt76_clear(dev, MT_WF_PHY_R0_B0_PHYMUX_5, GENMASK(22, 20));
 	mt76_set(dev, MT_WF_PHY_R0_B0_PHYMUX_5, BIT(22) | BIT(20));
 }
 
-void mt7663u_mac_write_txwi(struct mt7663_dev *dev, struct mt76_wcid *wcid,
+void mt7663u_mac_write_txwi(struct mt7615_dev *dev, struct mt76_wcid *wcid,
 			    enum mt76_txq_id qid, struct ieee80211_sta *sta,
 			    struct sk_buff *skb)
 {
@@ -105,7 +106,7 @@ void mt7663u_mac_write_txwi(struct mt7663_dev *dev, struct mt76_wcid *wcid,
 }
 
 static int
-mt7663u_mac_wtbl_update_pk(struct mt7663_dev *dev, struct mt76_wcid *wcid,
+mt7663u_mac_wtbl_update_pk(struct mt7615_dev *dev, struct mt76_wcid *wcid,
 			   enum mt7663_cipher_type cipher, int keyidx,
 			   enum set_key_cmd cmd)
 {
@@ -143,7 +144,7 @@ mt7663u_mac_wtbl_update_pk(struct mt7663_dev *dev, struct mt76_wcid *wcid,
 	return 0;
 }
 
-int mt7663u_mac_wtbl_set_key(struct mt7663_dev *dev,
+int mt7663u_mac_wtbl_set_key(struct mt7615_dev *dev,
 			     struct mt76_wcid *wcid,
 			     struct ieee80211_key_conf *key,
 			     enum set_key_cmd cmd)

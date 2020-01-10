@@ -9,7 +9,9 @@
 
 #include <linux/of.h>
 #include <linux/firmware.h>
+
 #include "mt7663.h"
+#include "mt7615.h"
 #include "7663_mcu.h"
 #include "7663_mac.h"
 #include "7663_eeprom.h"
@@ -62,7 +64,7 @@ struct mt7663_fw_dl_buf {
 #define FW_START_DLYCAL                 BIT(1)
 #define FW_START_WORKING_PDA_CR4	BIT(2)
 
-void mt7663_mcu_fill_msg(struct mt7663_dev *dev, struct sk_buff *skb,
+void mt7663_mcu_fill_msg(struct mt7615_dev *dev, struct sk_buff *skb,
 			 int cmd, int *wait_seq)
 {
 	struct mt7663_mcu_txd *mcu_txd;
@@ -117,7 +119,7 @@ void mt7663_mcu_fill_msg(struct mt7663_dev *dev, struct sk_buff *skb,
 }
 EXPORT_SYMBOL_GPL(mt7663_mcu_fill_msg);
 
-int mt7663_mcu_wait_response(struct mt7663_dev *dev, int cmd, int seq)
+int mt7663_mcu_wait_response(struct mt7615_dev *dev, int cmd, int seq)
 {
 	unsigned long expires = jiffies + 10 * HZ;
 	struct mt7663_mcu_rxd *rxd;
@@ -157,7 +159,7 @@ mt7663_mcu_csa_finish(void *priv, u8 *mac, struct ieee80211_vif *vif)
 }
 
 static void
-mt7663_mcu_rx_ext_event(struct mt7663_dev *dev, struct sk_buff *skb)
+mt7663_mcu_rx_ext_event(struct mt7615_dev *dev, struct sk_buff *skb)
 {
 	struct mt7663_mcu_rxd *rxd = (struct mt7663_mcu_rxd *)skb->data;
 
@@ -177,7 +179,7 @@ mt7663_mcu_rx_ext_event(struct mt7663_dev *dev, struct sk_buff *skb)
 }
 
 static void
-mt7663_mcu_rx_unsolicited_event(struct mt7663_dev *dev, struct sk_buff *skb)
+mt7663_mcu_rx_unsolicited_event(struct mt7615_dev *dev, struct sk_buff *skb)
 {
 	struct mt7663_mcu_rxd *rxd = (struct mt7663_mcu_rxd *)skb->data;
 
@@ -191,7 +193,7 @@ mt7663_mcu_rx_unsolicited_event(struct mt7663_dev *dev, struct sk_buff *skb)
 	dev_kfree_skb(skb);
 }
 
-void mt7663_mcu_rx_event(struct mt7663_dev *dev, struct sk_buff *skb)
+void mt7663_mcu_rx_event(struct mt7615_dev *dev, struct sk_buff *skb)
 {
 	struct mt7663_mcu_rxd *rxd = (struct mt7663_mcu_rxd *)skb->data;
 
@@ -205,7 +207,7 @@ void mt7663_mcu_rx_event(struct mt7663_dev *dev, struct sk_buff *skb)
 		mt76_mcu_rx_event(&dev->mt76.mcu, skb);
 }
 
-static int mt7663_mcu_init_download(struct mt7663_dev *dev, u32 addr,
+static int mt7663_mcu_init_download(struct mt7615_dev *dev, u32 addr,
 				    u32 len, u32 mode)
 {
 	struct {
@@ -222,7 +224,7 @@ static int mt7663_mcu_init_download(struct mt7663_dev *dev, u32 addr,
 				   &req, sizeof(req), true);
 }
 
-static int mt7663_mcu_send_firmware(struct mt7663_dev *dev, const void *data,
+static int mt7663_mcu_send_firmware(struct mt7615_dev *dev, const void *data,
 				    int len)
 {
 	int ret = 0, cur_len;
@@ -246,7 +248,7 @@ static int mt7663_mcu_send_firmware(struct mt7663_dev *dev, const void *data,
 	return ret;
 }
 
-static int mt7663_mcu_start_firmware(struct mt7663_dev *dev, u32 addr,
+static int mt7663_mcu_start_firmware(struct mt7615_dev *dev, u32 addr,
 				     u32 option)
 {
 	struct {
@@ -268,7 +270,7 @@ int mt7663_mcu_restart(struct mt76_dev *dev)
 }
 EXPORT_SYMBOL_GPL(mt7663_mcu_restart);
 
-static int mt7663_mcu_patch_sem_ctrl(struct mt7663_dev *dev, bool get)
+static int mt7663_mcu_patch_sem_ctrl(struct mt7615_dev *dev, bool get)
 {
 	struct {
 		__le32 op;
@@ -280,7 +282,7 @@ static int mt7663_mcu_patch_sem_ctrl(struct mt7663_dev *dev, bool get)
 				   &req, sizeof(req), true);
 }
 
-static int mt7663_mcu_start_patch(struct mt7663_dev *dev)
+static int mt7663_mcu_start_patch(struct mt7615_dev *dev)
 {
 	struct {
 		u8 check_crc;
@@ -293,7 +295,7 @@ static int mt7663_mcu_start_patch(struct mt7663_dev *dev)
 				   &req, sizeof(req), true);
 }
 
-int mt7663_mcu_load_patch(struct mt7663_dev *dev)
+int mt7663_mcu_load_patch(struct mt7615_dev *dev)
 {
 	const struct firmware *fw;
 	const struct mt7663_patch_hdr *hdr;
@@ -389,7 +391,7 @@ static u32 mt7663_mcu_gen_dl_mode(u8 feature_set, bool is_cr4)
 	return ret;
 }
 
-int mt7663_mcu_load_ram(struct mt7663_dev *dev)
+int mt7663_mcu_load_ram(struct mt7615_dev *dev)
 {
 	const struct firmware *fw;
 	const struct mt7663_fw_trailer *hdr;
@@ -487,7 +489,7 @@ out:
 }
 EXPORT_SYMBOL_GPL(mt7663_mcu_load_ram);
 
-void mt7663_mcu_exit(struct mt7663_dev *dev)
+void mt7663_mcu_exit(struct mt7615_dev *dev)
 {
 	__mt76_mcu_restart(&dev->mt76);
 	if (mt76_is_mmio(&dev->mt76))
@@ -495,7 +497,7 @@ void mt7663_mcu_exit(struct mt7663_dev *dev)
 	skb_queue_purge(&dev->mt76.mcu.res_q);
 }
 
-int mt7663_mcu_set_eeprom(struct mt7663_dev *dev)
+int mt7663_mcu_set_eeprom(struct mt7615_dev *dev)
 {
 	struct {
 		u8 buffer_mode;
@@ -526,7 +528,7 @@ int mt7663_mcu_set_eeprom(struct mt7663_dev *dev)
 }
 EXPORT_SYMBOL_GPL(mt7663_mcu_set_eeprom);
 
-int mt7663_mcu_init_mac(struct mt7663_dev *dev, u8 band)
+int mt7663_mcu_init_mac(struct mt7615_dev *dev, u8 band)
 {
 	struct {
 		u8 enable;
@@ -542,7 +544,7 @@ int mt7663_mcu_init_mac(struct mt7663_dev *dev, u8 band)
 }
 EXPORT_SYMBOL_GPL(mt7663_mcu_init_mac);
 
-int mt7663_mcu_set_rts_thresh(struct mt7663_dev *dev, u32 val)
+int mt7663_mcu_set_rts_thresh(struct mt7615_dev *dev, u32 val)
 {
 	struct {
 		u8 prot_idx;
@@ -562,7 +564,7 @@ int mt7663_mcu_set_rts_thresh(struct mt7663_dev *dev, u32 val)
 }
 EXPORT_SYMBOL_GPL(mt7663_mcu_set_rts_thresh);
 
-int mt7663_mcu_set_wmm(struct mt7663_dev *dev, u8 queue,
+int mt7663_mcu_set_wmm(struct mt7615_dev *dev, u8 queue,
 		       const struct ieee80211_tx_queue_params *params)
 {
 #define WMM_AIFS_SET	BIT(0)
@@ -599,7 +601,7 @@ int mt7663_mcu_set_wmm(struct mt7663_dev *dev, u8 queue,
 				   &req, sizeof(req), true);
 }
 
-int mt7663_mcu_ctrl_pm_state(struct mt7663_dev *dev, int enter)
+int mt7663_mcu_ctrl_pm_state(struct mt7615_dev *dev, int enter)
 {
 #define ENTER_PM_STATE	1
 #define EXIT_PM_STATE	2
@@ -630,7 +632,7 @@ int mt7663_mcu_ctrl_pm_state(struct mt7663_dev *dev, int enter)
 }
 EXPORT_SYMBOL_GPL(mt7663_mcu_ctrl_pm_state);
 
-int mt7663_mcu_set_dev_info(struct mt7663_dev *dev,
+int mt7663_mcu_set_dev_info(struct mt7615_dev *dev,
 			    struct ieee80211_vif *vif, bool enable)
 {
 	struct mt7663_vif *mvif = (struct mt7663_vif *)vif->drv_priv;
@@ -722,7 +724,7 @@ mt7663_mcu_bss_info_ext_header(struct mt7663_vif *mvif, u8 *data)
 	hdr->mbss_tsf_offset = cpu_to_le32(tsf_offset);
 }
 
-int mt7663_mcu_set_bss_info(struct mt7663_dev *dev,
+int mt7663_mcu_set_bss_info(struct mt7615_dev *dev,
 			    struct ieee80211_vif *vif, int en)
 {
 	struct mt7663_vif *mvif = (struct mt7663_vif *)vif->drv_priv;
@@ -822,7 +824,7 @@ int mt7663_mcu_set_bss_info(struct mt7663_dev *dev,
 }
 
 static int
-mt7663_mcu_add_wtbl_bmc(struct mt7663_dev *dev,
+mt7663_mcu_add_wtbl_bmc(struct mt7615_dev *dev,
 			struct mt7663_vif *mvif)
 {
 	struct {
@@ -854,7 +856,7 @@ mt7663_mcu_add_wtbl_bmc(struct mt7663_dev *dev,
 				   &req, sizeof(req), true);
 }
 
-int mt7663_mcu_wtbl_bmc(struct mt7663_dev *dev,
+int mt7663_mcu_wtbl_bmc(struct mt7615_dev *dev,
 			struct ieee80211_vif *vif, bool enable)
 {
 	struct mt7663_vif *mvif = (struct mt7663_vif *)vif->drv_priv;
@@ -872,7 +874,7 @@ int mt7663_mcu_wtbl_bmc(struct mt7663_dev *dev,
 	return mt7663_mcu_add_wtbl_bmc(dev, mvif);
 }
 
-int mt7663_mcu_add_wtbl(struct mt7663_dev *dev, struct ieee80211_vif *vif,
+int mt7663_mcu_add_wtbl(struct mt7615_dev *dev, struct ieee80211_vif *vif,
 			struct ieee80211_sta *sta)
 {
 	struct mt7663_vif *mvif = (struct mt7663_vif *)vif->drv_priv;
@@ -908,7 +910,7 @@ int mt7663_mcu_add_wtbl(struct mt7663_dev *dev, struct ieee80211_vif *vif,
 				   &req, sizeof(req), true);
 }
 
-int mt7663_mcu_del_wtbl(struct mt7663_dev *dev,
+int mt7663_mcu_del_wtbl(struct mt7615_dev *dev,
 			struct ieee80211_sta *sta)
 {
 	struct mt7663_sta *msta = (struct mt7663_sta *)sta->drv_priv;
@@ -921,7 +923,7 @@ int mt7663_mcu_del_wtbl(struct mt7663_dev *dev,
 				   &req, sizeof(req), true);
 }
 
-int mt7663_mcu_del_wtbl_all(struct mt7663_dev *dev)
+int mt7663_mcu_del_wtbl_all(struct mt7615_dev *dev)
 {
 	struct wtbl_req_hdr req = {
 		.operation = WTBL_RESET_ALL,
@@ -931,7 +933,7 @@ int mt7663_mcu_del_wtbl_all(struct mt7663_dev *dev)
 				   &req, sizeof(req), true);
 }
 
-int mt7663_mcu_set_sta_rec_bmc(struct mt7663_dev *dev,
+int mt7663_mcu_set_sta_rec_bmc(struct mt7615_dev *dev,
 			       struct ieee80211_vif *vif, bool en)
 {
 	struct mt7663_vif *mvif = (struct mt7663_vif *)vif->drv_priv;
@@ -1240,7 +1242,7 @@ mt7663_mcu_sta_rec_wtbl_header(struct ieee80211_vif *vif, u8 *data,
 	return buf_len;
 }
 
-int mt7663_mcu_set_sta_rec(struct mt7663_dev *dev, struct ieee80211_vif *vif,
+int mt7663_mcu_set_sta_rec(struct mt7615_dev *dev, struct ieee80211_vif *vif,
 			   struct ieee80211_sta *sta, bool en)
 {
 	struct mt7663_vif *mvif = (struct mt7663_vif *)vif->drv_priv;
@@ -1345,7 +1347,7 @@ out:
 	return ret;
 }
 
-int mt7663_mcu_set_bcn(struct mt7663_dev *dev, struct ieee80211_vif *vif,
+int mt7663_mcu_set_bcn(struct mt7615_dev *dev, struct ieee80211_vif *vif,
 		       int en)
 {
 	struct mt7663_vif *mvif = (struct mt7663_vif *)vif->drv_priv;
@@ -1403,7 +1405,7 @@ int mt7663_mcu_set_bcn(struct mt7663_dev *dev, struct ieee80211_vif *vif,
 }
 
 /* MT7663 : TBD */
-int mt7663_mcu_set_tx_power(struct mt7663_dev *dev)
+int mt7663_mcu_set_tx_power(struct mt7615_dev *dev)
 {
 	int i, ret, n_chains = hweight8(dev->mphy.antenna_mask);
 	struct cfg80211_chan_def *chandef = &dev->mphy.chandef;
@@ -1467,8 +1469,7 @@ out:
 	return ret;
 }
 
-int mt7663_mcu_rdd_cmd(struct mt7663_dev *dev,
-		       enum mt7663_rdd_cmd cmd, u8 index,
+int mt7663_mcu_rdd_cmd(struct mt7615_dev *dev, int cmd, u8 index,
 		       u8 rx_sel, u8 val)
 {
 	struct {
@@ -1488,7 +1489,7 @@ int mt7663_mcu_rdd_cmd(struct mt7663_dev *dev,
 				   &req, sizeof(req), true);
 }
 
-int mt7663_mcu_rdd_send_pattern(struct mt7663_dev *dev)
+int mt7663_mcu_rdd_send_pattern(struct mt7615_dev *dev)
 {
 	struct {
 		u8 pulse_num;
@@ -1519,7 +1520,7 @@ int mt7663_mcu_rdd_send_pattern(struct mt7663_dev *dev)
 				   &req, sizeof(req), false);
 }
 
-int mt7663_mcu_set_channel(struct mt7663_dev *dev)
+int mt7663_mcu_set_channel(struct mt7615_dev *dev)
 {
 	struct cfg80211_chan_def *chandef = &dev->mphy.chandef;
 	int freq1 = chandef->center_freq1, freq2 = chandef->center_freq2;
@@ -1593,7 +1594,7 @@ int mt7663_mcu_set_channel(struct mt7663_dev *dev)
 }
 EXPORT_SYMBOL_GPL(mt7663_mcu_set_channel);
 
-int mt7663_mcu_set_tx_ba(struct mt7663_dev *dev,
+int mt7663_mcu_set_tx_ba(struct mt7615_dev *dev,
 			 struct ieee80211_ampdu_params *params,
 			 bool add)
 {
@@ -1651,7 +1652,7 @@ int mt7663_mcu_set_tx_ba(struct mt7663_dev *dev,
 				   &sta_req, sizeof(sta_req), true);
 }
 
-int mt7663_mcu_set_rx_ba(struct mt7663_dev *dev,
+int mt7663_mcu_set_rx_ba(struct mt7615_dev *dev,
 			 struct ieee80211_ampdu_params *params,
 			 bool add)
 {

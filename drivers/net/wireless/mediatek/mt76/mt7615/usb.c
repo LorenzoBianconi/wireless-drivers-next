@@ -11,16 +11,17 @@
 #include <linux/usb.h>
 
 #include "mt7663.h"
+#include "mt7615.h"
 #include "7663_mac.h"
 #include "7663_mcu.h"
 #include "usb_sdio_regs.h"
 
-static const struct usb_device_id mt7663_device_table[] = {
+static const struct usb_device_id mt7615_device_table[] = {
 	{ USB_DEVICE_AND_INTERFACE_INFO(0x0e8d, 0x7663, 0xff, 0xff, 0xff)},
 	{ },
 };
 
-static void mt7663u_cleanup(struct mt7663_dev *dev)
+static void mt7663u_cleanup(struct mt7615_dev *dev)
 {
 	clear_bit(MT76_STATE_INITIALIZED, &dev->mphy.state);
 	mt76u_queues_deinit(&dev->mt76);
@@ -40,7 +41,7 @@ mt7663u_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 		       struct ieee80211_sta *sta,
 		       struct mt76_tx_info *tx_info)
 {
-	struct mt7663_dev *dev = container_of(mdev, struct mt7663_dev, mt76);
+	struct mt7615_dev *dev = container_of(mdev, struct mt7615_dev, mt76);
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(tx_info->skb);
 
 	if (info->flags & IEEE80211_TX_CTL_RATE_CTRL_PROBE) {
@@ -75,7 +76,7 @@ mt7663u_probe(struct usb_interface *usb_intf,
 		.update_survey = mt7663_update_channel,
 	};
 	struct usb_device *udev = interface_to_usbdev(usb_intf);
-	struct mt7663_dev *dev;
+	struct mt7615_dev *dev;
 	struct mt76_dev *mdev;
 	int ret;
 
@@ -84,7 +85,7 @@ mt7663u_probe(struct usb_interface *usb_intf,
 	if (!mdev)
 		return -ENOMEM;
 
-	dev = container_of(mdev, struct mt7663_dev, mt76);
+	dev = container_of(mdev, struct mt7615_dev, mt76);
 	udev = usb_get_dev(udev);
 	usb_reset_device(udev);
 
@@ -146,7 +147,7 @@ error:
 
 static void mt7663u_disconnect(struct usb_interface *usb_intf)
 {
-	struct mt7663_dev *dev = usb_get_intfdata(usb_intf);
+	struct mt7615_dev *dev = usb_get_intfdata(usb_intf);
 
 	if (!test_bit(MT76_STATE_INITIALIZED, &dev->mphy.state))
 		return;
@@ -174,13 +175,13 @@ mt7663u_resume(struct usb_interface *intf)
 	return 0;
 }
 
-MODULE_DEVICE_TABLE(usb, mt7663_device_table);
+MODULE_DEVICE_TABLE(usb, mt7615_device_table);
 MODULE_FIRMWARE(MT7663_FIRMWARE_N9);
 MODULE_FIRMWARE(MT7663_ROM_PATCH);
 
 static struct usb_driver mt7663u_driver = {
 	.name		= KBUILD_MODNAME,
-	.id_table	= mt7663_device_table,
+	.id_table	= mt7615_device_table,
 	.probe		= mt7663u_probe,
 	.disconnect	= mt7663u_disconnect,
 #ifdef CONFIG_PM
