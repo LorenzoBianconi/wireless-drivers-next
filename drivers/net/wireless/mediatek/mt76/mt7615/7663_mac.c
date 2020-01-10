@@ -612,110 +612,6 @@ void mt7663_mac_set_rates(struct mt7615_dev *dev, struct mt7615_sta *sta,
 }
 EXPORT_SYMBOL_GPL(mt7663_mac_set_rates);
 
-void mt7663u_mac_set_rates(struct mt7615_dev *dev, struct mt7615_sta *sta,
-			   struct ieee80211_tx_rate *probe_rate,
-			   struct ieee80211_tx_rate *rates)
-{
-	struct mt7663_rate_desc *rc_desc;
-	struct ieee80211_tx_rate *ref;
-	int wcid = sta->wcid.idx;
-	bool stbc = false;
-	int n_rates = sta->n_rates;
-	u8 bw, bw_prev, bw_idx = 0;
-	u16 val[4];
-	u16 probe_val;
-	bool rateset;
-	int i, k;
-
-	rc_desc = kzalloc(sizeof(*rc_desc), GFP_ATOMIC);
-	if (!rc_desc)
-		return;
-
-	for (i = n_rates; i < 4; i++)
-		rates[i] = rates[n_rates - 1];
-
-	rateset = !(sta->rate_set_tsf & BIT(0));
-	memcpy(sta->rateset[rateset].rates, rates,
-	       sizeof(sta->rateset[rateset].rates));
-	if (probe_rate) {
-		sta->rateset[rateset].probe_rate = *probe_rate;
-		ref = &sta->rateset[rateset].probe_rate;
-	} else {
-		sta->rateset[rateset].probe_rate.idx = -1;
-		ref = &sta->rateset[rateset].rates[0];
-	}
-
-	rates = sta->rateset[rateset].rates;
-	for (i = 0; i < ARRAY_SIZE(sta->rateset[rateset].rates); i++) {
-		/* We don't support switching between short and long GI
-		 * within the rate set. For accurate tx status reporting, we
-		 * need to make sure that flags match.
-		 * For improved performance, avoid duplicate entries by
-		 * decrementing the MCS index if necessary
-		 */
-		if ((ref->flags ^ rates[i].flags) & IEEE80211_TX_RC_SHORT_GI)
-			rates[i].flags ^= IEEE80211_TX_RC_SHORT_GI;
-
-		for (k = 0; k < i; k++) {
-			if (rates[i].idx != rates[k].idx)
-				continue;
-			if ((rates[i].flags ^ rates[k].flags) &
-			    (IEEE80211_TX_RC_40_MHZ_WIDTH |
-			     IEEE80211_TX_RC_80_MHZ_WIDTH |
-			     IEEE80211_TX_RC_160_MHZ_WIDTH))
-				continue;
-
-			if (!rates[i].idx)
-				continue;
-
-			rates[i].idx--;
-		}
-	}
-
-	val[0] = mt7663_mac_tx_rate_val(dev, &rates[0], stbc, &bw);
-	bw_prev = bw;
-
-	if (probe_rate) {
-		probe_val = mt7663_mac_tx_rate_val(dev, probe_rate, stbc, &bw);
-		if (bw)
-			bw_idx = 1;
-		else
-			bw_prev = 0;
-	} else {
-		probe_val = val[0];
-	}
-
-	val[1] = mt7663_mac_tx_rate_val(dev, &rates[1], stbc, &bw);
-	if (bw_prev) {
-		bw_idx = 3;
-		bw_prev = bw;
-	}
-
-	val[2] = mt7663_mac_tx_rate_val(dev, &rates[2], stbc, &bw);
-	if (bw_prev) {
-		bw_idx = 5;
-		bw_prev = bw;
-	}
-
-	val[3] = mt7663_mac_tx_rate_val(dev, &rates[3], stbc, &bw);
-	if (bw_prev)
-		bw_idx = 7;
-
-	rc_desc->wcid = wcid;
-	rc_desc->bw = bw;
-	rc_desc->bw_idx = bw_idx;
-	rc_desc->probe_val = probe_val;
-	rc_desc->sta = sta;
-	rc_desc->rateset = rateset;
-
-	for (i = 0 ; i < 4 ; i++)
-		rc_desc->val[i] = val[i];
-
-	list_add_tail(&rc_desc->node, &dev->rd_head);
-	queue_work(dev->mt76.usb.wq, &dev->rate_work);
-}
-EXPORT_SYMBOL_GPL(mt7663u_mac_set_rates);
-
 int mt7663_mac_wtbl_update_key(struct mt7615_dev *dev, struct mt76_wcid *wcid,
 			       u32 base_addr, struct ieee80211_key_conf *key,
 			       int cipher, enum set_key_cmd cmd)
@@ -836,12 +732,7 @@ static bool mt7663_fill_txs(struct mt7615_dev *dev, struct mt7615_sta *sta,
 
 		spin_lock_bh(&dev->mt76.lock);
 		if (sta->rate_probe) {
-			if (mt76_is_usb(&dev->mt76))
-				mt7663u_mac_set_rates(dev, sta, NULL,
-						      sta->rates);
-			else
-				mt7663_mac_set_rates(dev, sta, NULL,
-						     sta->rates);
+			mt7615_mac_set_rates(&dev->phy, sta, NULL, sta->rates);
 			sta->rate_probe = false;
 		}
 		spin_unlock_bh(&dev->mt76.lock);

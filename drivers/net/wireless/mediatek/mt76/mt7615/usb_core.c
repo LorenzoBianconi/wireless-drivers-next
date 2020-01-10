@@ -54,7 +54,7 @@ mt7663u_sta_rate_tbl_update(struct ieee80211_hw *hw,
 			break;
 	}
 	msta->n_rates = i;
-	mt7663u_mac_set_rates(dev, msta, NULL, msta->rates);
+	mt7615_mac_set_rates(&dev->phy, msta, NULL, msta->rates);
 	msta->rate_probe = false;
 	spin_unlock_bh(&dev->mt76.lock);
 }

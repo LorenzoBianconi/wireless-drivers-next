@@ -199,6 +199,10 @@ int mt7663u_register_device(struct mt7615_dev *dev)
 	INIT_WORK(&dev->rate_work, mt7663u_rc_work);
 	INIT_LIST_HEAD(&dev->rd_head);
 
+	dev->phy.dev = dev;
+	dev->phy.mt76 = &dev->mt76.phy;
+	dev->mt76.phy.priv = &dev->phy;
+
 	err = mt7663u_init_hardware(dev);
 	if (err)
 		return err;

@@ -575,6 +575,23 @@ u32 mt7615_mac_wtbl_addr(int wcid)
 }
 EXPORT_SYMBOL_GPL(mt7615_mac_wtbl_addr);
 
+static void
+mt7615_mac_queue_rate_update(struct mt7615_phy *phy, struct mt7615_sta *sta,
+			     struct ieee80211_tx_rate *probe_rate,
+			     struct ieee80211_tx_rate *rates)
+{
+	struct mt7615_dev *dev = phy->dev;
+	struct mt7615_rate_desc *rd;
+
+	rd = kzalloc(sizeof(*rd), GFP_ATOMIC);
+	if (!rd)
+		return;
+
+	mt7615_mac_update_rate_desc(phy, sta, probe_rate, rates, rd);
+	list_add_tail(&rd->node, &dev->rd_head);
+	queue_work(dev->mt76.usb.wq, &dev->rate_work);
+}
+
 void mt7615_mac_set_rates(struct mt7615_phy *phy, struct mt7615_sta *sta,
 			  struct ieee80211_tx_rate *probe_rate,
 			  struct ieee80211_tx_rate *rates)
@@ -583,6 +600,11 @@ void mt7615_mac_set_rates(struct mt7615_phy *phy, struct mt7615_sta *sta,
 	struct mt7615_dev *dev = phy->dev;
 	struct mt7615_rate_desc rd;
 	u32 w5, w27, addr;
+
+	if (mt76_is_usb(&dev->mt76)) {
+		mt7615_mac_queue_rate_update(phy, sta, probe_rate, rates);
+		return;
+	}
 
 	if (!mt76_poll(dev, MT_WTBL_UPDATE, MT_WTBL_UPDATE_BUSY, 0, 5000))
 		return;

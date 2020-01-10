@@ -49,8 +49,8 @@ mt7663u_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 
 		msta = container_of(wcid, struct mt7615_sta, wcid);
 		spin_lock_bh(&dev->mt76.lock);
-		mt7663u_mac_set_rates(dev, msta, &info->control.rates[0],
-				      msta->rates);
+		mt7615_mac_set_rates(&dev->phy, msta, &info->control.rates[0],
+				     msta->rates);
 		msta->rate_probe = true;
 		spin_unlock_bh(&dev->mt76.lock);
 	}

@@ -269,9 +269,6 @@ void mt7663u_mac_write_txwi(struct mt7615_dev *dev, struct mt76_wcid *wcid,
 			    struct sk_buff *skb);
 void mt7663u_rc_work(struct work_struct *work);
 int mt7663u_register_device(struct mt7615_dev *dev);
-void mt7663u_mac_set_rates(struct mt7615_dev *dev, struct mt7615_sta *sta,
-			   struct ieee80211_tx_rate *probe_rate,
-			   struct ieee80211_tx_rate *rates);
 
 int mt7663_poll_tx(struct napi_struct *napi, int budget);
 void mt7663_irq_enable(struct mt7615_dev *dev, u32 mask);
