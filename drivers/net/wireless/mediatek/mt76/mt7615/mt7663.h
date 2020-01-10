@@ -132,12 +132,6 @@ int mt7663_mcu_set_sta_rec(struct mt7615_dev *dev, struct ieee80211_vif *vif,
 int mt7663_mcu_set_bcn(struct mt7615_dev *dev, struct ieee80211_vif *vif,
 		       int en);
 int mt7663_mcu_set_channel(struct mt7615_dev *dev);
-int mt7663_mcu_set_tx_ba(struct mt7615_dev *dev,
-			 struct ieee80211_ampdu_params *params,
-			 bool add);
-int mt7663_mcu_set_rx_ba(struct mt7615_dev *dev,
-			 struct ieee80211_ampdu_params *params,
-			 bool add);
 int mt7663_mcu_set_ht_cap(struct mt7615_dev *dev, struct ieee80211_vif *vif,
 			  struct ieee80211_sta *sta);
 void mt7663_mcu_rx_event(struct mt7615_dev *dev, struct sk_buff *skb);
