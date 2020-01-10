@@ -111,37 +111,6 @@ void mt7663_bss_info_changed(struct ieee80211_hw *hw,
 }
 EXPORT_SYMBOL_GPL(mt7663_bss_info_changed);
 
-void mt7663_tx(struct ieee80211_hw *hw,
-	       struct ieee80211_tx_control *control,
-	       struct sk_buff *skb)
-{
-	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
-	struct ieee80211_vif *vif = info->control.vif;
-	struct mt76_phy *mphy = hw->priv;
-	struct mt76_wcid *wcid;
-	struct mt7615_dev *dev;
-
-	dev = container_of(mphy->dev, struct mt7615_dev, mt76);
-	wcid = &dev->mt76.global_wcid;
-
-	if (control->sta) {
-		struct mt7615_sta *sta;
-
-		sta = (struct mt7615_sta *)control->sta->drv_priv;
-		wcid = &sta->wcid;
-	}
-
-	if (vif && !control->sta) {
-		struct mt7615_vif *mvif;
-
-		mvif = (struct mt7615_vif *)vif->drv_priv;
-		wcid = &mvif->sta.wcid;
-	}
-
-	mt76_tx(mphy, control->sta, wcid, skb);
-}
-EXPORT_SYMBOL_GPL(mt7663_tx);
-
 int mt7663_set_rts_threshold(struct ieee80211_hw *hw, u32 val)
 {
 	struct mt7615_dev *dev = hw->priv;

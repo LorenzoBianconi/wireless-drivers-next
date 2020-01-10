@@ -159,9 +159,6 @@ extern const struct ieee80211_ops mt7663_usb_ops;
 extern struct pci_driver mt7663_pci_driver;
 extern struct platform_driver mt7629_wmac_driver;
 
-void mt7663_tx(struct ieee80211_hw *hw,
-	       struct ieee80211_tx_control *control,
-	       struct sk_buff *skb);
 int mt7663_conf_tx(struct ieee80211_hw *hw,
 		   struct ieee80211_vif *vif, u16 queue,
 		   const struct ieee80211_tx_queue_params *params);

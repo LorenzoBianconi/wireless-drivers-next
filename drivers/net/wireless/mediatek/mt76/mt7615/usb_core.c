@@ -266,7 +266,7 @@ mt7663u_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 }
 
 const struct ieee80211_ops mt7663_usb_ops = {
-	.tx = mt7663_tx,
+	.tx = mt7615_tx,
 	.start = mt7663u_start,
 	.stop = mt7663u_stop,
 	.add_interface = mt7663u_add_interface,
