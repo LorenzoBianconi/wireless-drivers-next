@@ -122,8 +122,8 @@ static int get_omac_idx(enum nl80211_iftype type, u32 mask)
 	return -1;
 }
 
-static int mt7615_add_interface(struct ieee80211_hw *hw,
-				struct ieee80211_vif *vif)
+int mt7615_setup_interface(struct ieee80211_hw *hw,
+			   struct ieee80211_vif *vif)
 {
 	struct mt7615_vif *mvif = (struct mt7615_vif *)vif->drv_priv;
 	struct mt7615_dev *dev = mt7615_hw_dev(hw);
@@ -132,19 +132,14 @@ static int mt7615_add_interface(struct ieee80211_hw *hw,
 	bool ext_phy = phy != &dev->phy;
 	int idx, ret = 0;
 
-	mutex_lock(&dev->mt76.mutex);
-
 	mvif->idx = ffs(~dev->vif_mask) - 1;
-	if (mvif->idx >= MT7615_MAX_INTERFACES) {
-		ret = -ENOSPC;
-		goto out;
-	}
+	if (mvif->idx >= MT7615_MAX_INTERFACES)
+		return -ENOSPC;
 
 	idx = get_omac_idx(vif->type, dev->omac_mask);
-	if (idx < 0) {
-		ret = -ENOSPC;
-		goto out;
-	}
+	if (idx < 0)
+		return -ENOSPC;
+
 	mvif->omac_idx = idx;
 
 	mvif->band_idx = ext_phy;
@@ -156,7 +151,7 @@ static int mt7615_add_interface(struct ieee80211_hw *hw,
 
 	ret = mt7615_mcu_set_dev_info(dev, vif, 1);
 	if (ret)
-		goto out;
+		return ret;
 
 	dev->vif_mask |= BIT(mvif->idx);
 	dev->omac_mask |= BIT(mvif->omac_idx);
@@ -170,22 +165,37 @@ static int mt7615_add_interface(struct ieee80211_hw *hw,
 	mvif->sta.wcid.idx = idx;
 	mvif->sta.wcid.ext_phy = mvif->band_idx;
 	mvif->sta.wcid.hw_key_idx = -1;
-	mt7615_mac_wtbl_update(dev, idx,
-			       MT_WTBL_UPDATE_ADM_COUNT_CLEAR);
 
 	rcu_assign_pointer(dev->mt76.wcid[idx], &mvif->sta.wcid);
 	mtxq = (struct mt76_txq *)vif->txq->drv_priv;
 	mtxq->wcid = &mvif->sta.wcid;
 	mt76_txq_init(&dev->mt76, vif->txq);
 
+	return idx;
+}
+
+static int mt7615_add_interface(struct ieee80211_hw *hw,
+				struct ieee80211_vif *vif)
+{
+	struct mt7615_dev *dev = mt7615_hw_dev(hw);
+	int idx;
+
+	mutex_lock(&dev->mt76.mutex);
+
+	idx = mt7615_setup_interface(hw, vif);
+	if (idx < 0)
+		goto out;
+
+	mt7615_mac_wtbl_update(dev, idx,
+			       MT_WTBL_UPDATE_ADM_COUNT_CLEAR);
 out:
 	mutex_unlock(&dev->mt76.mutex);
 
-	return ret;
+	return 0;
 }
 
-static void mt7615_remove_interface(struct ieee80211_hw *hw,
-				    struct ieee80211_vif *vif)
+void mt7615_remove_interface(struct ieee80211_hw *hw,
+			     struct ieee80211_vif *vif)
 {
 	struct mt7615_vif *mvif = (struct mt7615_vif *)vif->drv_priv;
 	struct mt7615_sta *msta = &mvif->sta;
