@@ -1607,6 +1607,7 @@ int mt7615_mcu_set_tx_ba(struct mt7615_dev *dev,
 {
 	struct mt7615_sta *msta = (struct mt7615_sta *)params->sta->drv_priv;
 	struct mt7615_vif *mvif = msta->vif;
+	bool is_7663 = is_mt7663(&dev->mt76);
 	struct {
 		struct wtbl_req_hdr hdr;
 		struct wtbl_ba ba;
@@ -1649,7 +1650,7 @@ int mt7615_mcu_set_tx_ba(struct mt7615_dev *dev,
 	};
 	int ret;
 
-	if (add) {
+	if (add && !is_7663) {
 		u8 idx, ba_range[] = { 4, 8, 12, 24, 36, 48, 54, 64 };
 
 		for (idx = 7; idx > 0; idx--) {
@@ -1659,6 +1660,7 @@ int mt7615_mcu_set_tx_ba(struct mt7615_dev *dev,
 
 		wtbl_req.ba.ba_winsize_idx = idx;
 	}
+	wtbl_req.ba.ba_winsize = is_7663 ? cpu_to_le16(params->buf_size) : 0;
 
 	ret = __mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD_WTBL_UPDATE,
 				  &wtbl_req, sizeof(wtbl_req), true);
