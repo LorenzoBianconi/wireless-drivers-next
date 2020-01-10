@@ -118,8 +118,6 @@ u32 mt7663_reg_map(struct mt7615_dev *dev, u32 addr);
 int mt7663_eeprom_init(struct mt7615_dev *dev, u32 base);
 void mt7663_dma_cleanup(struct mt7615_dev *dev);
 int mt7663_mcu_init(struct mt7615_dev *dev);
-int mt7663_mcu_set_dev_info(struct mt7615_dev *dev,
-			    struct ieee80211_vif *vif, bool enable);
 int mt7663_mcu_set_bss_info(struct mt7615_dev *dev, struct ieee80211_vif *vif,
 			    int en);
 void mt7663_mac_set_rates(struct mt7615_dev *dev, struct mt7615_sta *sta,
@@ -164,10 +162,6 @@ extern struct platform_driver mt7629_wmac_driver;
 void mt7663_tx(struct ieee80211_hw *hw,
 	       struct ieee80211_tx_control *control,
 	       struct sk_buff *skb);
-int mt7663_add_interface(struct ieee80211_hw *hw,
-			 struct ieee80211_vif *vif);
-void mt7663_remove_interface(struct ieee80211_hw *hw,
-			     struct ieee80211_vif *vif);
 int mt7663_conf_tx(struct ieee80211_hw *hw,
 		   struct ieee80211_vif *vif, u16 queue,
 		   const struct ieee80211_tx_queue_params *params);

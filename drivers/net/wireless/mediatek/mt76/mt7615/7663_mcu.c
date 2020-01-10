@@ -632,45 +632,6 @@ int mt7663_mcu_ctrl_pm_state(struct mt7615_dev *dev, int enter)
 }
 EXPORT_SYMBOL_GPL(mt7663_mcu_ctrl_pm_state);
 
-int mt7663_mcu_set_dev_info(struct mt7615_dev *dev,
-			    struct ieee80211_vif *vif, bool enable)
-{
-	struct mt7615_vif *mvif = (struct mt7615_vif *)vif->drv_priv;
-	struct {
-		struct req_hdr {
-			u8 omac_idx;
-			u8 band_idx;
-			__le16 tlv_num;
-			u8 is_tlv_append;
-			u8 rsv[3];
-		} __packed hdr;
-		struct req_tlv {
-			__le16 tag;
-			__le16 len;
-			u8 active;
-			u8 band_idx;
-			u8 omac_addr[ETH_ALEN];
-		} __packed tlv;
-	} data = {
-		.hdr = {
-			.omac_idx = mvif->omac_idx,
-			.band_idx = mvif->band_idx,
-			.tlv_num = cpu_to_le16(1),
-			.is_tlv_append = 1,
-		},
-		.tlv = {
-			.tag = cpu_to_le16(DEV_INFO_ACTIVE),
-			.len = cpu_to_le16(sizeof(struct req_tlv)),
-			.active = enable,
-			.band_idx = mvif->band_idx,
-		},
-	};
-
-	memcpy(data.tlv.omac_addr, vif->addr, ETH_ALEN);
-	return __mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD_DEV_INFO_UPDATE,
-				   &data, sizeof(data), true);
-}
-
 static void
 mt7663_mcu_bss_info_omac_header(struct mt7615_vif *mvif, u8 *data,
 				u32 conn_type)

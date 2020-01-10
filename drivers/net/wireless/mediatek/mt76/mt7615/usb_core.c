@@ -34,6 +34,26 @@ static void mt7663u_stop(struct ieee80211_hw *hw)
 	cancel_delayed_work_sync(&dev->mt76.mac_work);
 }
 
+static int
+mt7663u_add_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
+{
+	struct mt7615_dev *dev = mt7615_hw_dev(hw);
+	int idx;
+
+	mutex_lock(&dev->mt76.mutex);
+
+	idx = mt7615_setup_interface(hw, vif);
+	if (idx < 0)
+		goto out;
+
+	mt7615_mac_wtbl_update(dev, idx,
+			       MT_WTBL_UPDATE_ADM_COUNT_CLEAR);
+out:
+	mutex_unlock(&dev->mt76.mutex);
+
+	return 0;
+}
+
 static void
 mt7663u_sta_rate_tbl_update(struct ieee80211_hw *hw,
 			    struct ieee80211_vif *vif,
@@ -200,8 +220,8 @@ const struct ieee80211_ops mt7663_usb_ops = {
 	.tx = mt7663_tx,
 	.start = mt7663u_start,
 	.stop = mt7663u_stop,
-	.add_interface = mt7663_add_interface,
-	.remove_interface = mt7663_remove_interface,
+	.add_interface = mt7663u_add_interface,
+	.remove_interface = mt7615_remove_interface,
 	.config = mt7663u_config,
 	.conf_tx = mt7663_conf_tx,
 	.configure_filter = mt7663u_configure_filter,
