@@ -339,5 +339,6 @@ int mt76_dfs_start_rdd(struct mt7615_dev *dev, bool force);
 int mt7615_dfs_init_radar_detector(struct mt7615_phy *phy);
 
 int mt7615_init_debugfs(struct mt7615_dev *dev);
+void mt7615_init_device_cap(struct mt7615_dev *dev);
 
 #endif
