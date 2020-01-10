@@ -544,43 +544,6 @@ int mt7663_mcu_init_mac(struct mt7615_dev *dev, u8 band)
 }
 EXPORT_SYMBOL_GPL(mt7663_mcu_init_mac);
 
-int mt7663_mcu_set_wmm(struct mt7615_dev *dev, u8 queue,
-		       const struct ieee80211_tx_queue_params *params)
-{
-#define WMM_AIFS_SET	BIT(0)
-#define WMM_CW_MIN_SET	BIT(1)
-#define WMM_CW_MAX_SET	BIT(2)
-#define WMM_TXOP_SET	BIT(3)
-#define WMM_PARAM_SET	(WMM_AIFS_SET | WMM_CW_MIN_SET | \
-			 WMM_CW_MAX_SET | WMM_TXOP_SET)
-	struct req_data {
-		u8 number;
-		u8 rsv[3];
-		u8 queue;
-		u8 valid;
-		u8 aifs;
-		u8 cw_min;
-		__le16 cw_max;
-		__le16 txop;
-	} __packed req = {
-		.number = 1,
-		.queue = queue,
-		.valid = WMM_PARAM_SET,
-		.aifs = params->aifs,
-		.cw_min = 5,
-		.cw_max = cpu_to_le16(10),
-		.txop = cpu_to_le16(params->txop),
-	};
-
-	if (params->cw_min)
-		req.cw_min = fls(params->cw_min);
-	if (params->cw_max)
-		req.cw_max = cpu_to_le16(fls(params->cw_max));
-
-	return __mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD_EDCA_UPDATE,
-				   &req, sizeof(req), true);
-}
-
 int mt7663_mcu_ctrl_pm_state(struct mt7615_dev *dev, int enter)
 {
 #define ENTER_PM_STATE	1

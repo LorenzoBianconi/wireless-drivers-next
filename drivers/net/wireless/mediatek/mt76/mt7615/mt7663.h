@@ -136,8 +136,6 @@ int mt7663_mcu_set_sta_rec(struct mt7615_dev *dev, struct ieee80211_vif *vif,
 int mt7663_mcu_set_bcn(struct mt7615_dev *dev, struct ieee80211_vif *vif,
 		       int en);
 int mt7663_mcu_set_channel(struct mt7615_dev *dev);
-int mt7663_mcu_set_wmm(struct mt7615_dev *dev, u8 queue,
-		       const struct ieee80211_tx_queue_params *params);
 int mt7663_mcu_set_tx_ba(struct mt7615_dev *dev,
 			 struct ieee80211_ampdu_params *params,
 			 bool add);
@@ -159,9 +157,6 @@ extern const struct ieee80211_ops mt7663_usb_ops;
 extern struct pci_driver mt7663_pci_driver;
 extern struct platform_driver mt7629_wmac_driver;
 
-int mt7663_conf_tx(struct ieee80211_hw *hw,
-		   struct ieee80211_vif *vif, u16 queue,
-		   const struct ieee80211_tx_queue_params *params);
 void mt7663_bss_info_changed(struct ieee80211_hw *hw,
 			     struct ieee80211_vif *vif,
 			     struct ieee80211_bss_conf *info,

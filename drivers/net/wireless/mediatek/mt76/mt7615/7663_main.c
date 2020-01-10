@@ -64,26 +64,6 @@ int mt7663_check_key(struct mt7615_dev *dev, enum set_key_cmd cmd,
 }
 EXPORT_SYMBOL_GPL(mt7663_check_key);
 
-int mt7663_conf_tx(struct ieee80211_hw *hw,
-		   struct ieee80211_vif *vif, u16 queue,
-		   const struct ieee80211_tx_queue_params *params)
-{
-	static const u8 wmm_queue_map[] = {
-		[IEEE80211_AC_BK]/*3*/ = 0,
-		[IEEE80211_AC_BE]/*2*/ = 1,
-		[IEEE80211_AC_VI]/*1*/ = 2,
-		[IEEE80211_AC_VO]/*0*/ = 4,
-	};
-	struct mt7615_vif *mvif = (struct mt7615_vif *)vif->drv_priv;
-	struct mt7615_dev *dev = hw->priv;
-	u16 wmm_mapping = mvif->wmm_idx * MT7663_MAX_WMM_SETS;
-
-	wmm_mapping += wmm_queue_map[queue];
-	/* TODO: hw wmm_set 1~3 */
-	return mt7663_mcu_set_wmm(dev, wmm_mapping, params);
-}
-EXPORT_SYMBOL_GPL(mt7663_conf_tx);
-
 void mt7663_bss_info_changed(struct ieee80211_hw *hw,
 			     struct ieee80211_vif *vif,
 			     struct ieee80211_bss_conf *info,
