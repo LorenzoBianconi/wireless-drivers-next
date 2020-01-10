@@ -116,7 +116,6 @@ enum {
 };
 
 u32 mt7663_reg_map(struct mt7615_dev *dev, u32 addr);
-int mt7663_register_device(struct mt7615_dev *dev);
 void mt7663_unregister_device(struct mt7615_dev *dev);
 int mt7663_eeprom_init(struct mt7615_dev *dev, u32 base);
 int mt7663_eeprom_get_power_index(struct ieee80211_channel *chan,

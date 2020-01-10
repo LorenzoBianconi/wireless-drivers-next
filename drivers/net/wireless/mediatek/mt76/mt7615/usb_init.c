@@ -196,13 +196,11 @@ int mt7663u_register_device(struct mt7615_dev *dev)
 	struct ieee80211_hw *hw = mt76_hw(dev);
 	int err;
 
+	INIT_DELAYED_WORK(&dev->mt76.mac_work, mt7663_mac_work);
 	INIT_WORK(&dev->rate_work, mt7663u_rate_work);
 	INIT_LIST_HEAD(&dev->rd_head);
 
-	dev->phy.dev = dev;
-	dev->phy.mt76 = &dev->mt76.phy;
-	dev->mt76.phy.priv = &dev->phy;
-
+	mt7615_init_device_cap(dev);
 	err = mt7663u_init_hardware(dev);
 	if (err)
 		return err;
@@ -211,7 +209,17 @@ int mt7663u_register_device(struct mt7615_dev *dev)
 	/* check hw sg support in order to enable AMSDU */
 	hw->max_tx_fragments = dev->mt76.usb.sg_en ? MT_TXP_MAX_BUF_NUM : 1;
 
-	err = mt7663_register_device(dev);
+	dev->mphy.antenna_mask = 0x7;
+	dev->chainmask = 0x03;
+
+	ieee80211_hw_set(hw, SUPPORTS_REORDERING_BUFFER);
+
+	err = mt76_register_device(&dev->mt76, true, mt7615_rates,
+				   ARRAY_SIZE(mt7615_rates));
+	if (err)
+		return err;
+
+	err = mt7663_init_debugfs(dev);
 	if (err < 0)
 		return err;
 
