@@ -217,13 +217,6 @@ void mt7663_tx_complete_skb(struct mt76_dev *mdev, enum mt76_txq_id qid,
 
 void mt7663_queue_rx_skb(struct mt76_dev *mdev, enum mt76_rxq_id q,
 			 struct sk_buff *skb);
-void mt7615_sta_ps(struct mt76_dev *mdev, struct ieee80211_sta *sta, bool ps);
-int mt7615_sta_add(struct mt76_dev *mdev, struct ieee80211_vif *vif,
-		   struct ieee80211_sta *sta);
-void mt7615_sta_assoc(struct mt76_dev *mdev, struct ieee80211_vif *vif,
-		      struct ieee80211_sta *sta);
-void mt7615_sta_remove(struct mt76_dev *mdev, struct ieee80211_vif *vif,
-		       struct ieee80211_sta *sta);
 void mt7663_mac_cca_stats_reset(struct mt7615_dev *dev);
 void mt7663_txp_skb_unmap(struct mt76_dev *dev,
 			  struct mt76_txwi_cache *txwi);

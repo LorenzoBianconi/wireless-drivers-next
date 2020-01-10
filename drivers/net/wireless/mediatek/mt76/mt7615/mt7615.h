@@ -410,5 +410,11 @@ void mt7663u_rate_work(struct work_struct *work);
 int __mt7663u_mac_set_rates(struct mt7615_dev *dev,
 			    struct mt7615_rate_desc *rd);
 void mt7663u_mac_work(struct work_struct *work);
+int mt7663u_sta_add(struct mt76_dev *mdev, struct ieee80211_vif *vif,
+		    struct ieee80211_sta *sta);
+void mt7663u_sta_remove(struct mt76_dev *mdev, struct ieee80211_vif *vif,
+			struct ieee80211_sta *sta);
+void mt7663u_sta_assoc(struct mt76_dev *mdev, struct ieee80211_vif *vif,
+		       struct ieee80211_sta *sta);
 
 #endif

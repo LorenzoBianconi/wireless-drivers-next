@@ -54,6 +54,55 @@ out:
 	return 0;
 }
 
+int mt7663u_sta_add(struct mt76_dev *mdev, struct ieee80211_vif *vif,
+		    struct ieee80211_sta *sta)
+{
+	struct mt7615_dev *dev = container_of(mdev, struct mt7615_dev, mt76);
+	struct mt7615_sta *msta = (struct mt7615_sta *)sta->drv_priv;
+	struct mt7615_vif *mvif = (struct mt7615_vif *)vif->drv_priv;
+	int idx;
+
+	idx = mt76_wcid_alloc(dev->mt76.wcid_mask, MT7663_WTBL_STA - 1);
+	if (idx < 0)
+		return -ENOSPC;
+
+	INIT_LIST_HEAD(&msta->poll_list);
+	msta->vif = mvif;
+	msta->wcid.sta = 1;
+	msta->wcid.idx = idx;
+	mt7615_mac_wtbl_update(dev, idx,
+			       MT_WTBL_UPDATE_ADM_COUNT_CLEAR);
+
+	mt7663_mcu_set_sta_rec(dev, vif, sta, 1);
+
+	return 0;
+}
+
+void mt7663u_sta_remove(struct mt76_dev *mdev, struct ieee80211_vif *vif,
+			struct ieee80211_sta *sta)
+{
+	struct mt7615_dev *dev = container_of(mdev, struct mt7615_dev, mt76);
+	struct mt7615_sta *msta = (struct mt7615_sta *)sta->drv_priv;
+
+	mt7663_mcu_set_sta_rec(dev, vif, sta, 0);
+
+	mt7615_mac_wtbl_update(dev, msta->wcid.idx,
+			       MT_WTBL_UPDATE_ADM_COUNT_CLEAR);
+
+	spin_lock_bh(&dev->sta_poll_lock);
+	if (!list_empty(&msta->poll_list))
+		list_del_init(&msta->poll_list);
+	spin_unlock_bh(&dev->sta_poll_lock);
+}
+
+void mt7663u_sta_assoc(struct mt76_dev *mdev, struct ieee80211_vif *vif,
+		       struct ieee80211_sta *sta)
+{
+	struct mt7615_dev *dev = container_of(mdev, struct mt7615_dev, mt76);
+
+	mt7663_mcu_set_sta_rec(dev, vif, sta, 1);
+}
+
 static void
 mt7663u_sta_rate_tbl_update(struct ieee80211_hw *hw,
 			    struct ieee80211_vif *vif,

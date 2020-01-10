@@ -70,9 +70,9 @@ mt7663u_probe(struct usb_interface *usb_intf,
 		.tx_complete_skb = mt7663u_tx_complete_skb,
 		.rx_skb = mt7663_queue_rx_skb,
 		.sta_ps = mt7615_sta_ps,
-		.sta_add = mt7615_sta_add,
-		.sta_assoc = mt7615_sta_assoc,
-		.sta_remove = mt7615_sta_remove,
+		.sta_add = mt7663u_sta_add,
+		.sta_assoc = mt7663u_sta_assoc,
+		.sta_remove = mt7663u_sta_remove,
 		.update_survey = mt7663_update_channel,
 	};
 	struct usb_device *udev = interface_to_usbdev(usb_intf);

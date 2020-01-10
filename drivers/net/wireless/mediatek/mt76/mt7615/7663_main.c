@@ -111,46 +111,6 @@ void mt7663_bss_info_changed(struct ieee80211_hw *hw,
 }
 EXPORT_SYMBOL_GPL(mt7663_bss_info_changed);
 
-int mt7615_sta_add(struct mt76_dev *mdev, struct ieee80211_vif *vif,
-		   struct ieee80211_sta *sta)
-{
-	struct mt7615_dev *dev = container_of(mdev, struct mt7615_dev, mt76);
-	struct mt7615_sta *msta = (struct mt7615_sta *)sta->drv_priv;
-	struct mt7615_vif *mvif = (struct mt7615_vif *)vif->drv_priv;
-	int idx;
-
-	idx = mt76_wcid_alloc(dev->mt76.wcid_mask, MT7663_WTBL_STA - 1);
-	if (idx < 0)
-		return -ENOSPC;
-
-	msta->vif = mvif;
-	msta->wcid.sta = 1;
-	msta->wcid.idx = idx;
-
-	mt7663_mcu_set_sta_rec(dev, vif, sta, 1);
-
-	return 0;
-}
-EXPORT_SYMBOL_GPL(mt7615_sta_add);
-
-void mt7615_sta_assoc(struct mt76_dev *mdev, struct ieee80211_vif *vif,
-		      struct ieee80211_sta *sta)
-{
-	struct mt7615_dev *dev = container_of(mdev, struct mt7615_dev, mt76);
-
-	mt7663_mcu_set_sta_rec(dev, vif, sta, 1);
-}
-EXPORT_SYMBOL_GPL(mt7615_sta_assoc);
-
-void mt7615_sta_remove(struct mt76_dev *mdev, struct ieee80211_vif *vif,
-		       struct ieee80211_sta *sta)
-{
-	struct mt7615_dev *dev = container_of(mdev, struct mt7615_dev, mt76);
-
-	mt7663_mcu_set_sta_rec(dev, vif, sta, 0);
-}
-EXPORT_SYMBOL_GPL(mt7615_sta_remove);
-
 void mt7663_tx(struct ieee80211_hw *hw,
 	       struct ieee80211_tx_control *control,
 	       struct sk_buff *skb)
