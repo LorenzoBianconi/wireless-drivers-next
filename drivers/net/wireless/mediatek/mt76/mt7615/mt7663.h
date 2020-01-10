@@ -118,13 +118,9 @@ u32 mt7663_reg_map(struct mt7615_dev *dev, u32 addr);
 int mt7663_eeprom_init(struct mt7615_dev *dev, u32 base);
 void mt7663_dma_cleanup(struct mt7615_dev *dev);
 int mt7663_mcu_init(struct mt7615_dev *dev);
-int mt7663_mcu_set_bss_info(struct mt7615_dev *dev, struct ieee80211_vif *vif,
-			    int en);
 void mt7663_mac_set_rates(struct mt7615_dev *dev, struct mt7615_sta *sta,
 			  struct ieee80211_tx_rate *probe_rate,
 			  struct ieee80211_tx_rate *rates);
-int mt7663_mcu_wtbl_bmc(struct mt7615_dev *dev, struct ieee80211_vif *vif,
-			bool enable);
 int mt7663_mcu_add_wtbl(struct mt7615_dev *dev, struct ieee80211_vif *vif,
 			struct ieee80211_sta *sta);
 int mt7663_mcu_del_wtbl(struct mt7615_dev *dev, struct ieee80211_sta *sta);
@@ -157,10 +153,6 @@ extern const struct ieee80211_ops mt7663_usb_ops;
 extern struct pci_driver mt7663_pci_driver;
 extern struct platform_driver mt7629_wmac_driver;
 
-void mt7663_bss_info_changed(struct ieee80211_hw *hw,
-			     struct ieee80211_vif *vif,
-			     struct ieee80211_bss_conf *info,
-			     u32 changed);
 int mt7663_ampdu_action(struct ieee80211_hw *hw,
 			struct ieee80211_vif *vif,
 			struct ieee80211_ampdu_params *params);

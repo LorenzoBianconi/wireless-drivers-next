@@ -301,6 +301,32 @@ mt7663u_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 	return mt7663u_mac_wtbl_set_key(dev, &msta->wcid, key, cmd);
 }
 
+static void
+mt7663u_bss_info_changed(struct ieee80211_hw *hw,
+			 struct ieee80211_vif *vif,
+			 struct ieee80211_bss_conf *info,
+			 u32 changed)
+{
+	struct mt7615_dev *dev = hw->priv;
+
+	mutex_lock(&dev->mt76.mutex);
+
+	if (changed & BSS_CHANGED_ASSOC)
+		mt7615_mcu_set_bss_info(dev, vif, info->assoc);
+
+	/* TODO: update beacon content
+	 * BSS_CHANGED_BEACON
+	 */
+
+	if (changed & BSS_CHANGED_BEACON_ENABLED) {
+		mt7615_mcu_set_bss_info(dev, vif, info->enable_beacon);
+		mt7615_mcu_wtbl_bmc(dev, vif, info->enable_beacon);
+		mt7663_mcu_set_sta_rec_bmc(dev, vif, info->enable_beacon);
+	}
+
+	mutex_unlock(&dev->mt76.mutex);
+}
+
 const struct ieee80211_ops mt7663_usb_ops = {
 	.tx = mt7615_tx,
 	.start = mt7663u_start,
@@ -310,7 +336,7 @@ const struct ieee80211_ops mt7663_usb_ops = {
 	.config = mt7663u_config,
 	.conf_tx = mt7615_conf_tx,
 	.configure_filter = mt7663u_configure_filter,
-	.bss_info_changed = mt7663_bss_info_changed,
+	.bss_info_changed = mt7663u_bss_info_changed,
 	.sta_state = mt76_sta_state,
 	.set_key = mt7663u_set_key,
 	.ampdu_action = mt7663_ampdu_action,

@@ -17,33 +17,6 @@
 #include "mt7615.h"
 #include "regs.h"
 
-void mt7663_bss_info_changed(struct ieee80211_hw *hw,
-			     struct ieee80211_vif *vif,
-			     struct ieee80211_bss_conf *info,
-			     u32 changed)
-{
-	struct mt7615_dev *dev = hw->priv;
-
-	mutex_lock(&dev->mt76.mutex);
-
-	if (changed & BSS_CHANGED_ASSOC)
-		mt7663_mcu_set_bss_info(dev, vif, info->assoc);
-
-	/* TODO: update beacon content
-	 * BSS_CHANGED_BEACON
-	 */
-
-	if (changed & BSS_CHANGED_BEACON_ENABLED) {
-		mt7663_mcu_set_bss_info(dev, vif, info->enable_beacon);
-		mt7663_mcu_wtbl_bmc(dev, vif, info->enable_beacon);
-		mt7663_mcu_set_sta_rec_bmc(dev, vif, info->enable_beacon);
-		mt7663_mcu_set_bcn(dev, vif, info->enable_beacon);
-	}
-
-	mutex_unlock(&dev->mt76.mutex);
-}
-EXPORT_SYMBOL_GPL(mt7663_bss_info_changed);
-
 int mt7663_ampdu_action(struct ieee80211_hw *hw,
 			struct ieee80211_vif *vif,
 			struct ieee80211_ampdu_params *params)
