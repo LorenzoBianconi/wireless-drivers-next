@@ -14,7 +14,7 @@
 #include "mt7615.h"
 #include "7663_mcu.h"
 #include "7663_mac.h"
-#include "7663_eeprom.h"
+#include "eeprom.h"
 #include "7663_regs.h"
 
 struct mt7663_patch_hdr {
@@ -507,9 +507,9 @@ int mt7663_mcu_set_eeprom(struct mt7615_dev *dev)
 	} __packed req_hdr = {
 		.buffer_mode = 1,
 		.content_format = 1,
-		.len = __MT_EE_MAX - MT_EE_CHIP_ID,
+		.len = __MT7663_EE_MAX - MT_EE_CHIP_ID,
 	};
-	int ret, len = sizeof(req_hdr) + __MT_EE_MAX - MT_EE_CHIP_ID;
+	int ret, len = sizeof(req_hdr) + __MT7663_EE_MAX - MT_EE_CHIP_ID;
 	u8 *req, *eep = (u8 *)dev->mt76.eeprom.data;
 
 	req = kzalloc(len, GFP_KERNEL);
@@ -518,7 +518,7 @@ int mt7663_mcu_set_eeprom(struct mt7615_dev *dev)
 
 	memcpy(req, &req_hdr, sizeof(req_hdr));
 	memcpy(req + sizeof(req_hdr), eep + MT_EE_CHIP_ID,
-	       __MT_EE_MAX - MT_EE_CHIP_ID);
+	       __MT7663_EE_MAX - MT_EE_CHIP_ID);
 
 	ret = __mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD_EFUSE_BUFFER_MODE,
 				  req, len, true);
@@ -1402,71 +1402,6 @@ int mt7663_mcu_set_bcn(struct mt7615_dev *dev, struct ieee80211_vif *vif,
 
 	return __mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD_BCN_OFFLOAD,
 				   &req, sizeof(req), true);
-}
-
-/* MT7663 : TBD */
-int mt7663_mcu_set_tx_power(struct mt7615_dev *dev)
-{
-	int i, ret, n_chains = hweight8(dev->mphy.antenna_mask);
-	struct cfg80211_chan_def *chandef = &dev->mphy.chandef;
-	u8 *req, *data, *eep = (u8 *)dev->mt76.eeprom.data;
-	struct ieee80211_hw *hw = mt76_hw(dev);
-	int freq = chandef->center_freq1, len;
-	struct {
-		u8 center_chan;
-		u8 dbdc_idx;
-		u8 band;
-		u8 rsv;
-	} __packed req_hdr = {
-		.center_chan = ieee80211_frequency_to_channel(freq),
-		.band = chandef->chan->band,
-	};
-	s8 tx_power;
-
-	len = sizeof(req_hdr) + __MT_EE_MAX - MT_EE_NIC_CONF_0;
-	req = kzalloc(len, GFP_KERNEL);
-	if (!req)
-		return -ENOMEM;
-
-	memcpy(req, &req_hdr, sizeof(req_hdr));
-	data = req + sizeof(req_hdr);
-	memcpy(data, eep + MT_EE_NIC_CONF_0,
-	       __MT_EE_MAX - MT_EE_NIC_CONF_0);
-
-	tx_power = hw->conf.power_level * 2;
-	switch (n_chains) {
-	case 4:
-		tx_power -= 12;
-		break;
-	case 3:
-		tx_power -= 8;
-		break;
-	case 2:
-		tx_power -= 6;
-		break;
-	default:
-		break;
-	}
-	tx_power = max_t(s8, tx_power, 0);
-	dev->mphy.txpower_cur = tx_power;
-
-	for (i = 0; i < n_chains; i++) {
-		int index = -MT_EE_NIC_CONF_0;
-
-		ret = mt7663_eeprom_get_power_index(chandef->chan, i);
-		if (ret < 0)
-			goto out;
-
-		index += ret;
-		data[index] = min_t(u8, data[index], tx_power);
-	}
-
-	ret = __mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD_SET_TX_POWER_CTRL,
-				  req, len, true);
-out:
-	kfree(req);
-
-	return ret;
 }
 
 int mt7663_mcu_rdd_cmd(struct mt7615_dev *dev, int cmd, u8 index,

@@ -51,7 +51,6 @@
 #define MT7663_ROM_PATCH                "mediatek/mt7663pr2h.bin"
 #endif
 
-#define MT7663_EEPROM_SIZE		1024
 #define MT7663_TOKEN_SIZE		4096
 
 struct mt7615_vif;
@@ -118,8 +117,6 @@ enum {
 u32 mt7663_reg_map(struct mt7615_dev *dev, u32 addr);
 void mt7663_unregister_device(struct mt7615_dev *dev);
 int mt7663_eeprom_init(struct mt7615_dev *dev, u32 base);
-int mt7663_eeprom_get_power_index(struct ieee80211_channel *chan,
-				  u8 chain_idx);
 void mt7663_dma_cleanup(struct mt7615_dev *dev);
 int mt7663_mcu_init(struct mt7615_dev *dev);
 int mt7663_mcu_set_dev_info(struct mt7615_dev *dev,
@@ -211,7 +208,6 @@ int mt7663_mcu_set_eeprom(struct mt7615_dev *dev);
 int mt7663_mcu_init_mac(struct mt7615_dev *dev, u8 band);
 int mt7663_mcu_set_rts_thresh(struct mt7615_dev *dev, u32 val);
 int mt7663_mcu_ctrl_pm_state(struct mt7615_dev *dev, int enter);
-int mt7663_mcu_set_tx_power(struct mt7615_dev *dev);
 void mt7663_mcu_exit(struct mt7615_dev *dev);
 int mt7663_mcu_restart(struct mt76_dev *dev);
 void mt7663_mcu_fill_msg(struct mt7615_dev *dev, struct sk_buff *skb,

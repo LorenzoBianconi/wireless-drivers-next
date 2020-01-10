@@ -11,6 +11,7 @@
 
 #include "mt7663.h"
 #include "mt7615.h"
+#include "eeprom.h"
 #include "mac.h"
 #include "usb_sdio_regs.h"
 
@@ -102,7 +103,8 @@ mt7663u_dma_sched_init(struct mt7615_dev *dev)
 	return 0;
 }
 
-static void mt7663u_mac_init(struct mt7615_dev *dev)
+static void
+mt7663u_mac_init(struct mt7615_dev *dev)
 {
 	u32 val;
 
@@ -152,12 +154,36 @@ static void mt7663u_mac_init(struct mt7615_dev *dev)
 	mt76_wr(dev, MT_WF_DMA(0x0), 0x0046f000);
 }
 
-static int mt7663u_init_hardware(struct mt7615_dev *dev)
+static int
+mt7663_init_eeprom(struct mt7615_dev *dev, u32 base)
+{
+	int ret;
+
+	ret = mt7615_eeprom_load(dev, base);
+	if (ret < 0)
+		return ret;
+
+	if (dev->mt76.otp.data)
+		memcpy(dev->mt76.eeprom.data, dev->mt76.otp.data,
+		       MT7615_EEPROM_SIZE);
+
+	dev->mt76.cap.has_2ghz = true;
+	dev->mt76.cap.has_5ghz = true;
+	memcpy(dev->mt76.macaddr, dev->mt76.eeprom.data + MT_EE_MAC_ADDR,
+	       ETH_ALEN);
+
+	mt76_eeprom_override(&dev->mt76);
+
+	return 0;
+}
+
+static int
+mt7663u_init_hardware(struct mt7615_dev *dev)
 {
 	int ret, idx;
 	u32 val;
 
-	ret = mt7663_eeprom_init(dev, MT_EFUSE_BASE);
+	ret = mt7663_init_eeprom(dev, MT_EFUSE_BASE);
 	if (ret < 0)
 		return ret;
 
