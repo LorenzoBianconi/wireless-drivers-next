@@ -17,53 +17,6 @@
 #include "mt7615.h"
 #include "regs.h"
 
-int mt7663_check_key(struct mt7615_dev *dev, enum set_key_cmd cmd,
-		     struct ieee80211_vif *vif, struct mt76_wcid *wcid,
-		     struct ieee80211_key_conf *key)
-{
-	int idx = key->keyidx;
-
-	/* The hardware does not support per-STA RX GTK, fallback
-	 * to software mode for these.
-	 */
-	if ((vif->type == NL80211_IFTYPE_ADHOC ||
-	     vif->type == NL80211_IFTYPE_MESH_POINT) &&
-	    (key->cipher == WLAN_CIPHER_SUITE_TKIP ||
-	     key->cipher == WLAN_CIPHER_SUITE_CCMP) &&
-	    !(key->flags & IEEE80211_KEY_FLAG_PAIRWISE))
-		return -EOPNOTSUPP;
-
-	/* fall back to sw encryption for unsupported ciphers */
-	switch (key->cipher) {
-	case WLAN_CIPHER_SUITE_AES_CMAC:
-		key->flags |= IEEE80211_KEY_FLAG_GENERATE_MMIE;
-		break;
-	case WLAN_CIPHER_SUITE_WEP40:
-	case WLAN_CIPHER_SUITE_WEP104:
-	case WLAN_CIPHER_SUITE_TKIP:
-	case WLAN_CIPHER_SUITE_CCMP:
-	case WLAN_CIPHER_SUITE_CCMP_256:
-	case WLAN_CIPHER_SUITE_GCMP:
-	case WLAN_CIPHER_SUITE_GCMP_256:
-	case WLAN_CIPHER_SUITE_SMS4:
-		break;
-	default:
-		return -EOPNOTSUPP;
-	}
-
-	if (cmd == SET_KEY) {
-		key->hw_key_idx = wcid->idx;
-		wcid->hw_key_idx = idx;
-	} else if (idx == wcid->hw_key_idx) {
-		wcid->hw_key_idx = -1;
-	}
-	mt76_wcid_key_setup(&dev->mt76, wcid,
-			    cmd == SET_KEY ? key : NULL);
-
-	return 0;
-}
-EXPORT_SYMBOL_GPL(mt7663_check_key);
-
 void mt7663_bss_info_changed(struct ieee80211_hw *hw,
 			     struct ieee80211_vif *vif,
 			     struct ieee80211_bss_conf *info,

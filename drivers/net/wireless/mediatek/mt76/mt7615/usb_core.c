@@ -255,12 +255,48 @@ mt7663u_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 	struct mt7615_vif *mvif = (struct mt7615_vif *)vif->drv_priv;
 	struct mt7615_dev *dev = hw->priv;
 	struct mt7615_sta *msta;
-	int err;
+	struct mt76_wcid *wcid;
+	int idx = key->keyidx;
 
 	msta = sta ? (struct mt7615_sta *)sta->drv_priv : &mvif->sta;
-	err = mt7663_check_key(dev, cmd, vif, &msta->wcid, key);
-	if (err < 0)
-		return err;
+	wcid = &msta->wcid;
+
+	/* The hardware does not support per-STA RX GTK, fallback
+	 * to software mode for these.
+	 */
+	if ((vif->type == NL80211_IFTYPE_ADHOC ||
+	     vif->type == NL80211_IFTYPE_MESH_POINT) &&
+	    (key->cipher == WLAN_CIPHER_SUITE_TKIP ||
+	     key->cipher == WLAN_CIPHER_SUITE_CCMP) &&
+	    !(key->flags & IEEE80211_KEY_FLAG_PAIRWISE))
+		return -EOPNOTSUPP;
+
+	/* fall back to sw encryption for unsupported ciphers */
+	switch (key->cipher) {
+	case WLAN_CIPHER_SUITE_AES_CMAC:
+		key->flags |= IEEE80211_KEY_FLAG_GENERATE_MMIE;
+		break;
+	case WLAN_CIPHER_SUITE_WEP40:
+	case WLAN_CIPHER_SUITE_WEP104:
+	case WLAN_CIPHER_SUITE_TKIP:
+	case WLAN_CIPHER_SUITE_CCMP:
+	case WLAN_CIPHER_SUITE_CCMP_256:
+	case WLAN_CIPHER_SUITE_GCMP:
+	case WLAN_CIPHER_SUITE_GCMP_256:
+	case WLAN_CIPHER_SUITE_SMS4:
+		break;
+	default:
+		return -EOPNOTSUPP;
+	}
+
+	if (cmd == SET_KEY) {
+		key->hw_key_idx = wcid->idx;
+		wcid->hw_key_idx = idx;
+	} else if (idx == wcid->hw_key_idx) {
+		wcid->hw_key_idx = -1;
+	}
+	mt76_wcid_key_setup(&dev->mt76, wcid,
+			    cmd == SET_KEY ? key : NULL);
 
 	return mt7663u_mac_wtbl_set_key(dev, &msta->wcid, key, cmd);
 }

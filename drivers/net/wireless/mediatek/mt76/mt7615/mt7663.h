@@ -161,9 +161,6 @@ void mt7663_bss_info_changed(struct ieee80211_hw *hw,
 			     struct ieee80211_vif *vif,
 			     struct ieee80211_bss_conf *info,
 			     u32 changed);
-int mt7663_check_key(struct mt7615_dev *dev, enum set_key_cmd cmd,
-		     struct ieee80211_vif *vif, struct mt76_wcid *wcid,
-		     struct ieee80211_key_conf *key);
 int mt7663_ampdu_action(struct ieee80211_hw *hw,
 			struct ieee80211_vif *vif,
 			struct ieee80211_ampdu_params *params);
