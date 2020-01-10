@@ -15,6 +15,18 @@
 #include "usb_sdio_regs.h"
 
 static int
+mt7663u_init_debugfs(struct mt7615_dev *dev)
+{
+	struct dentry *dir;
+
+	dir = mt76_register_debugfs(&dev->mt76);
+	if (!dir)
+		return -ENOMEM;
+
+	return 0;
+}
+
+static int
 mt7663u_dma_sched_init(struct mt7615_dev *dev)
 {
 	u32 val;
@@ -180,7 +192,7 @@ static int mt7663u_init_hardware(struct mt7615_dev *dev)
 	/* mt7663u_mcu_del_wtbl_all(dev); */
 
 	/* Beacon and mgmt frames should occupy wcid 0 */
-	idx = mt76_wcid_alloc(dev->mt76.wcid_mask, MT7663_WTBL_STA - 1);
+	idx = mt76_wcid_alloc(dev->mt76.wcid_mask, MT7615_WTBL_STA - 1);
 	if (idx)
 		return -ENOSPC;
 
@@ -196,7 +208,7 @@ int mt7663u_register_device(struct mt7615_dev *dev)
 	struct ieee80211_hw *hw = mt76_hw(dev);
 	int err;
 
-	INIT_DELAYED_WORK(&dev->mt76.mac_work, mt7663_mac_work);
+	INIT_DELAYED_WORK(&dev->mt76.mac_work, mt7663u_mac_work);
 	INIT_WORK(&dev->rate_work, mt7663u_rate_work);
 	INIT_LIST_HEAD(&dev->rd_head);
 
@@ -219,7 +231,7 @@ int mt7663u_register_device(struct mt7615_dev *dev)
 	if (err)
 		return err;
 
-	err = mt7663_init_debugfs(dev);
+	err = mt7663u_init_debugfs(dev);
 	if (err < 0)
 		return err;
 

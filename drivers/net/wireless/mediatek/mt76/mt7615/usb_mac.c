@@ -19,6 +19,22 @@ static u32 mt7663u_mac_wtbl_addr(struct mt7615_dev *dev, int wcid)
 	return MT_WTBL(0) + wcid * MT_WTBL_ENTRY_SIZE;
 }
 
+void mt7663u_mac_work(struct work_struct *work)
+{
+	struct mt7615_dev *dev;
+
+	dev = (struct mt7615_dev *)container_of(work, struct mt76_dev,
+						mac_work.work);
+
+	mutex_lock(&dev->mt76.mutex);
+	//mt7663_update_channel(&dev->mt76);
+	mutex_unlock(&dev->mt76.mutex);
+
+	mt76_tx_status_check(&dev->mt76, NULL, false);
+	ieee80211_queue_delayed_work(mt76_hw(dev), &dev->mt76.mac_work,
+				     MT7663_WATCHDOG_TIME);
+}
+
 int __mt7663u_mac_set_rates(struct mt7615_dev *dev,
 			    struct mt7615_rate_desc *rd)
 {

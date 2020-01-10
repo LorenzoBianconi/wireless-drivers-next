@@ -935,28 +935,6 @@ void mt7663_update_channel(struct mt76_dev *mdev)
 }
 EXPORT_SYMBOL_GPL(mt7663_update_channel);
 
-void mt7663_mac_work(struct work_struct *work)
-{
-	struct mt7615_dev *dev;
-
-	dev = (struct mt7615_dev *)container_of(work, struct mt76_dev,
-						mac_work.work);
-
-	mutex_lock(&dev->mt76.mutex);
-	mt7663_update_channel(&dev->mt76);
-	if (++dev->mac_work_count == 5) {
-#if 0	/* mt7663 TBD */
-		mt7663_mac_scs_check(dev);
-#endif
-		dev->mac_work_count = 0;
-	}
-	mutex_unlock(&dev->mt76.mutex);
-
-	mt76_tx_status_check(&dev->mt76, NULL, false);
-	ieee80211_queue_delayed_work(mt76_hw(dev), &dev->mt76.mac_work,
-				     MT7663_WATCHDOG_TIME);
-}
-
 int mt7663_dfs_stop_radar_detector(struct mt7615_dev *dev)
 {
 	struct cfg80211_chan_def *chandef = &dev->mphy.chandef;
