@@ -40,7 +40,7 @@ mt7663u_sta_rate_tbl_update(struct ieee80211_hw *hw,
 			    struct ieee80211_sta *sta)
 {
 	struct mt7615_dev *dev = hw->priv;
-	struct mt7663_sta *msta = (struct mt7663_sta *)sta->drv_priv;
+	struct mt7615_sta *msta = (struct mt7615_sta *)sta->drv_priv;
 	struct ieee80211_sta_rates *sta_rates = rcu_dereference(sta->rates);
 	int i;
 
@@ -66,9 +66,9 @@ void mt7663u_rc_work(struct work_struct *work)
 	int err;
 
 	dev = (struct mt7615_dev *)container_of(work, struct mt7615_dev,
-						rc_work);
+						rate_work);
 
-	list_for_each_entry_safe(rc, tmp_rc, &dev->rc_processing, node) {
+	list_for_each_entry_safe(rc, tmp_rc, &dev->rd_head, node) {
 		spin_lock_bh(&dev->mt76.lock);
 		list_del(&rc->node);
 		spin_unlock_bh(&dev->mt76.lock);
@@ -187,12 +187,12 @@ mt7663u_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 		struct ieee80211_vif *vif, struct ieee80211_sta *sta,
 		struct ieee80211_key_conf *key)
 {
-	struct mt7663_vif *mvif = (struct mt7663_vif *)vif->drv_priv;
+	struct mt7615_vif *mvif = (struct mt7615_vif *)vif->drv_priv;
 	struct mt7615_dev *dev = hw->priv;
-	struct mt7663_sta *msta;
+	struct mt7615_sta *msta;
 	int err;
 
-	msta = sta ? (struct mt7663_sta *)sta->drv_priv : &mvif->sta;
+	msta = sta ? (struct mt7615_sta *)sta->drv_priv : &mvif->sta;
 	err = mt7663_check_key(dev, cmd, vif, &msta->wcid, key);
 	if (err < 0)
 		return err;

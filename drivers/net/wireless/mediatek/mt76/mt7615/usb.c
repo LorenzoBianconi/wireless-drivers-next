@@ -45,9 +45,9 @@ mt7663u_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(tx_info->skb);
 
 	if (info->flags & IEEE80211_TX_CTL_RATE_CTRL_PROBE) {
-		struct mt7663_sta *msta;
+		struct mt7615_sta *msta;
 
-		msta = container_of(wcid, struct mt7663_sta, wcid);
+		msta = container_of(wcid, struct mt7615_sta, wcid);
 		spin_lock_bh(&dev->mt76.lock);
 		mt7663u_mac_set_rates(dev, msta, &info->control.rates[0],
 				      msta->rates);
@@ -69,10 +69,10 @@ mt7663u_probe(struct usb_interface *usb_intf,
 		.tx_prepare_skb = mt7663u_tx_prepare_skb,
 		.tx_complete_skb = mt7663u_tx_complete_skb,
 		.rx_skb = mt7663_queue_rx_skb,
-		.sta_ps = mt7663_sta_ps,
-		.sta_add = mt7663_sta_add,
-		.sta_assoc = mt7663_sta_assoc,
-		.sta_remove = mt7663_sta_remove,
+		.sta_ps = mt7615_sta_ps,
+		.sta_add = mt7615_sta_add,
+		.sta_assoc = mt7615_sta_assoc,
+		.sta_remove = mt7615_sta_remove,
 		.update_survey = mt7663_update_channel,
 	};
 	struct usb_device *udev = interface_to_usbdev(usb_intf);

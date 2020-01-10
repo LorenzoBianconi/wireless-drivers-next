@@ -26,7 +26,7 @@ static struct mt76_wcid *
 mt7663_rx_get_wcid(struct mt7615_dev *dev,
 		   u8 idx, bool unicast)
 {
-	struct mt7663_sta *sta;
+	struct mt7615_sta *sta;
 	struct mt76_wcid *wcid;
 
 	if (idx >= ARRAY_SIZE(dev->mt76.wcid))
@@ -39,7 +39,7 @@ mt7663_rx_get_wcid(struct mt7615_dev *dev,
 	if (!wcid->sta)
 		return NULL;
 
-	sta = container_of(wcid, struct mt7663_sta, wcid);
+	sta = container_of(wcid, struct mt7615_sta, wcid);
 	if (!sta->vif)
 		return NULL;
 
@@ -219,11 +219,6 @@ int mt7663_mac_fill_rx(struct mt7615_dev *dev, struct sk_buff *skb)
 	return 0;
 }
 
-void mt7663_sta_ps(struct mt76_dev *mdev, struct ieee80211_sta *sta, bool ps)
-{
-}
-EXPORT_SYMBOL_GPL(mt7663_sta_ps);
-
 static u16
 mt7663_mac_tx_rate_val(struct mt7615_dev *dev,
 		       const struct ieee80211_tx_rate *rate,
@@ -307,14 +302,14 @@ int mt7663_mac_write_txwi(struct mt7615_dev *dev, __le32 *txwi,
 	};
 
 	if (vif) {
-		struct mt7663_vif *mvif = (struct mt7663_vif *)vif->drv_priv;
+		struct mt7615_vif *mvif = (struct mt7615_vif *)vif->drv_priv;
 
 		omac_idx = mvif->omac_idx;
 		wmm_idx = mvif->wmm_idx;
 	}
 
 	if (sta) {
-		struct mt7663_sta *msta = (struct mt7663_sta *)sta->drv_priv;
+		struct mt7615_sta *msta = (struct mt7615_sta *)sta->drv_priv;
 
 		tx_count = msta->rate_count;
 	}
@@ -480,7 +475,7 @@ u32 mt7663_mac_wtbl_addr(struct mt7615_dev *dev, int wcid)
 }
 EXPORT_SYMBOL_GPL(mt7663_mac_wtbl_addr);
 
-void mt7663_mac_set_rates(struct mt7615_dev *dev, struct mt7663_sta *sta,
+void mt7663_mac_set_rates(struct mt7615_dev *dev, struct mt7615_sta *sta,
 			  struct ieee80211_tx_rate *probe_rate,
 			  struct ieee80211_tx_rate *rates)
 {
@@ -617,7 +612,7 @@ void mt7663_mac_set_rates(struct mt7615_dev *dev, struct mt7663_sta *sta,
 }
 EXPORT_SYMBOL_GPL(mt7663_mac_set_rates);
 
-void mt7663u_mac_set_rates(struct mt7615_dev *dev, struct mt7663_sta *sta,
+void mt7663u_mac_set_rates(struct mt7615_dev *dev, struct mt7615_sta *sta,
 			   struct ieee80211_tx_rate *probe_rate,
 			   struct ieee80211_tx_rate *rates)
 {
@@ -716,10 +711,8 @@ void mt7663u_mac_set_rates(struct mt7615_dev *dev, struct mt7663_sta *sta,
 	for (i = 0 ; i < 4 ; i++)
 		rc_desc->val[i] = val[i];
 
-	list_add_tail(&rc_desc->node, &dev->rc_processing);
-
-	ieee80211_queue_work(mt76_hw(dev), &dev->rc_work);
-	queue_work(dev->mt76.usb.wq, &dev->rc_work);
+	list_add_tail(&rc_desc->node, &dev->rd_head);
+	queue_work(dev->mt76.usb.wq, &dev->rate_work);
 }
 EXPORT_SYMBOL_GPL(mt7663u_mac_set_rates);
 
@@ -781,11 +774,11 @@ void mt7663_mac_wtbl_update_cipher(struct mt7615_dev *dev,
 }
 EXPORT_SYMBOL_GPL(mt7663_mac_wtbl_update_cipher);
 
-static bool mt7663_fill_txs(struct mt7615_dev *dev, struct mt7663_sta *sta,
+static bool mt7663_fill_txs(struct mt7615_dev *dev, struct mt7615_sta *sta,
 			    struct ieee80211_tx_info *info, __le32 *txs_data)
 {
 	struct ieee80211_supported_band *sband;
-	struct mt7663_rate_set *rs;
+	struct mt7615_rate_set *rs;
 	int first_idx = 0, last_idx;
 	int i, idx, count;
 	bool fixed_rate, ack_timeout;
@@ -922,7 +915,7 @@ out:
 }
 
 static bool mt7663_mac_add_txs_skb(struct mt7615_dev *dev,
-				   struct mt7663_sta *sta, int pid,
+				   struct mt7615_sta *sta, int pid,
 				   __le32 *txs_data)
 {
 	struct mt76_dev *mdev = &dev->mt76;
@@ -953,7 +946,7 @@ void mt7663_mac_add_txs(struct mt7615_dev *dev, void *data)
 {
 	struct ieee80211_tx_info info = {};
 	struct ieee80211_sta *sta = NULL;
-	struct mt7663_sta *msta = NULL;
+	struct mt7615_sta *msta = NULL;
 	struct mt76_wcid *wcid;
 	__le32 *txs_data = data;
 	u32 txs;
@@ -977,7 +970,7 @@ void mt7663_mac_add_txs(struct mt7615_dev *dev, void *data)
 	if (!wcid)
 		goto out;
 
-	msta = container_of(wcid, struct mt7663_sta, wcid);
+	msta = container_of(wcid, struct mt7615_sta, wcid);
 	sta = wcid_to_sta(wcid);
 
 	if (mt7663_mac_add_txs_skb(dev, msta, pid, txs_data))

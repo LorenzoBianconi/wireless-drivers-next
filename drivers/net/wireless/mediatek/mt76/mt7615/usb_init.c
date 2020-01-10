@@ -196,8 +196,8 @@ int mt7663u_register_device(struct mt7615_dev *dev)
 	struct ieee80211_hw *hw = mt76_hw(dev);
 	int err;
 
-	INIT_WORK(&dev->rc_work, mt7663u_rc_work);
-	INIT_LIST_HEAD(&dev->rc_processing);
+	INIT_WORK(&dev->rate_work, mt7663u_rc_work);
+	INIT_LIST_HEAD(&dev->rd_head);
 
 	err = mt7663u_init_hardware(dev);
 	if (err)

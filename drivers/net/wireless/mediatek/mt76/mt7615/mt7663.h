@@ -54,8 +54,8 @@
 #define MT7663_EEPROM_SIZE		1024
 #define MT7663_TOKEN_SIZE		4096
 
-struct mt7663_vif;
-struct mt7663_sta;
+struct mt7615_vif;
+struct mt7615_sta;
 struct mt7615_dev;
 
 enum mt7663_hw_txq_id {
@@ -69,31 +69,6 @@ enum mt7663_hw_txq_id {
 struct mt7663_rate_set {
 	struct ieee80211_tx_rate probe_rate;
 	struct ieee80211_tx_rate rates[4];
-};
-
-struct mt7663_sta {
-	struct mt76_wcid wcid; /* must be first */
-
-	struct mt7663_vif *vif;
-
-	struct ieee80211_tx_rate rates[4];
-
-	struct mt7663_rate_set rateset[2];
-	u32 rate_set_tsf;
-
-	u8 rate_count;
-	u8 n_rates;
-
-	u8 rate_probe;
-};
-
-struct mt7663_vif {
-	u8 idx;
-	u8 omac_idx;
-	u8 band_idx;
-	u8 wmm_idx;
-
-	struct mt7663_sta sta;
 };
 
 struct mt7663_dev {
@@ -143,7 +118,7 @@ struct mt7663_rate_desc {
 	u16 probe_val;
 	bool rateset;
 
-	struct mt7663_sta *sta;
+	struct mt7615_sta *sta;
 	struct list_head node;
 };
 
@@ -164,7 +139,7 @@ int mt7663_mcu_set_dev_info(struct mt7615_dev *dev,
 			    struct ieee80211_vif *vif, bool enable);
 int mt7663_mcu_set_bss_info(struct mt7615_dev *dev, struct ieee80211_vif *vif,
 			    int en);
-void mt7663_mac_set_rates(struct mt7615_dev *dev, struct mt7663_sta *sta,
+void mt7663_mac_set_rates(struct mt7615_dev *dev, struct mt7615_sta *sta,
 			  struct ieee80211_tx_rate *probe_rate,
 			  struct ieee80211_tx_rate *rates);
 int mt7663_mcu_wtbl_bmc(struct mt7615_dev *dev, struct ieee80211_vif *vif,
@@ -266,12 +241,12 @@ void mt7663_tx_complete_skb(struct mt76_dev *mdev, enum mt76_txq_id qid,
 
 void mt7663_queue_rx_skb(struct mt76_dev *mdev, enum mt76_rxq_id q,
 			 struct sk_buff *skb);
-void mt7663_sta_ps(struct mt76_dev *mdev, struct ieee80211_sta *sta, bool ps);
-int mt7663_sta_add(struct mt76_dev *mdev, struct ieee80211_vif *vif,
+void mt7615_sta_ps(struct mt76_dev *mdev, struct ieee80211_sta *sta, bool ps);
+int mt7615_sta_add(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 		   struct ieee80211_sta *sta);
-void mt7663_sta_assoc(struct mt76_dev *mdev, struct ieee80211_vif *vif,
+void mt7615_sta_assoc(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 		      struct ieee80211_sta *sta);
-void mt7663_sta_remove(struct mt76_dev *mdev, struct ieee80211_vif *vif,
+void mt7615_sta_remove(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 		       struct ieee80211_sta *sta);
 void mt7663_mac_work(struct work_struct *work);
 void mt7663_mac_cca_stats_reset(struct mt7615_dev *dev);
@@ -294,7 +269,7 @@ void mt7663u_mac_write_txwi(struct mt7615_dev *dev, struct mt76_wcid *wcid,
 			    struct sk_buff *skb);
 void mt7663u_rc_work(struct work_struct *work);
 int mt7663u_register_device(struct mt7615_dev *dev);
-void mt7663u_mac_set_rates(struct mt7615_dev *dev, struct mt7663_sta *sta,
+void mt7663u_mac_set_rates(struct mt7615_dev *dev, struct mt7615_sta *sta,
 			   struct ieee80211_tx_rate *probe_rate,
 			   struct ieee80211_tx_rate *rates);
 

@@ -635,7 +635,7 @@ EXPORT_SYMBOL_GPL(mt7663_mcu_ctrl_pm_state);
 int mt7663_mcu_set_dev_info(struct mt7615_dev *dev,
 			    struct ieee80211_vif *vif, bool enable)
 {
-	struct mt7663_vif *mvif = (struct mt7663_vif *)vif->drv_priv;
+	struct mt7615_vif *mvif = (struct mt7615_vif *)vif->drv_priv;
 	struct {
 		struct req_hdr {
 			u8 omac_idx;
@@ -672,7 +672,7 @@ int mt7663_mcu_set_dev_info(struct mt7615_dev *dev,
 }
 
 static void
-mt7663_mcu_bss_info_omac_header(struct mt7663_vif *mvif, u8 *data,
+mt7663_mcu_bss_info_omac_header(struct mt7615_vif *mvif, u8 *data,
 				u32 conn_type)
 {
 	struct bss_info_omac *hdr = (struct bss_info_omac *)data;
@@ -692,7 +692,7 @@ mt7663_mcu_bss_info_basic_header(struct ieee80211_vif *vif, u8 *data,
 				 u32 net_type, u8 tx_wlan_idx,
 				 bool enable)
 {
-	struct mt7663_vif *mvif = (struct mt7663_vif *)vif->drv_priv;
+	struct mt7615_vif *mvif = (struct mt7615_vif *)vif->drv_priv;
 	struct bss_info_basic *hdr = (struct bss_info_basic *)data;
 
 	hdr->tag = cpu_to_le16(BSS_INFO_BASIC);
@@ -707,7 +707,7 @@ mt7663_mcu_bss_info_basic_header(struct ieee80211_vif *vif, u8 *data,
 }
 
 static void
-mt7663_mcu_bss_info_ext_header(struct mt7663_vif *mvif, u8 *data)
+mt7663_mcu_bss_info_ext_header(struct mt7615_vif *mvif, u8 *data)
 {
 /* SIFS 20us + 512 byte beacon tranmitted by 1Mbps (3906us) */
 #define BCN_TX_ESTIMATE_TIME (4096 + 20)
@@ -727,7 +727,7 @@ mt7663_mcu_bss_info_ext_header(struct mt7663_vif *mvif, u8 *data)
 int mt7663_mcu_set_bss_info(struct mt7615_dev *dev,
 			    struct ieee80211_vif *vif, int en)
 {
-	struct mt7663_vif *mvif = (struct mt7663_vif *)vif->drv_priv;
+	struct mt7615_vif *mvif = (struct mt7615_vif *)vif->drv_priv;
 	struct req_hdr {
 		u8 bss_idx;
 		u8 rsv0;
@@ -762,7 +762,7 @@ int mt7663_mcu_set_bss_info(struct mt7615_dev *dev,
 		/* TODO: enable BSS_INFO_UAPSD & BSS_INFO_PM */
 		if (en) {
 			struct ieee80211_sta *sta;
-			struct mt7663_sta *msta;
+			struct mt7615_sta *msta;
 
 			rcu_read_lock();
 			sta = ieee80211_find_sta(vif, vif->bss_conf.bssid);
@@ -771,7 +771,7 @@ int mt7663_mcu_set_bss_info(struct mt7615_dev *dev,
 				return -EINVAL;
 			}
 
-			msta = (struct mt7663_sta *)sta->drv_priv;
+			msta = (struct mt7615_sta *)sta->drv_priv;
 			tx_wlan_idx = msta->wcid.idx;
 			rcu_read_unlock();
 		}
@@ -825,7 +825,7 @@ int mt7663_mcu_set_bss_info(struct mt7615_dev *dev,
 
 static int
 mt7663_mcu_add_wtbl_bmc(struct mt7615_dev *dev,
-			struct mt7663_vif *mvif)
+			struct mt7615_vif *mvif)
 {
 	struct {
 		struct wtbl_req_hdr hdr;
@@ -859,7 +859,7 @@ mt7663_mcu_add_wtbl_bmc(struct mt7615_dev *dev,
 int mt7663_mcu_wtbl_bmc(struct mt7615_dev *dev,
 			struct ieee80211_vif *vif, bool enable)
 {
-	struct mt7663_vif *mvif = (struct mt7663_vif *)vif->drv_priv;
+	struct mt7615_vif *mvif = (struct mt7615_vif *)vif->drv_priv;
 
 	if (!enable) {
 		struct wtbl_req_hdr req = {
@@ -877,8 +877,8 @@ int mt7663_mcu_wtbl_bmc(struct mt7615_dev *dev,
 int mt7663_mcu_add_wtbl(struct mt7615_dev *dev, struct ieee80211_vif *vif,
 			struct ieee80211_sta *sta)
 {
-	struct mt7663_vif *mvif = (struct mt7663_vif *)vif->drv_priv;
-	struct mt7663_sta *msta = (struct mt7663_sta *)sta->drv_priv;
+	struct mt7615_vif *mvif = (struct mt7615_vif *)vif->drv_priv;
+	struct mt7615_sta *msta = (struct mt7615_sta *)sta->drv_priv;
 	struct {
 		struct wtbl_req_hdr hdr;
 		struct wtbl_generic g_wtbl;
@@ -913,7 +913,7 @@ int mt7663_mcu_add_wtbl(struct mt7615_dev *dev, struct ieee80211_vif *vif,
 int mt7663_mcu_del_wtbl(struct mt7615_dev *dev,
 			struct ieee80211_sta *sta)
 {
-	struct mt7663_sta *msta = (struct mt7663_sta *)sta->drv_priv;
+	struct mt7615_sta *msta = (struct mt7615_sta *)sta->drv_priv;
 	struct wtbl_req_hdr req = {
 		.wlan_idx = msta->wcid.idx,
 		.operation = WTBL_RESET_AND_SET,
@@ -936,7 +936,7 @@ int mt7663_mcu_del_wtbl_all(struct mt7615_dev *dev)
 int mt7663_mcu_set_sta_rec_bmc(struct mt7615_dev *dev,
 			       struct ieee80211_vif *vif, bool en)
 {
-	struct mt7663_vif *mvif = (struct mt7663_vif *)vif->drv_priv;
+	struct mt7615_vif *mvif = (struct mt7615_vif *)vif->drv_priv;
 	int len = MT7663_STA_REC_UPDATE_MAX_SIZE;
 	int buf_len = sizeof(struct sta_req_hdr);
 	int ret = 0;
@@ -1109,8 +1109,8 @@ static int
 mt7663_mcu_sta_rec_wtbl_header(struct ieee80211_vif *vif, u8 *data,
 			       struct ieee80211_sta *sta)
 {
-	struct mt7663_vif *mvif = (struct mt7663_vif *)vif->drv_priv;
-	struct mt7663_sta *msta = (struct mt7663_sta *)sta->drv_priv;
+	struct mt7615_vif *mvif = (struct mt7615_vif *)vif->drv_priv;
+	struct mt7615_sta *msta = (struct mt7615_sta *)sta->drv_priv;
 
 	struct sta_rec_wtbl *hdr = (struct sta_rec_wtbl *)data;
 	struct wtbl_req_hdr *hdr_wtbl;
@@ -1245,8 +1245,8 @@ mt7663_mcu_sta_rec_wtbl_header(struct ieee80211_vif *vif, u8 *data,
 int mt7663_mcu_set_sta_rec(struct mt7615_dev *dev, struct ieee80211_vif *vif,
 			   struct ieee80211_sta *sta, bool en)
 {
-	struct mt7663_vif *mvif = (struct mt7663_vif *)vif->drv_priv;
-	struct mt7663_sta *msta = (struct mt7663_sta *)sta->drv_priv;
+	struct mt7615_vif *mvif = (struct mt7615_vif *)vif->drv_priv;
+	struct mt7615_sta *msta = (struct mt7615_sta *)sta->drv_priv;
 	int len = MT7663_STA_REC_UPDATE_MAX_SIZE;
 	int i, ntlv = 0, features, buf_len = sizeof(struct sta_req_hdr);
 	struct sta_req_hdr *hdr;
@@ -1350,7 +1350,7 @@ out:
 int mt7663_mcu_set_bcn(struct mt7615_dev *dev, struct ieee80211_vif *vif,
 		       int en)
 {
-	struct mt7663_vif *mvif = (struct mt7663_vif *)vif->drv_priv;
+	struct mt7615_vif *mvif = (struct mt7615_vif *)vif->drv_priv;
 	struct mt76_wcid *wcid = &dev->mt76.global_wcid;
 	struct ieee80211_mutable_offsets offs;
 	struct req {
@@ -1598,8 +1598,8 @@ int mt7663_mcu_set_tx_ba(struct mt7615_dev *dev,
 			 struct ieee80211_ampdu_params *params,
 			 bool add)
 {
-	struct mt7663_sta *msta = (struct mt7663_sta *)params->sta->drv_priv;
-	struct mt7663_vif *mvif = msta->vif;
+	struct mt7615_sta *msta = (struct mt7615_sta *)params->sta->drv_priv;
+	struct mt7615_vif *mvif = msta->vif;
 	struct {
 		struct wtbl_req_hdr hdr;
 		struct wtbl_ba ba;
@@ -1656,8 +1656,8 @@ int mt7663_mcu_set_rx_ba(struct mt7615_dev *dev,
 			 struct ieee80211_ampdu_params *params,
 			 bool add)
 {
-	struct mt7663_sta *msta = (struct mt7663_sta *)params->sta->drv_priv;
-	struct mt7663_vif *mvif = msta->vif;
+	struct mt7615_sta *msta = (struct mt7615_sta *)params->sta->drv_priv;
+	struct mt7615_vif *mvif = msta->vif;
 	struct {
 		struct wtbl_req_hdr hdr;
 		struct wtbl_ba ba;

@@ -82,8 +82,8 @@ int mt7663_register_device(struct mt7615_dev *dev)
 	hw->max_report_rates = 7;
 	hw->max_rate_tries = 11;
 
-	hw->sta_data_size = sizeof(struct mt7663_sta);
-	hw->vif_data_size = sizeof(struct mt7663_vif);
+	hw->sta_data_size = sizeof(struct mt7615_sta);
+	hw->vif_data_size = sizeof(struct mt7615_vif);
 
 	wiphy->iface_combinations = if_comb;
 	wiphy->n_iface_combinations = ARRAY_SIZE(if_comb);

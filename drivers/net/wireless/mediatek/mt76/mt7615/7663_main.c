@@ -51,7 +51,7 @@ static int get_omac_idx(enum nl80211_iftype type, u32 mask)
 int mt7663_add_interface(struct ieee80211_hw *hw,
 			 struct ieee80211_vif *vif)
 {
-	struct mt7663_vif *mvif = (struct mt7663_vif *)vif->drv_priv;
+	struct mt7615_vif *mvif = (struct mt7615_vif *)vif->drv_priv;
 	struct mt7615_dev *dev = hw->priv;
 	struct mt76_txq *mtxq;
 	int idx, ret = 0;
@@ -99,7 +99,7 @@ EXPORT_SYMBOL_GPL(mt7663_add_interface);
 void mt7663_remove_interface(struct ieee80211_hw *hw,
 			     struct ieee80211_vif *vif)
 {
-	struct mt7663_vif *mvif = (struct mt7663_vif *)vif->drv_priv;
+	struct mt7615_vif *mvif = (struct mt7615_vif *)vif->drv_priv;
 	struct mt7615_dev *dev = hw->priv;
 	int idx = mvif->sta.wcid.idx;
 
@@ -174,7 +174,7 @@ int mt7663_conf_tx(struct ieee80211_hw *hw,
 		[IEEE80211_AC_VI]/*1*/ = 2,
 		[IEEE80211_AC_VO]/*0*/ = 4,
 	};
-	struct mt7663_vif *mvif = (struct mt7663_vif *)vif->drv_priv;
+	struct mt7615_vif *mvif = (struct mt7615_vif *)vif->drv_priv;
 	struct mt7615_dev *dev = hw->priv;
 	u16 wmm_mapping = mvif->wmm_idx * MT7663_MAX_WMM_SETS;
 
@@ -211,12 +211,12 @@ void mt7663_bss_info_changed(struct ieee80211_hw *hw,
 }
 EXPORT_SYMBOL_GPL(mt7663_bss_info_changed);
 
-int mt7663_sta_add(struct mt76_dev *mdev, struct ieee80211_vif *vif,
+int mt7615_sta_add(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 		   struct ieee80211_sta *sta)
 {
 	struct mt7615_dev *dev = container_of(mdev, struct mt7615_dev, mt76);
-	struct mt7663_sta *msta = (struct mt7663_sta *)sta->drv_priv;
-	struct mt7663_vif *mvif = (struct mt7663_vif *)vif->drv_priv;
+	struct mt7615_sta *msta = (struct mt7615_sta *)sta->drv_priv;
+	struct mt7615_vif *mvif = (struct mt7615_vif *)vif->drv_priv;
 	int idx;
 
 	idx = mt76_wcid_alloc(dev->mt76.wcid_mask, MT7663_WTBL_STA - 1);
@@ -231,25 +231,25 @@ int mt7663_sta_add(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(mt7663_sta_add);
+EXPORT_SYMBOL_GPL(mt7615_sta_add);
 
-void mt7663_sta_assoc(struct mt76_dev *mdev, struct ieee80211_vif *vif,
+void mt7615_sta_assoc(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 		      struct ieee80211_sta *sta)
 {
 	struct mt7615_dev *dev = container_of(mdev, struct mt7615_dev, mt76);
 
 	mt7663_mcu_set_sta_rec(dev, vif, sta, 1);
 }
-EXPORT_SYMBOL_GPL(mt7663_sta_assoc);
+EXPORT_SYMBOL_GPL(mt7615_sta_assoc);
 
-void mt7663_sta_remove(struct mt76_dev *mdev, struct ieee80211_vif *vif,
+void mt7615_sta_remove(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 		       struct ieee80211_sta *sta)
 {
 	struct mt7615_dev *dev = container_of(mdev, struct mt7615_dev, mt76);
 
 	mt7663_mcu_set_sta_rec(dev, vif, sta, 0);
 }
-EXPORT_SYMBOL_GPL(mt7663_sta_remove);
+EXPORT_SYMBOL_GPL(mt7615_sta_remove);
 
 void mt7663_tx(struct ieee80211_hw *hw,
 	       struct ieee80211_tx_control *control,
@@ -265,16 +265,16 @@ void mt7663_tx(struct ieee80211_hw *hw,
 	wcid = &dev->mt76.global_wcid;
 
 	if (control->sta) {
-		struct mt7663_sta *sta;
+		struct mt7615_sta *sta;
 
-		sta = (struct mt7663_sta *)control->sta->drv_priv;
+		sta = (struct mt7615_sta *)control->sta->drv_priv;
 		wcid = &sta->wcid;
 	}
 
 	if (vif && !control->sta) {
-		struct mt7663_vif *mvif;
+		struct mt7615_vif *mvif;
 
-		mvif = (struct mt7663_vif *)vif->drv_priv;
+		mvif = (struct mt7615_vif *)vif->drv_priv;
 		wcid = &mvif->sta.wcid;
 	}
 
@@ -302,7 +302,7 @@ int mt7663_ampdu_action(struct ieee80211_hw *hw,
 	struct mt7615_dev *dev = hw->priv;
 	struct ieee80211_sta *sta = params->sta;
 	struct ieee80211_txq *txq = sta->txq[params->tid];
-	struct mt7663_sta *msta = (struct mt7663_sta *)sta->drv_priv;
+	struct mt7615_sta *msta = (struct mt7615_sta *)sta->drv_priv;
 	u16 tid = params->tid;
 	u16 ssn = params->ssn;
 	struct mt76_txq *mtxq;
