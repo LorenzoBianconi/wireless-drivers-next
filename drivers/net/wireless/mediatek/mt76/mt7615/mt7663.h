@@ -110,18 +110,6 @@ struct mt7663_dev {
 	struct list_head rc_processing;
 };
 
-struct mt7663_rate_desc {
-	int wcid;
-	u8 bw;
-	u8 bw_idx;
-	u16 val[4];
-	u16 probe_val;
-	bool rateset;
-
-	struct mt7615_sta *sta;
-	struct list_head node;
-};
-
 enum {
 	MT_HW_RDD0,
 	MT_HW_RDD1,
@@ -256,8 +244,6 @@ int mt7663_dfs_init_radar_detector(struct mt7615_dev *dev);
 
 int mt7663_init_debugfs(struct mt7615_dev *dev);
 
-int __mt7663u_mac_set_rates(struct mt7615_dev *dev,
-			    struct mt7663_rate_desc *rc);
 void mt7663u_mac_cca_stats_reset(struct mt7615_dev *dev);
 int mt7663u_mac_wtbl_set_key(struct mt7615_dev *dev,
 			     struct mt76_wcid *wcid,
@@ -267,7 +253,6 @@ int mt7663u_mcu_init(struct mt7615_dev *dev);
 void mt7663u_mac_write_txwi(struct mt7615_dev *dev, struct mt76_wcid *wcid,
 			    enum mt76_txq_id qid, struct ieee80211_sta *sta,
 			    struct sk_buff *skb);
-void mt7663u_rc_work(struct work_struct *work);
 int mt7663u_register_device(struct mt7615_dev *dev);
 
 int mt7663_poll_tx(struct napi_struct *napi, int budget);

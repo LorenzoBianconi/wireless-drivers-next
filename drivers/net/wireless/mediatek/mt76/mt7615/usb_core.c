@@ -59,25 +59,21 @@ mt7663u_sta_rate_tbl_update(struct ieee80211_hw *hw,
 	spin_unlock_bh(&dev->mt76.lock);
 }
 
-void mt7663u_rc_work(struct work_struct *work)
+void mt7663u_rate_work(struct work_struct *work)
 {
+	struct mt7615_rate_desc *rd, *rd_next;
 	struct mt7615_dev *dev;
-	struct mt7663_rate_desc *rc, *tmp_rc;
-	int err;
 
 	dev = (struct mt7615_dev *)container_of(work, struct mt7615_dev,
 						rate_work);
 
-	list_for_each_entry_safe(rc, tmp_rc, &dev->rd_head, node) {
+	list_for_each_entry_safe(rd, rd_next, &dev->rd_head, node) {
 		spin_lock_bh(&dev->mt76.lock);
-		list_del(&rc->node);
+		list_del(&rd->node);
 		spin_unlock_bh(&dev->mt76.lock);
 
-		err = __mt7663u_mac_set_rates(dev, rc);
-		if (err)
-			dev_err(dev->mt76.dev, "something wrong in setting rate\n");
-
-		kfree(rc);
+		__mt7663u_mac_set_rates(dev, rd);
+		kfree(rd);
 	}
 }
 

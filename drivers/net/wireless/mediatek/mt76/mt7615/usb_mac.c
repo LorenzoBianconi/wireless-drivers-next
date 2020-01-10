@@ -20,9 +20,9 @@ static u32 mt7663u_mac_wtbl_addr(struct mt7615_dev *dev, int wcid)
 }
 
 int __mt7663u_mac_set_rates(struct mt7615_dev *dev,
-			    struct mt7663_rate_desc *rc)
+			    struct mt7615_rate_desc *rd)
 {
-	u32 addr = mt7663u_mac_wtbl_addr(dev, rc->wcid);
+	u32 addr = mt7663u_mac_wtbl_addr(dev, rd->wcid);
 	u32 w5, w27;
 
 	if (!mt76_poll(dev, MT_WTBL_UPDATE, MT_WTBL_UPDATE_BUSY, 0, 5000))
@@ -30,51 +30,51 @@ int __mt7663u_mac_set_rates(struct mt7615_dev *dev,
 
 	w27 = mt76_rr(dev, addr + 27 * 4);
 	w27 &= ~MT_WTBL_W27_CC_BW_SEL;
-	w27 |= FIELD_PREP(MT_WTBL_W27_CC_BW_SEL, rc->bw);
+	w27 |= FIELD_PREP(MT_WTBL_W27_CC_BW_SEL, rd->bw);
 
 	w5 = mt76_rr(dev, addr + 5 * 4);
 	w5 &= ~(MT_WTBL_W5_BW_CAP | MT_WTBL_W5_CHANGE_BW_RATE |
 		MT_WTBL_W5_MPDU_OK_COUNT |
 		MT_WTBL_W5_MPDU_FAIL_COUNT |
 		MT_WTBL_W5_RATE_IDX);
-	w5 |= FIELD_PREP(MT_WTBL_W5_BW_CAP, rc->bw) |
+	w5 |= FIELD_PREP(MT_WTBL_W5_BW_CAP, rd->bw) |
 	      FIELD_PREP(MT_WTBL_W5_CHANGE_BW_RATE,
-			 rc->bw_idx ? rc->bw_idx - 1 : 7);
+			 rd->bw_idx ? rd->bw_idx - 1 : 7);
 
 	mt76_wr(dev, MT_WTBL_RIUCR0, w5);
 
 	mt76_wr(dev, MT_WTBL_RIUCR1,
-		FIELD_PREP(MT_WTBL_RIUCR1_RATE0, rc->probe_val) |
-		FIELD_PREP(MT_WTBL_RIUCR1_RATE1, rc->val[0]) |
-		FIELD_PREP(MT_WTBL_RIUCR1_RATE2_LO, rc->val[1]));
+		FIELD_PREP(MT_WTBL_RIUCR1_RATE0, rd->probe_val) |
+		FIELD_PREP(MT_WTBL_RIUCR1_RATE1, rd->val[0]) |
+		FIELD_PREP(MT_WTBL_RIUCR1_RATE2_LO, rd->val[1]));
 
 	mt76_wr(dev, MT_WTBL_RIUCR2,
-		FIELD_PREP(MT_WTBL_RIUCR2_RATE2_HI, rc->val[1] >> 8) |
-		FIELD_PREP(MT_WTBL_RIUCR2_RATE3, rc->val[1]) |
-		FIELD_PREP(MT_WTBL_RIUCR2_RATE4, rc->val[2]) |
-		FIELD_PREP(MT_WTBL_RIUCR2_RATE5_LO, rc->val[2]));
+		FIELD_PREP(MT_WTBL_RIUCR2_RATE2_HI, rd->val[1] >> 8) |
+		FIELD_PREP(MT_WTBL_RIUCR2_RATE3, rd->val[1]) |
+		FIELD_PREP(MT_WTBL_RIUCR2_RATE4, rd->val[2]) |
+		FIELD_PREP(MT_WTBL_RIUCR2_RATE5_LO, rd->val[2]));
 
 	mt76_wr(dev, MT_WTBL_RIUCR3,
-		FIELD_PREP(MT_WTBL_RIUCR3_RATE5_HI, rc->val[2] >> 4) |
-		FIELD_PREP(MT_WTBL_RIUCR3_RATE6, rc->val[3]) |
-		FIELD_PREP(MT_WTBL_RIUCR3_RATE7, rc->val[3]));
+		FIELD_PREP(MT_WTBL_RIUCR3_RATE5_HI, rd->val[2] >> 4) |
+		FIELD_PREP(MT_WTBL_RIUCR3_RATE6, rd->val[3]) |
+		FIELD_PREP(MT_WTBL_RIUCR3_RATE7, rd->val[3]));
 
 	mt76_wr(dev, MT_WTBL_UPDATE,
-		FIELD_PREP(MT_WTBL_UPDATE_WLAN_IDX, rc->wcid) |
+		FIELD_PREP(MT_WTBL_UPDATE_WLAN_IDX, rd->wcid) |
 		MT_WTBL_UPDATE_RATE_UPDATE |
 		MT_WTBL_UPDATE_TX_COUNT_CLEAR);
 
 	mt76_wr(dev, addr + 27 * 4, w27);
 
 	mt76_set(dev, MT_LPON_T0CR, MT_LPON_T0CR_MODE); /* TSF read */
-	rc->sta->rate_set_tsf = mt76_rr(dev, MT_LPON_UTTR0) & ~BIT(0);
-	rc->sta->rate_set_tsf |= rc->rateset;
+	rd->sta->rate_set_tsf = mt76_rr(dev, MT_LPON_UTTR0) & ~BIT(0);
+	rd->sta->rate_set_tsf |= rd->rateset;
 
-	if (!(rc->sta->wcid.tx_info & MT_WCID_TX_INFO_SET))
+	if (!(rd->sta->wcid.tx_info & MT_WCID_TX_INFO_SET))
 		mt76_poll(dev, MT_WTBL_UPDATE, MT_WTBL_UPDATE_BUSY, 0, 5000);
 
-	rc->sta->rate_count = 2 * MT7663_RATE_RETRY * rc->sta->n_rates;
-	rc->sta->wcid.tx_info |= MT_WCID_TX_INFO_SET;
+	rd->sta->rate_count = 2 * MT7663_RATE_RETRY * rd->sta->n_rates;
+	rd->sta->wcid.tx_info |= MT_WCID_TX_INFO_SET;
 
 	return 0;
 }
