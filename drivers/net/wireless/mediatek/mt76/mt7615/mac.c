@@ -945,11 +945,9 @@ mt7615_mac_wtbl_update_pk(struct mt7615_dev *dev, struct mt76_wcid *wcid,
 
 static void
 mt7615_mac_wtbl_update_cipher(struct mt7615_dev *dev, struct mt76_wcid *wcid,
-			      enum mt7615_cipher_type cipher,
+			      u32 addr, enum mt7615_cipher_type cipher,
 			      enum set_key_cmd cmd)
 {
-	u32 addr = mt7615_mac_wtbl_addr(wcid->idx);
-
 	if (cmd == SET_KEY) {
 		if (cipher != MT_CIPHER_BIP_CMAC_128 || !wcid->cipher)
 			mt76_rmw(dev, addr + 2 * 4, MT_WTBL_W2_KEY_TYPE,
@@ -970,6 +968,7 @@ int mt7615_mac_wtbl_set_key(struct mt7615_dev *dev,
 			    struct ieee80211_key_conf *key,
 			    enum set_key_cmd cmd)
 {
+	u32 addr = mt7615_mac_wtbl_addr(wcid->idx);
 	enum mt7615_cipher_type cipher;
 	int err;
 
@@ -979,7 +978,7 @@ int mt7615_mac_wtbl_set_key(struct mt7615_dev *dev,
 
 	spin_lock_bh(&dev->mt76.lock);
 
-	mt7615_mac_wtbl_update_cipher(dev, wcid, cipher, cmd);
+	mt7615_mac_wtbl_update_cipher(dev, wcid, addr, cipher, cmd);
 	err = mt7615_mac_wtbl_update_key(dev, wcid, key, cipher, cmd);
 	if (err < 0)
 		goto out;
