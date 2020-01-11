@@ -456,37 +456,6 @@ int mt7663_mcu_set_eeprom(struct mt7615_dev *dev)
 }
 EXPORT_SYMBOL_GPL(mt7663_mcu_set_eeprom);
 
-int mt7663_mcu_ctrl_pm_state(struct mt7615_dev *dev, int enter)
-{
-#define ENTER_PM_STATE	1
-#define EXIT_PM_STATE	2
-	struct {
-		u8 pm_number;
-		u8 pm_state;
-		u8 bssid[ETH_ALEN];
-		u8 dtim_period;
-		u8 wlan_idx;
-		__le16 bcn_interval;
-		__le32 aid;
-		__le32 rx_filter;
-		u8 band_idx;
-		u8 rsv[3];
-		__le32 feature;
-		u8 omac_idx;
-		u8 wmm_idx;
-		u8 bcn_loss_cnt;
-		u8 bcn_sp_duration;
-	} __packed req = {
-		.pm_number = 5,
-		.pm_state = (enter) ? ENTER_PM_STATE : EXIT_PM_STATE,
-		.band_idx = 0,
-	};
-
-	return __mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD_PM_STATE_CTRL,
-				   &req, sizeof(req), true);
-}
-EXPORT_SYMBOL_GPL(mt7663_mcu_ctrl_pm_state);
-
 int mt7663_mcu_set_sta_rec_bmc(struct mt7615_dev *dev,
 			       struct ieee80211_vif *vif, bool en)
 {

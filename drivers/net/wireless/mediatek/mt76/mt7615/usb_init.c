@@ -209,7 +209,7 @@ mt7663u_init_hardware(struct mt7615_dev *dev)
 
 	mt7663_mcu_set_eeprom(dev);
 	mt7663u_mac_init(dev);
-	mt7663_mcu_ctrl_pm_state(dev, 0);
+	mt7615_mcu_ctrl_pm_state(dev, 0, 0);
 	/* MT7663e : F/W halWtblClearAllWtbl() will do this in init. */
 	/* mt7663u_mcu_del_wtbl_all(dev); */
 
