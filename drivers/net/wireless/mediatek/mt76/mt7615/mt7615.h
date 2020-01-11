@@ -444,7 +444,6 @@ int mt7663u_mac_wtbl_set_key(struct mt7615_dev *dev,
 			     enum set_key_cmd cmd);
 int mt7663_mcu_set_sta_rec_bmc(struct mt7615_dev *dev,
 			       struct ieee80211_vif *vif, bool en);
-int mt7663_mcu_set_channel(struct mt7615_dev *dev);
 void mt7663_mac_cca_stats_reset(struct mt7615_dev *dev);
 int mt7663_mcu_ctrl_pm_state(struct mt7615_dev *dev, int enter);
 void mt7663u_mac_write_txwi(struct mt7615_dev *dev, struct mt76_wcid *wcid,

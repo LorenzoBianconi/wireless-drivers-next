@@ -159,7 +159,7 @@ static int mt7663u_set_channel(struct mt7615_dev *dev)
 	phy->dfs_state = -1;
 	mt76_set_channel(&dev->mphy);
 
-	ret = mt7663_mcu_set_channel(dev);
+	ret = mt7615_mcu_set_channel(phy);
 	if (ret)
 		goto out;
 
