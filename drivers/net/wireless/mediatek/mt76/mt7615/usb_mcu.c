@@ -97,7 +97,7 @@ int mt7663u_mcu_init(struct mt7615_dev *dev)
 {
 	static const struct mt76_mcu_ops mt7663u_mcu_ops = {
 		.mcu_send_msg = mt7663u_mcu_msg_send,
-		.mcu_restart = mt7663_mcu_restart,
+		.mcu_restart = mt7615_mcu_restart,
 	};
 	int ret;
 
@@ -106,7 +106,7 @@ int mt7663u_mcu_init(struct mt7615_dev *dev)
 	mt76_set(dev, MT_UDMA_TX_QSEL, MT_FW_DL_EN);
 
 	if (test_and_clear_bit(MT76_STATE_POWER_OFF, &dev->mphy.state)) {
-		mt7663_mcu_restart(&dev->mt76);
+		mt7615_mcu_restart(&dev->mt76);
 		if (!mt76_poll_msec(dev, MT_CONN_ON_MISC,
 				    MT_TOP_MISC2_FW_PWR_ON, 0, 500))
 			return -EIO;

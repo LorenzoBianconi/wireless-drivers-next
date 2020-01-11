@@ -206,13 +206,6 @@ static int mt7663_mcu_start_firmware(struct mt7615_dev *dev, u32 addr,
 				   &req, sizeof(req), true);
 }
 
-int mt7663_mcu_restart(struct mt76_dev *dev)
-{
-	return __mt76_mcu_send_msg(dev, -MCU_CMD_RESTART_DL_REQ, NULL,
-				   0, true);
-}
-EXPORT_SYMBOL_GPL(mt7663_mcu_restart);
-
 static int mt7663_mcu_patch_sem_ctrl(struct mt7615_dev *dev, bool get)
 {
 	struct {
