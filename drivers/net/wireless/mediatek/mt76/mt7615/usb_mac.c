@@ -199,7 +199,7 @@ int mt7663u_mac_wtbl_set_key(struct mt7615_dev *dev,
 	mutex_lock(&dev->mt76.mutex);
 
 	mt7615_mac_wtbl_update_cipher(dev, wcid, addr, cipher, cmd);
-	err = mt7663_mac_wtbl_update_key(dev, wcid, addr, key, cipher, cmd);
+	err = mt7615_mac_wtbl_update_key(dev, wcid, addr, key, cipher, cmd);
 	if (err < 0)
 		goto out;
 

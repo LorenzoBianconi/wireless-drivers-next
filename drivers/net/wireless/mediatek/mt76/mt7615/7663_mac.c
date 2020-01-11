@@ -219,44 +219,6 @@ int mt7663_mac_fill_rx(struct mt7615_dev *dev, struct sk_buff *skb)
 	return 0;
 }
 
-int mt7663_mac_wtbl_update_key(struct mt7615_dev *dev, struct mt76_wcid *wcid,
-			       u32 base_addr, struct ieee80211_key_conf *key,
-			       int cipher, enum set_key_cmd cmd)
-{
-	u32 addr = base_addr + 30 * 4;
-	u8 data[32] = {};
-
-	if (key->keylen > sizeof(data))
-		return -EINVAL;
-
-	mt76_rr_copy(dev, addr, data, sizeof(data));
-	if (cmd == SET_KEY) {
-		if (cipher == MT_CIPHER_TKIP) {
-			/* Rx/Tx MIC keys are swapped */
-			memcpy(data + 16, key->key + 24, 8);
-			memcpy(data + 24, key->key + 16, 8);
-		}
-		if (cipher != MT_CIPHER_BIP_CMAC_128 && wcid->cipher)
-			memmove(data + 16, data, 16);
-		if (cipher != MT_CIPHER_BIP_CMAC_128 || !wcid->cipher)
-			memcpy(data, key->key, key->keylen);
-		else if (cipher == MT_CIPHER_BIP_CMAC_128)
-			memcpy(data + 16, key->key, 16);
-	} else {
-		if (wcid->cipher & ~BIT(cipher)) {
-			if (cipher != MT_CIPHER_BIP_CMAC_128)
-				memmove(data, data + 16, 16);
-			memset(data + 16, 0, 16);
-		} else {
-			memset(data, 0, sizeof(data));
-		}
-	}
-	mt76_wr_copy(dev, addr, data, sizeof(data));
-
-	return 0;
-}
-EXPORT_SYMBOL_GPL(mt7663_mac_wtbl_update_key);
-
 static bool mt7663_fill_txs(struct mt7615_dev *dev, struct mt7615_sta *sta,
 			    struct ieee80211_tx_info *info, __le32 *txs_data)
 {
