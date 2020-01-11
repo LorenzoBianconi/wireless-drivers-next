@@ -455,9 +455,6 @@ void mt7663u_mac_write_txwi(struct mt7615_dev *dev, struct mt76_wcid *wcid,
 			    struct sk_buff *skb);
 void mt7663_queue_rx_skb(struct mt76_dev *mdev, enum mt76_rxq_id q,
 			 struct sk_buff *skb);
-void mt7663_mac_wtbl_update_cipher(struct mt7615_dev *dev,
-				   struct mt76_wcid *wcid, u32 addr,
-				   int cipher, enum set_key_cmd cmd);
 int mt7663_mac_wtbl_update_key(struct mt7615_dev *dev, struct mt76_wcid *wcid,
 			       u32 base_addr, struct ieee80211_key_conf *key,
 			       int cipher, enum set_key_cmd cmd);
