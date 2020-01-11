@@ -334,6 +334,10 @@ mt7615_wmm_queue_map(struct mt7615_dev *dev, u8 queue)
 void mt7615_irq_enable(struct mt7615_dev *dev, u32 mask);
 void mt7615_irq_disable(struct mt7615_dev *dev, u32 mask);
 
+void mt7615_init_txpower(struct mt7615_dev *dev,
+			 struct ieee80211_supported_band *sband);
+void mt7615_init_wiphy(struct ieee80211_hw *hw);
+void mt7615_cap_dbdc_disable(struct mt7615_dev *dev);
 void mt7615_sta_rate_tbl_update(struct ieee80211_hw *hw,
 				struct ieee80211_vif *vif,
 				struct ieee80211_sta *sta);
