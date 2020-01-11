@@ -422,6 +422,8 @@ int mt7615_mcu_wait_response(struct mt7615_dev *dev, int cmd, int seq);
 int mt7663_mcu_set_eeprom(struct mt7615_dev *dev);
 int mt7663_mcu_set_sta_rec(struct mt7615_dev *dev, struct ieee80211_vif *vif,
 			   struct ieee80211_sta *sta, bool en);
+int mt7663_mcu_set_sta_rec_bmc(struct mt7615_dev *dev,
+			       struct ieee80211_vif *vif, bool en);
 int mt7663u_mcu_init(struct mt7615_dev *dev);
 int mt7663_mcu_init(struct mt7615_dev *dev);
 int mt7663u_register_device(struct mt7615_dev *dev);
@@ -429,6 +431,14 @@ void mt7663u_update_channel(struct mt76_dev *mdev);
 void mt7663u_rate_work(struct work_struct *work);
 int __mt7663u_mac_set_rates(struct mt7615_dev *dev,
 			    struct mt7615_rate_desc *rd);
+int mt7663u_mac_wtbl_set_key(struct mt7615_dev *dev,
+			     struct mt76_wcid *wcid,
+			     struct ieee80211_key_conf *key,
+			     enum set_key_cmd cmd);
+void mt7663u_mac_write_txwi(struct mt7615_dev *dev, struct mt76_wcid *wcid,
+			    enum mt76_txq_id qid, struct ieee80211_sta *sta,
+			    struct sk_buff *skb);
+void mt7663u_mac_cca_stats_reset(struct mt7615_dev *dev);
 void mt7663u_mac_work(struct work_struct *work);
 int mt7663u_sta_add(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 		    struct ieee80211_sta *sta);
@@ -436,18 +446,5 @@ void mt7663u_sta_remove(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 			struct ieee80211_sta *sta);
 void mt7663u_sta_assoc(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 		       struct ieee80211_sta *sta);
-
-/* XXX */
-void mt7663u_mac_cca_stats_reset(struct mt7615_dev *dev);
-int mt7663u_mac_wtbl_set_key(struct mt7615_dev *dev,
-			     struct mt76_wcid *wcid,
-			     struct ieee80211_key_conf *key,
-			     enum set_key_cmd cmd);
-int mt7663_mcu_set_sta_rec_bmc(struct mt7615_dev *dev,
-			       struct ieee80211_vif *vif, bool en);
-void mt7663_mac_cca_stats_reset(struct mt7615_dev *dev);
-void mt7663u_mac_write_txwi(struct mt7615_dev *dev, struct mt76_wcid *wcid,
-			    enum mt76_txq_id qid, struct ieee80211_sta *sta,
-			    struct sk_buff *skb);
 
 #endif
