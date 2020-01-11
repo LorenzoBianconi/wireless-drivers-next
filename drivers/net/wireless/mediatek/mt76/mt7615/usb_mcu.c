@@ -53,7 +53,7 @@ mt7663u_mcu_msg_send(struct mt76_dev *mdev, int cmd, const void *data,
 
 	consume_skb(skb);
 	if (wait_resp)
-		ret = mt7663_mcu_wait_response(dev, cmd, seq);
+		ret = mt7615_mcu_wait_response(dev, cmd, seq);
 
 out:
 	mutex_unlock(&mdev->mcu.mutex);

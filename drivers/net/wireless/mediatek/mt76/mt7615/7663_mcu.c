@@ -118,38 +118,6 @@ void mt7663_mcu_fill_msg(struct mt7615_dev *dev, struct sk_buff *skb,
 }
 EXPORT_SYMBOL_GPL(mt7663_mcu_fill_msg);
 
-int mt7663_mcu_wait_response(struct mt7615_dev *dev, int cmd, int seq)
-{
-	unsigned long expires = jiffies + 10 * HZ;
-	struct mt7663_mcu_rxd *rxd;
-	struct sk_buff *skb;
-	int ret = 0;
-
-	while (true) {
-		skb = mt76_mcu_get_response(&dev->mt76.mcu, expires);
-		if (!skb) {
-			dev_err(dev->mt76.dev, "Message %d (seq %d) timeout\n",
-				cmd, seq);
-			return -ETIMEDOUT;
-		}
-
-		rxd = (struct mt7663_mcu_rxd *)skb->data;
-		if (seq != rxd->seq)
-			continue;
-
-		if (cmd == -MCU_CMD_PATCH_SEM_CONTROL) {
-			skb_pull(skb, sizeof(*rxd) - 4);
-			ret = *skb->data;
-		}
-
-		dev_kfree_skb(skb);
-		break;
-	}
-
-	return ret;
-}
-EXPORT_SYMBOL_GPL(mt7663_mcu_wait_response);
-
 static int mt7663_mcu_init_download(struct mt7615_dev *dev, u32 addr,
 				    u32 len, u32 mode)
 {
