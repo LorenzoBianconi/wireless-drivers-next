@@ -72,7 +72,7 @@ static int mt7663u_load_firmware(struct mt7615_dev *dev)
 		return -EIO;
 	}
 
-	ret = mt7663_mcu_load_patch(dev);
+	ret = mt7615_load_patch(dev);
 	if (ret)
 		return ret;
 

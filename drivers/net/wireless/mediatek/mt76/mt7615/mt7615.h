@@ -448,9 +448,5 @@ void mt7663u_mac_write_txwi(struct mt7615_dev *dev, struct mt76_wcid *wcid,
 			    enum mt76_txq_id qid, struct ieee80211_sta *sta,
 			    struct sk_buff *skb);
 int mt7663_mcu_load_ram(struct mt7615_dev *dev);
-int mt7663_mcu_load_patch(struct mt7615_dev *dev);
-void mt7663_mcu_fill_msg(struct mt7615_dev *dev, struct sk_buff *skb,
-			 int cmd, int *wait_seq);
-int mt7663_mcu_wait_response(struct mt7615_dev *dev, int cmd, int seq);
 
 #endif
