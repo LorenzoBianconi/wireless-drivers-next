@@ -9,9 +9,8 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 
-#include "mt7663.h"
 #include "mt7615.h"
-#include "7663_mac.h"
+#include "mac.h"
 #include "7663_mcu.h"
 #include "usb_sdio_regs.h"
 

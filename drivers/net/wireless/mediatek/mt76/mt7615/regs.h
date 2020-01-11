@@ -245,6 +245,7 @@
 #define MT_DMA_RCFR0_RX_DROPPED_MCAST	GENMASK(27, 26)
 
 #define MT_WTBL_BASE			0x30000
+#define MT_WTBL(ofs)			(MT_WTBL_BASE + (ofs))
 #define MT_WTBL_ENTRY_SIZE		256
 
 #define MT_WTBL_OFF_BASE		0x23400

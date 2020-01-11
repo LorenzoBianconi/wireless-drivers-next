@@ -9,9 +9,8 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 
-#include "mt7663.h"
 #include "mt7615.h"
-#include "7663_mac.h"
+#include "mac.h"
 #include "usb_sdio_regs.h"
 
 static u32 mt7663u_mac_wtbl_addr(struct mt7615_dev *dev, int wcid)
@@ -56,7 +55,7 @@ void mt7663u_mac_work(struct work_struct *work)
 
 	mt76_tx_status_check(&dev->mt76, NULL, false);
 	ieee80211_queue_delayed_work(mt76_hw(dev), &dev->mt76.mac_work,
-				     MT7663_WATCHDOG_TIME);
+				     MT7615_WATCHDOG_TIME);
 }
 
 int __mt7663u_mac_set_rates(struct mt7615_dev *dev,
@@ -113,7 +112,7 @@ int __mt7663u_mac_set_rates(struct mt7615_dev *dev,
 	if (!(rd->sta->wcid.tx_info & MT_WCID_TX_INFO_SET))
 		mt76_poll(dev, MT_WTBL_UPDATE, MT_WTBL_UPDATE_BUSY, 0, 5000);
 
-	rd->sta->rate_count = 2 * MT7663_RATE_RETRY * rd->sta->n_rates;
+	rd->sta->rate_count = 2 * MT7615_RATE_RETRY * rd->sta->n_rates;
 	rd->sta->wcid.tx_info |= MT_WCID_TX_INFO_SET;
 
 	return 0;
@@ -140,14 +139,14 @@ void mt7663u_mac_write_txwi(struct mt7615_dev *dev, struct mt76_wcid *wcid,
 
 	txwi = (__le32 *)(skb->data - MT7663_USB_TXD_SIZE);
 	memset(txwi, 0, MT7663_USB_TXD_SIZE);
-	mt7663_mac_write_txwi(dev, txwi, skb, qid, wcid, sta,
-			      pid, info->control.hw_key);
+	mt7663_mac_write_txwi(dev, txwi, skb, wcid, sta, pid,
+			      info->control.hw_key);
 	skb_push(skb, MT7663_USB_TXD_SIZE);
 }
 
 static int
 mt7663u_mac_wtbl_update_pk(struct mt7615_dev *dev, struct mt76_wcid *wcid,
-			   enum mt7663_cipher_type cipher, int keyidx,
+			   enum mt7615_cipher_type cipher, int keyidx,
 			   enum set_key_cmd cmd)
 {
 	u32 addr = mt7663u_mac_wtbl_addr(dev, wcid->idx), w0, w1;
@@ -190,10 +189,10 @@ int mt7663u_mac_wtbl_set_key(struct mt7615_dev *dev,
 			     enum set_key_cmd cmd)
 {
 	u32 addr = mt7663u_mac_wtbl_addr(dev, wcid->idx);
-	enum mt7663_cipher_type cipher;
+	enum mt7615_cipher_type cipher;
 	int err;
 
-	cipher = mt7663_mac_get_cipher(key->cipher);
+	cipher = mt7615_mac_get_cipher(key->cipher);
 	if (cipher == MT_CIPHER_NONE)
 		return -EOPNOTSUPP;
 

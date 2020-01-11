@@ -9,7 +9,6 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 
-#include "mt7663.h"
 #include "mt7615.h"
 #include "usb_sdio_regs.h"
 
@@ -20,7 +19,7 @@ static int mt7663u_start(struct ieee80211_hw *hw)
 	dev->mphy.survey_time = ktime_get_boottime();
 	set_bit(MT76_STATE_RUNNING, &dev->mphy.state);
 	ieee80211_queue_delayed_work(mt76_hw(dev), &dev->mt76.mac_work,
-				     MT7663_WATCHDOG_TIME);
+				     MT7615_WATCHDOG_TIME);
 
 	return 0;
 }
@@ -62,7 +61,7 @@ int mt7663u_sta_add(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 	struct mt7615_vif *mvif = (struct mt7615_vif *)vif->drv_priv;
 	int idx;
 
-	idx = mt76_wcid_alloc(dev->mt76.wcid_mask, MT7663_WTBL_STA - 1);
+	idx = mt76_wcid_alloc(dev->mt76.wcid_mask, MT7615_WTBL_STA - 1);
 	if (idx < 0)
 		return -ENOSPC;
 
@@ -156,12 +155,11 @@ static int mt7663u_set_channel(struct mt7615_dev *dev)
 	set_bit(MT76_RESET, &dev->mphy.state);
 
 	mt76_set_channel(&dev->mphy);
-
 	ret = mt7663_mcu_set_channel(dev);
 	if (ret)
 		goto out;
 
-	ret = mt7663_dfs_init_radar_detector(dev);
+	ret = mt7615_dfs_init_radar_detector(&dev->phy);
 
 	mt7663u_mac_cca_stats_reset(dev);
 	dev->mphy.survey_time = ktime_get_boottime();
@@ -174,7 +172,7 @@ out:
 
 	mt76_txq_schedule_all(&dev->mphy);
 	ieee80211_queue_delayed_work(mt76_hw(dev), &dev->mt76.mac_work,
-				     MT7663_WATCHDOG_TIME);
+				     MT7615_WATCHDOG_TIME);
 	return ret;
 }
 

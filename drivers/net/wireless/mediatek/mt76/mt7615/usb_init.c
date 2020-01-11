@@ -9,7 +9,6 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 
-#include "mt7663.h"
 #include "mt7615.h"
 #include "eeprom.h"
 #include "mac.h"
@@ -211,9 +210,7 @@ mt7663u_init_hardware(struct mt7615_dev *dev)
 
 	mt7663_mcu_set_eeprom(dev);
 	mt7663u_mac_init(dev);
-#if MTK_REBB
 	mt7663_mcu_ctrl_pm_state(dev, 0);
-#endif
 	/* MT7663e : F/W halWtblClearAllWtbl() will do this in init. */
 	/* mt7663u_mcu_del_wtbl_all(dev); */
 
@@ -245,7 +242,7 @@ int mt7663u_register_device(struct mt7615_dev *dev)
 
 	hw->extra_tx_headroom += MT7663_USB_HDR_SIZE + MT7663_USB_TXD_SIZE;
 	/* check hw sg support in order to enable AMSDU */
-	hw->max_tx_fragments = dev->mt76.usb.sg_en ? MT_TXP_MAX_BUF_NUM : 1;
+	hw->max_tx_fragments = dev->mt76.usb.sg_en ? MT_HW_TXP_MAX_BUF_NUM : 1;
 
 	dev->mphy.antenna_mask = 0x7;
 	dev->chainmask = 0x03;

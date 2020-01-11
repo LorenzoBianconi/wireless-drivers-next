@@ -10,10 +10,9 @@
 #include <linux/of.h>
 #include <linux/firmware.h>
 
-#include "mt7663.h"
 #include "mt7615.h"
 #include "7663_mcu.h"
-#include "7663_mac.h"
+#include "mac.h"
 #include "eeprom.h"
 #include "7663_regs.h"
 
@@ -1087,8 +1086,8 @@ int mt7663_mcu_set_bcn(struct mt7615_dev *dev, struct ieee80211_vif *vif,
 		return -EINVAL;
 	}
 
-	mt7663_mac_write_txwi(dev, (__le32 *)(req.pkt), skb, MT_TXQ_BEACON,
-			      wcid, NULL, 0, NULL);
+	mt7615_mac_write_txwi(dev, (__le32 *)req.pkt, skb, wcid,
+			      NULL, 0, NULL);
 	memcpy(req.pkt + MT_TXD_SIZE, skb->data, skb->len);
 	req.pkt_len = cpu_to_le16(MT_TXD_SIZE + skb->len);
 	req.tim_ie_pos = cpu_to_le16(MT_TXD_SIZE + offs.tim_offset);

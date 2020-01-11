@@ -11,11 +11,11 @@
 
 #include <linux/etherdevice.h>
 #include <linux/timekeeping.h>
-#include "mt7663.h"
+
 #include "mt7615.h"
 #include "../dma.h"
-#include "7663_regs.h"
-#include "7663_mac.h"
+#include "regs.h"
+#include "mac.h"
 
 static inline s8 to_rssi(u32 field, u32 rxv)
 {
@@ -219,64 +219,8 @@ int mt7663_mac_fill_rx(struct mt7615_dev *dev, struct sk_buff *skb)
 	return 0;
 }
 
-static u16
-mt7663_mac_tx_rate_val(struct mt7615_dev *dev,
-		       const struct ieee80211_tx_rate *rate,
-		       bool stbc, u8 *bw)
-{
-	u8 phy, nss, rate_idx;
-	u16 rateval = 0;
-
-	*bw = 0;
-
-	if (rate->flags & IEEE80211_TX_RC_VHT_MCS) {
-		rate_idx = ieee80211_rate_get_vht_mcs(rate);
-		nss = ieee80211_rate_get_vht_nss(rate);
-		phy = MT_PHY_TYPE_VHT;
-		if (rate->flags & IEEE80211_TX_RC_40_MHZ_WIDTH)
-			*bw = 1;
-		else if (rate->flags & IEEE80211_TX_RC_80_MHZ_WIDTH)
-			*bw = 2;
-		else if (rate->flags & IEEE80211_TX_RC_160_MHZ_WIDTH)
-			*bw = 3;
-	} else if (rate->flags & IEEE80211_TX_RC_MCS) {
-		rate_idx = rate->idx;
-		nss = 1 + (rate->idx >> 3);
-		phy = MT_PHY_TYPE_HT;
-		if (rate->flags & IEEE80211_TX_RC_GREEN_FIELD)
-			phy = MT_PHY_TYPE_HT_GF;
-		if (rate->flags & IEEE80211_TX_RC_40_MHZ_WIDTH)
-			*bw = 1;
-	} else {
-		const struct ieee80211_rate *r;
-		int band = dev->mphy.chandef.chan->band;
-		u16 val;
-
-		nss = 1;
-		r = &mt76_hw(dev)->wiphy->bands[band]->bitrates[rate->idx];
-		if (rate->flags & IEEE80211_TX_RC_USE_SHORT_PREAMBLE)
-			val = r->hw_value_short;
-		else
-			val = r->hw_value;
-
-		phy = val >> 8;
-		rate_idx = val & 0xff;
-	}
-
-	if (stbc && nss == 1) {
-		nss++;
-		rateval |= MT_TX_RATE_STBC;
-	}
-
-	rateval |= (FIELD_PREP(MT_TX_RATE_IDX, rate_idx) |
-		    FIELD_PREP(MT_TX_RATE_MODE, phy) |
-		    FIELD_PREP(MT_TX_RATE_NSS, nss - 1));
-
-	return rateval;
-}
-
 int mt7663_mac_write_txwi(struct mt7615_dev *dev, __le32 *txwi,
-			  struct sk_buff *skb, enum mt76_txq_id qid,
+			  struct sk_buff *skb,
 			  struct mt76_wcid *wcid,
 			  struct ieee80211_sta *sta, int pid,
 			  struct ieee80211_key_conf *key)
@@ -287,19 +231,13 @@ int mt7663_mac_write_txwi(struct mt7615_dev *dev, __le32 *txwi,
 	bool multicast = is_multicast_ether_addr(hdr->addr1);
 	struct ieee80211_vif *vif = info->control.vif;
 	int tx_count = 8;
+	struct mt76_phy *mphy = &dev->mphy;
+	bool ext_phy = info->hw_queue & MT_TX_HW_QUEUE_EXT_PHY;
 	u8 fc_type, fc_stype, p_fmt, q_idx, omac_idx = 0, wmm_idx = 0;
 	__le16 fc = hdr->frame_control;
 	u16 seqno = 0;
-	u32 val, sz_txd;
-
-	static const u8 wmm_queue_map[] = {
-		[MT_TXQ_VO] /* 0 */ = MT_LMAC_AC03,
-		[MT_TXQ_VI] /* 1 */ = MT_LMAC_AC02,
-		[MT_TXQ_BE] /* 2 */ = MT_LMAC_AC01,
-		[MT_TXQ_BK] /* 3 */ = MT_LMAC_AC00,
-		[MT_TXQ_PSD] /* 4 */ = MT_LMAC_ALTX0,
-		[MT_TXQ_BEACON] /* 6 */ = MT_LMAC_BCN0,
-	};
+	bool is_usb = mt76_is_usb(&dev->mt76);
+	u32 val, sz_txd = is_usb ? MT7663_USB_TXD_SIZE : MT_TXD_SIZE;
 
 	if (vif) {
 		struct mt7615_vif *mvif = (struct mt7615_vif *)vif->drv_priv;
@@ -314,28 +252,31 @@ int mt7663_mac_write_txwi(struct mt7615_dev *dev, __le32 *txwi,
 		tx_count = msta->rate_count;
 	}
 
+	if (ext_phy && dev->mt76.phy2)
+		mphy = dev->mt76.phy2;
+
 	fc_type = (le16_to_cpu(fc) & IEEE80211_FCTL_FTYPE) >> 2;
 	fc_stype = (le16_to_cpu(fc) & IEEE80211_FCTL_STYPE) >> 4;
 
-	if (ieee80211_is_beacon(fc)) {
+	if (ieee80211_is_data(fc) || ieee80211_is_bufferable_mmpdu(fc)) {
+		q_idx = wmm_idx * MT7615_MAX_WMM_SETS +
+			mt7615_wmm_queue_map(dev, skb_get_queue_mapping(skb));
+		p_fmt = is_usb ? MT_TX_TYPE_SF : MT_TX_TYPE_CT;
+	} else if (ieee80211_is_beacon(fc)) {
+		if (ext_phy)
+			q_idx = MT_LMAC_BCN1;
+		else
+			q_idx = MT_LMAC_BCN0;
 		p_fmt = MT_TX_TYPE_FW;
 	} else {
-		if (mt76_is_usb(&dev->mt76))
-			p_fmt = MT_TX_TYPE_SF;
+		if (ext_phy)
+			q_idx = MT_LMAC_ALTX1;
 		else
-			p_fmt = MT_TX_TYPE_CT;
+			q_idx = MT_LMAC_ALTX0;
+		p_fmt = is_usb ? MT_TX_TYPE_SF : MT_TX_TYPE_CT;
 	}
 
-	if (qid <= MT_TXQ_BK)
-		q_idx = (wmm_idx * MT7663_MAX_WMM_SETS) + wmm_queue_map[qid];
-	else
-		q_idx = wmm_queue_map[qid];
-
-	if (mt76_is_usb(&dev->mt76))
-		sz_txd = MT7663_USB_TXD_SIZE;
-	else
-		sz_txd = MT_TXD_SIZE;
-
+	/* ok */
 	val = FIELD_PREP(MT_TXD0_TX_BYTES, skb->len + sz_txd) |
 	      FIELD_PREP(MT_TXD0_P_IDX, MT_TX_PORT_IDX_LMAC) |
 	      FIELD_PREP(MT_TXD0_Q_IDX, q_idx);
@@ -373,12 +314,15 @@ int mt7663_mac_write_txwi(struct mt7615_dev *dev, __le32 *txwi,
 
 	txwi[4] = 0;
 	txwi[6] = 0;
+	/* ok */
 
 	if (rate->idx >= 0 && rate->count &&
 	    !(info->flags & IEEE80211_TX_CTL_RATE_CTRL_PROBE)) {
 		bool stbc = info->flags & IEEE80211_TX_CTL_STBC;
 		u8 bw;
-		u16 rateval = mt7663_mac_tx_rate_val(dev, rate, stbc, &bw);
+		/* XXX */
+		u16 rateval = mt7615_mac_tx_rate_val(dev, &dev->mphy, rate, stbc,
+						     &bw);
 
 		txwi[2] |= cpu_to_le32(MT_TXD2_FIX_RATE);
 
@@ -409,6 +353,7 @@ int mt7663_mac_write_txwi(struct mt7615_dev *dev, __le32 *txwi,
 		/* use maximum tx count for beacons */
 		tx_count = 0x1f;
 	}
+	/* ok */
 
 	val = FIELD_PREP(MT_TXD3_REM_TX_COUNT, tx_count);
 	if (ieee80211_is_data_qos(hdr->frame_control)) {
@@ -424,50 +369,19 @@ int mt7663_mac_write_txwi(struct mt7615_dev *dev, __le32 *txwi,
 
 	txwi[3] |= cpu_to_le32(val);
 
+	/* ok */
 	if (info->flags & IEEE80211_TX_CTL_NO_ACK)
 		txwi[3] |= cpu_to_le32(MT_TXD3_NO_ACK);
 
 	txwi[7] = FIELD_PREP(MT_TXD7_TYPE, fc_type) |
 		  FIELD_PREP(MT_TXD7_SUB_TYPE, fc_stype);
-
-	if (mt76_is_usb(&dev->mt76))
+	if (is_usb)
 		txwi[8] = FIELD_PREP(MT_TXD8_L_TYPE, fc_type) |
 			  FIELD_PREP(MT_TXD8_L_SUB_TYPE, fc_stype);
 
 	return 0;
 }
 EXPORT_SYMBOL_GPL(mt7663_mac_write_txwi);
-
-void mt7663_txp_skb_unmap(struct mt76_dev *dev,
-			  struct mt76_txwi_cache *t)
-{
-	u8 *txwi = mt76_get_txwi_ptr(dev, t);
-	struct mt7663_txp *txp;
-	int i;
-
-	txp = (struct mt7663_txp *)(txwi + MT_TXD_SIZE);
-	for (i = 0; i < ARRAY_SIZE(txp->ptr); i++) {
-		struct mt7663_txp_ptr *ptr = &txp->ptr[i];
-		bool last;
-		u16 len;
-
-		len = le16_to_cpu(ptr->len0);
-		last = len & TXD_LEN_ML;
-		len &= ~TXD_LEN_ML;
-		dma_unmap_single(dev->dev, le32_to_cpu(ptr->buf0), len,
-				 DMA_TO_DEVICE);
-		if (last)
-			break;
-
-		len = le16_to_cpu(ptr->len1);
-		last = len & TXD_LEN_ML;
-		len &= ~TXD_LEN_ML;
-		dma_unmap_single(dev->dev, le32_to_cpu(ptr->buf1), len,
-				 DMA_TO_DEVICE);
-		if (last)
-			break;
-	}
-}
 
 u32 mt7663_mac_wtbl_addr(struct mt7615_dev *dev, int wcid)
 {
@@ -576,7 +490,7 @@ static bool mt7663_fill_txs(struct mt7615_dev *dev, struct mt7615_sta *sta,
 	if (ampdu || (info->flags & IEEE80211_TX_CTL_AMPDU))
 		info->flags |= IEEE80211_TX_STAT_AMPDU | IEEE80211_TX_CTL_AMPDU;
 
-	first_idx = max_t(int, 0, last_idx - (count + 1) / MT7663_RATE_RETRY);
+	first_idx = max_t(int, 0, last_idx - (count + 1) / MT7615_RATE_RETRY);
 
 	if (fixed_rate && !probe) {
 		info->status.rates[0].count = count;
@@ -609,7 +523,7 @@ static bool mt7663_fill_txs(struct mt7615_dev *dev, struct mt7615_sta *sta,
 		int cur_count;
 
 		cur_rate = &rs->rates[idx / 2];
-		cur_count = min_t(int, MT7663_RATE_RETRY, count);
+		cur_count = min_t(int, MT7615_RATE_RETRY, count);
 		count -= cur_count;
 
 		if (idx && (cur_rate->idx != info->status.rates[i].idx ||
@@ -730,7 +644,7 @@ void mt7663_mac_add_txs(struct mt7615_dev *dev, void *data)
 	if (mt7663_mac_add_txs_skb(dev, msta, pid, txs_data))
 		goto out;
 
-	if (wcidx >= MT7663_WTBL_STA || !sta)
+	if (wcidx >= MT7615_WTBL_STA || !sta)
 		goto out;
 
 	if (mt7663_fill_txs(dev, msta, &info, txs_data))
@@ -739,120 +653,3 @@ void mt7663_mac_add_txs(struct mt7615_dev *dev, void *data)
 out:
 	rcu_read_unlock();
 }
-
-void mt7663_mac_tx_free(struct mt7615_dev *dev, struct sk_buff *skb)
-{
-	struct mt7663_tx_free *free = (struct mt7663_tx_free *)skb->data;
-	struct mt76_dev *mdev = &dev->mt76;
-	struct mt76_txwi_cache *txwi;
-	u8 i, count;
-
-	count = FIELD_GET(MT_TX_FREE_MSDU_ID_CNT, le16_to_cpu(free->ctrl));
-	for (i = 0; i < count; i++) {
-		int token = le32_to_cpu(free->token[i] & MT_TX_TOKEN_MASK);
-
-		spin_lock_bh(&dev->token_lock);
-		txwi = idr_remove(&dev->token, token);
-		spin_unlock_bh(&dev->token_lock);
-
-		if (!txwi)
-			continue;
-
-		mt7663_txp_skb_unmap(mdev, txwi);
-		if (txwi->skb) {
-			mt76_tx_complete_skb(mdev, txwi->skb);
-			txwi->skb = NULL;
-		}
-
-		mt76_put_txwi(mdev, txwi);
-	}
-	dev_kfree_skb(skb);
-}
-
-int mt7663_dfs_stop_radar_detector(struct mt7615_dev *dev)
-{
-	struct cfg80211_chan_def *chandef = &dev->mphy.chandef;
-	int err;
-
-	err = mt7663_mcu_rdd_cmd(dev, RDD_STOP, MT_HW_RDD0,
-				 MT_RX_SEL0, 0);
-	if (err < 0)
-		return err;
-
-	if (chandef->width == NL80211_CHAN_WIDTH_160 ||
-	    chandef->width == NL80211_CHAN_WIDTH_80P80)
-		err = mt7663_mcu_rdd_cmd(dev, RDD_STOP, MT_HW_RDD1,
-					 MT_RX_SEL0, 0);
-	return err;
-}
-
-static int mt7663_dfs_start_rdd(struct mt7615_dev *dev, int chain)
-{
-	int err;
-
-	err = mt7663_mcu_rdd_cmd(dev, RDD_START, chain, MT_RX_SEL0, 0);
-	if (err < 0)
-		return err;
-
-	return mt7663_mcu_rdd_cmd(dev, RDD_DET_MODE, chain,
-				  MT_RX_SEL0, 1);
-}
-
-int mt7663_dfs_start_radar_detector(struct mt7615_dev *dev)
-{
-	struct cfg80211_chan_def *chandef = &dev->mphy.chandef;
-	int err;
-
-	/* start CAC */
-	err = mt7663_mcu_rdd_cmd(dev, RDD_CAC_START, MT_HW_RDD0,
-				 MT_RX_SEL0, 0);
-	if (err < 0)
-		return err;
-
-	err = mt7663_dfs_start_rdd(dev, MT_HW_RDD0);
-	if (err < 0)
-		return err;
-
-	if (chandef->width == NL80211_CHAN_WIDTH_160 ||
-	    chandef->width == NL80211_CHAN_WIDTH_80P80) {
-		err = mt7663_dfs_start_rdd(dev, MT_HW_RDD1);
-		if (err < 0)
-			return err;
-	}
-
-	return 0;
-}
-
-int mt7663_dfs_init_radar_detector(struct mt7615_dev *dev)
-{
-	struct cfg80211_chan_def *chandef = &dev->mphy.chandef;
-	struct mt7615_phy *phy = &dev->phy;
-	int err;
-
-	if (dev->mt76.region == NL80211_DFS_UNSET)
-		return 0;
-
-	if (test_bit(MT76_SCANNING, &dev->mphy.state))
-		return 0;
-
-	if (phy->dfs_state == chandef->chan->dfs_state)
-		return 0;
-
-	phy->dfs_state = chandef->chan->dfs_state;
-
-	if (chandef->chan->flags & IEEE80211_CHAN_RADAR) {
-		if (chandef->chan->dfs_state != NL80211_DFS_AVAILABLE)
-			return mt7663_dfs_start_radar_detector(dev);
-		else
-			return mt7663_mcu_rdd_cmd(dev, RDD_CAC_END, MT_HW_RDD0,
-						  MT_RX_SEL0, 0);
-	} else {
-		err = mt7663_mcu_rdd_cmd(dev, RDD_NORMAL_START,
-					 MT_HW_RDD0, MT_RX_SEL0, 0);
-		if (err < 0)
-			return err;
-
-		return mt7663_dfs_stop_radar_detector(dev);
-	}
-}
-EXPORT_SYMBOL_GPL(mt7663_dfs_init_radar_detector);

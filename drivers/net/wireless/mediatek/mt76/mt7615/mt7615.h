@@ -43,8 +43,17 @@
 #define MT7615_CFEND_RATE_DEFAULT	0x49 /* OFDM 24M */
 #define MT7615_CFEND_RATE_11B		0x03 /* 11B LP, 11M */
 
+/*usb */
+#define MT7663_USB_HDR_SIZE	4
+#define MT7663_USB_TAIL_SIZE	4
+#define MT7663_USB_TXD_SIZE	(MT_TXD_SIZE + 8 * 4)
+
+#define MT7663_FIRMWARE_N9	"mediatek/mt7663_n9_rebb.bin"
 #define MT7663_ROM_PATCH	"mediatek/mt7663pr2h_rebb.bin"
 
+#define MT7629_EMI_IEMI		"mediatek/mt7629_WIFI_RAM_CODE_iemi.bin"
+#define MT7629_EMI_DEMI		"mediatek/mt7629_WIFI_RAM_CODE_demi.bin"
+#define MT7629_FIRMWARE_N9	"mediatek/mt7629_n9.bin"
 #define MT7629_ROM_PATCH	"mediatek/mt7629_rom_patch.bin"
 
 #define MT7663_USB_TXD_SIZE	(MT_TXD_SIZE + 8 * 4)
@@ -406,6 +415,15 @@ int mt7615_init_debugfs(struct mt7615_dev *dev);
 void mt7615_init_device_cap(struct mt7615_dev *dev);
 
 /* mt7663u */
+extern const struct ieee80211_ops mt7663_usb_ops;
+
+int mt7663_mcu_set_eeprom(struct mt7615_dev *dev);
+int mt7663_mcu_set_sta_rec(struct mt7615_dev *dev, struct ieee80211_vif *vif,
+			   struct ieee80211_sta *sta, bool en);
+int mt7663u_mcu_init(struct mt7615_dev *dev);
+int mt7663_mcu_init(struct mt7615_dev *dev);
+int mt7663_mcu_init_mac(struct mt7615_dev *dev, u8 band);
+int mt7663u_register_device(struct mt7615_dev *dev);
 void mt7663u_update_channel(struct mt76_dev *mdev);
 void mt7663u_rate_work(struct work_struct *work);
 int __mt7663u_mac_set_rates(struct mt7615_dev *dev,
@@ -417,5 +435,48 @@ void mt7663u_sta_remove(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 			struct ieee80211_sta *sta);
 void mt7663u_sta_assoc(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 		       struct ieee80211_sta *sta);
+
+/* XXX */
+int mt7663_mac_fill_rx(struct mt7615_dev *dev, struct sk_buff *skb);
+void mt7663_mac_add_txs(struct mt7615_dev *dev, void *data);
+void mt7663_mcu_rx_event(struct mt7615_dev *dev, struct sk_buff *skb);
+void mt7663u_mac_cca_stats_reset(struct mt7615_dev *dev);
+int mt7663u_mac_wtbl_set_key(struct mt7615_dev *dev,
+			     struct mt76_wcid *wcid,
+			     struct ieee80211_key_conf *key,
+			     enum set_key_cmd cmd);
+int mt7663_mcu_set_sta_rec_bmc(struct mt7615_dev *dev,
+			       struct ieee80211_vif *vif, bool en);
+int mt7663_mcu_set_channel(struct mt7615_dev *dev);
+void mt7663_mac_cca_stats_reset(struct mt7615_dev *dev);
+int mt7663_mcu_ctrl_pm_state(struct mt7615_dev *dev, int enter);
+void mt7663u_mac_write_txwi(struct mt7615_dev *dev, struct mt76_wcid *wcid,
+			    enum mt76_txq_id qid, struct ieee80211_sta *sta,
+			    struct sk_buff *skb);
+void mt7663_queue_rx_skb(struct mt76_dev *mdev, enum mt76_rxq_id q,
+			 struct sk_buff *skb);
+u16
+mt7615_mac_tx_rate_val(struct mt7615_dev *dev,
+		       struct mt76_phy *mphy,
+		       const struct ieee80211_tx_rate *rate,
+		       bool stbc, u8 *bw);
+int mt7663_mac_write_txwi(struct mt7615_dev *dev, __le32 *txwi,
+			  struct sk_buff *skb,
+			  struct mt76_wcid *wcid,
+			  struct ieee80211_sta *sta, int pid,
+			  struct ieee80211_key_conf *key);
+void mt7663_mac_wtbl_update_cipher(struct mt7615_dev *dev,
+				   struct mt76_wcid *wcid, u32 addr,
+				   int cipher, enum set_key_cmd cmd);
+int mt7663_mac_wtbl_update_key(struct mt7615_dev *dev, struct mt76_wcid *wcid,
+			       u32 base_addr, struct ieee80211_key_conf *key,
+			       int cipher, enum set_key_cmd cmd);
+int mt7663_mcu_load_ram(struct mt7615_dev *dev);
+int mt7663_mcu_load_patch(struct mt7615_dev *dev);
+void mt7663_mcu_exit(struct mt7615_dev *dev);
+int mt7663_mcu_restart(struct mt76_dev *dev);
+void mt7663_mcu_fill_msg(struct mt7615_dev *dev, struct sk_buff *skb,
+			 int cmd, int *wait_seq);
+int mt7663_mcu_wait_response(struct mt7615_dev *dev, int cmd, int seq);
 
 #endif

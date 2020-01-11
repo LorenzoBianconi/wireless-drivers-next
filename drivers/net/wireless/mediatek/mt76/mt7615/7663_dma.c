@@ -9,7 +9,6 @@
  *	   Sean Wang <sean.wang@mediatek.com>
  */
 
-#include "mt7663.h"
 #include "mt7615.h"
 #include "../dma.h"
 #include "regs.h"
@@ -32,7 +31,7 @@ void mt7663_queue_rx_skb(struct mt76_dev *mdev, enum mt76_rxq_id q,
 		dev_kfree_skb(skb);
 		break;
 	case PKT_TYPE_TXRX_NOTIFY:
-		mt7663_mac_tx_free(dev, skb);
+		mt7615_mac_tx_free(dev, skb);
 		break;
 	case PKT_TYPE_RX_EVENT:
 		mt7663_mcu_rx_event(dev, skb);
