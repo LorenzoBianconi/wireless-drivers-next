@@ -11,7 +11,7 @@
 
 #include "mt7615.h"
 #include "mac.h"
-#include "7663_mcu.h"
+#include "mcu.h"
 #include "usb_sdio_regs.h"
 
 static struct sk_buff *

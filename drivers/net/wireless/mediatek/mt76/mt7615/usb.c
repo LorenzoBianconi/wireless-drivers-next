@@ -12,7 +12,7 @@
 
 #include "mt7615.h"
 #include "mac.h"
-#include "7663_mcu.h"
+#include "mcu.h"
 #include "usb_sdio_regs.h"
 
 static const struct usb_device_id mt7615_device_table[] = {
