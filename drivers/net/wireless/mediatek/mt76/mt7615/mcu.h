@@ -332,6 +332,14 @@ struct wtbl_vht {
 	u8 rsv[4];
 } __packed;
 
+struct wtbl_peer_ps {
+	__le16 tag;
+	__le16 len;
+	u8 du_ipsm;
+	u8 ipsm;
+	u8 rsv[2];
+} __packed;
+
 struct wtbl_tx_ps {
 	__le16 tag;
 	__le16 len;
@@ -379,6 +387,28 @@ struct wtbl_ba {
 	u8 rst_ba_sb;
 	u8 band_idx;
 	u8 rsv1[4];
+} __packed;
+
+struct wtbl_rdg {
+	__le16 tag;
+	__le16 len;
+	u8 rdg_ba;
+	u8 r;
+	u8 rsv[2];
+} __packed;
+
+struct wtbl_protection {
+	__le16 tag;
+	__le16 len;
+	u8 rts;
+	u8 rsv[3];
+} __packed;
+
+struct wtbl_clear {
+	__le16 tag;
+	__le16 len;
+	u8 clear;
+	u8 rsv[3];
 } __packed;
 
 struct wtbl_bf {
@@ -435,6 +465,23 @@ struct wtbl_raw {
 				     sizeof(struct wtbl_bf) + \
 				     sizeof(struct wtbl_smps) + \
 				     sizeof(struct wtbl_pn) + \
+				     sizeof(struct wtbl_spe))
+
+#define MT7663_WTBL_UPDATE_MAX_SIZE (sizeof(struct wtbl_req_hdr) + \
+				     sizeof(struct wtbl_generic) + \
+				     sizeof(struct wtbl_rx) + \
+				     sizeof(struct wtbl_ht) + \
+				     sizeof(struct wtbl_vht) + \
+				     sizeof(struct wtbl_peer_ps) + \
+				     sizeof(struct wtbl_tx_ps) + \
+				     sizeof(struct wtbl_hdr_trans) + \
+				     sizeof(struct wtbl_ba) + \
+				     sizeof(struct wtbl_rdg) + \
+				     sizeof(struct wtbl_protection) + \
+				     sizeof(struct wtbl_clear) + \
+				     sizeof(struct wtbl_bf) + \
+				     sizeof(struct wtbl_smps) + \
+				     sizeof(struct wtbl_raw) + \
 				     sizeof(struct wtbl_spe))
 
 enum {
@@ -506,6 +553,46 @@ struct sta_rec_ba {
 	__le16 winsize;
 } __packed;
 
+struct sta_rec_bf {
+	__le16 tag;      /* Tag = 0x02 */
+	__le16 length;
+	/* TXBF_PFMU_STA_INFO	rTxBfPfmuInfo;
+	 * UINT_8  ucReserved[2];
+	 */
+} __packed;
+
+struct sta_rec_tx_proc {
+	__le16 tag;
+	__le16 len;
+	__le32 tx_proc_flag;
+} __packed;
+
+struct sta_rec_apps {
+	__le16	tag;		/* Tag = 11 */
+	__le16	len;
+	u8	bmp_delivery_ac;
+	u8	bmp_trigger_ac;
+	u8	max_sp_len;
+	u8	rsv[1];
+	__le16	sta_listen_interval;
+	u8	rsv2[2];
+} __packed;
+
+struct sta_rec_wtbl {
+	__le16 tag;
+	__le16 len;
+	u8 buf[MT7663_WTBL_UPDATE_MAX_SIZE];
+} __packed;
+
+struct sta_rec_hwamsdu {
+	__le16  tag;		/* Tag = 0x0f */
+	__le16  len;
+	u8   max_amsdu_num;
+	u8   max_mpsu_size;
+	u8   amsdu_en;
+	u8   rsv[1];
+} __packed;
+
 #define MT7615_STA_REC_UPDATE_MAX_SIZE (sizeof(struct sta_rec_basic) + \
 					sizeof(struct sta_rec_ht) + \
 					sizeof(struct sta_rec_vht))
@@ -523,6 +610,9 @@ enum {
 	STA_REC_HT,
 	STA_REC_VHT,
 	STA_REC_APPS,
+	STA_REC_INSTALL_KEY,
+	STA_REC_WTBL,
+	STA_REC_HWAMSDU = 0xf,
 	STA_REC_MAX_NUM
 };
 
@@ -553,5 +643,16 @@ mt7615_mcu_msg_alloc(const void *data, int len)
 	return mt76_mcu_msg_alloc(data, sizeof(struct mt7615_mcu_txd),
 				  len, 0);
 }
+
+#define MT7663_STA_REC_UPDATE_MAX_SIZE (sizeof(struct sta_req_hdr) + \
+					sizeof(struct sta_rec_basic) + \
+					sizeof(struct sta_rec_ht) + \
+					sizeof(struct sta_rec_vht) + \
+					sizeof(struct sta_rec_bf) + \
+					sizeof(struct sta_rec_ba) + \
+					sizeof(struct sta_rec_tx_proc) + \
+					sizeof(struct sta_rec_apps) + \
+					sizeof(struct sta_rec_wtbl) + \
+					sizeof(struct sta_rec_hwamsdu))
 
 #endif
