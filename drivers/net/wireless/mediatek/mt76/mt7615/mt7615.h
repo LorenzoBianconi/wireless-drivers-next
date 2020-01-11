@@ -47,6 +47,8 @@
 
 #define MT7629_ROM_PATCH	"mediatek/mt7629_rom_patch.bin"
 
+#define MT7663_USB_TXD_SIZE	(MT_TXD_SIZE + 8 * 4)
+
 struct mt7615_vif;
 struct mt7615_sta;
 
