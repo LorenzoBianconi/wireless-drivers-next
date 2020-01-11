@@ -15,3 +15,14 @@ config MT7615E
 	  MU-MIMO up to 4 users/group and 160MHz channels.
 
 	  To compile this driver as a module, choose M here.
+
+config MT7663U
+	tristate "MediaTek MT7663U (USB) support"
+	select MT7615_COMMON
+	select MT76_USB
+	depends on MAC80211
+	depends on USB
+	help
+	  This adds support for MT7663u wireless devices.
+
+	  To compile this driver as a module, choose M here.
