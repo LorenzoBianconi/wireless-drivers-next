@@ -102,31 +102,6 @@ void mt7663u_sta_assoc(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 	mt7663_mcu_set_sta_rec(dev, vif, sta, 1);
 }
 
-static void
-mt7663u_sta_rate_tbl_update(struct ieee80211_hw *hw,
-			    struct ieee80211_vif *vif,
-			    struct ieee80211_sta *sta)
-{
-	struct mt7615_dev *dev = hw->priv;
-	struct mt7615_sta *msta = (struct mt7615_sta *)sta->drv_priv;
-	struct ieee80211_sta_rates *sta_rates = rcu_dereference(sta->rates);
-	int i;
-
-	spin_lock_bh(&dev->mt76.lock);
-	for (i = 0; i < ARRAY_SIZE(msta->rates); i++) {
-		msta->rates[i].idx = sta_rates->rate[i].idx;
-		msta->rates[i].count = sta_rates->rate[i].count;
-		msta->rates[i].flags = sta_rates->rate[i].flags;
-
-		if (msta->rates[i].idx < 0 || !msta->rates[i].count)
-			break;
-	}
-	msta->n_rates = i;
-	mt7615_mac_set_rates(&dev->phy, msta, NULL, msta->rates);
-	msta->rate_probe = false;
-	spin_unlock_bh(&dev->mt76.lock);
-}
-
 void mt7663u_rate_work(struct work_struct *work)
 {
 	struct mt7615_rate_desc *rd, *rd_next;
@@ -344,7 +319,7 @@ const struct ieee80211_ops mt7663_usb_ops = {
 	.ampdu_action = mt7615_ampdu_action,
 	.set_rts_threshold = mt7615_set_rts_threshold,
 	.wake_tx_queue = mt76_wake_tx_queue,
-	.sta_rate_tbl_update = mt7663u_sta_rate_tbl_update,
+	.sta_rate_tbl_update = mt7615_sta_rate_tbl_update,
 	.sw_scan_start = mt76_sw_scan,
 	.sw_scan_complete = mt76_sw_scan_complete,
 	.release_buffered_frames = mt76_release_buffered_frames,
