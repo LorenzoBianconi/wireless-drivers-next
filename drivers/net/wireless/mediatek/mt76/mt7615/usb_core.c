@@ -147,6 +147,7 @@ void mt7663u_rate_work(struct work_struct *work)
 
 static int mt7663u_set_channel(struct mt7615_dev *dev)
 {
+	struct mt7615_phy *phy = &dev->phy;
 	int ret;
 
 	cancel_delayed_work_sync(&dev->mt76.mac_work);
@@ -154,11 +155,15 @@ static int mt7663u_set_channel(struct mt7615_dev *dev)
 	mutex_lock(&dev->mt76.mutex);
 	set_bit(MT76_RESET, &dev->mphy.state);
 
+	phy->chfreq_seq = (phy->chfreq_seq + 1) & MT_CHFREQ_SEQ;
+	phy->dfs_state = -1;
 	mt76_set_channel(&dev->mphy);
+
 	ret = mt7663_mcu_set_channel(dev);
 	if (ret)
 		goto out;
 
+	mt76_wr(dev, MT_CHFREQ(0), MT_CHFREQ_VALID | phy->chfreq_seq);
 	ret = mt7615_dfs_init_radar_detector(&dev->phy);
 
 	mt7663u_mac_cca_stats_reset(dev);

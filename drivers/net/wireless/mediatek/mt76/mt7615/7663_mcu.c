@@ -150,62 +150,6 @@ int mt7663_mcu_wait_response(struct mt7615_dev *dev, int cmd, int seq)
 }
 EXPORT_SYMBOL_GPL(mt7663_mcu_wait_response);
 
-static void
-mt7663_mcu_csa_finish(void *priv, u8 *mac, struct ieee80211_vif *vif)
-{
-	if (vif->csa_active)
-		ieee80211_csa_finish(vif);
-}
-
-static void
-mt7663_mcu_rx_ext_event(struct mt7615_dev *dev, struct sk_buff *skb)
-{
-	struct mt7663_mcu_rxd *rxd = (struct mt7663_mcu_rxd *)skb->data;
-
-	switch (rxd->ext_eid) {
-	case MCU_EXT_EVENT_RDD_REPORT:
-		ieee80211_radar_detected(dev->mt76.hw);
-		dev->hw_pattern++;
-		break;
-	case MCU_EXT_EVENT_CSA_NOTIFY:
-		ieee80211_iterate_active_interfaces_atomic(dev->mt76.hw,
-							   IEEE80211_IFACE_ITER_RESUME_ALL,
-							   mt7663_mcu_csa_finish, dev);
-		break;
-	default:
-		break;
-	}
-}
-
-static void
-mt7663_mcu_rx_unsolicited_event(struct mt7615_dev *dev, struct sk_buff *skb)
-{
-	struct mt7663_mcu_rxd *rxd = (struct mt7663_mcu_rxd *)skb->data;
-
-	switch (rxd->eid) {
-	case MCU_EVENT_EXT:
-		mt7663_mcu_rx_ext_event(dev, skb);
-		break;
-	default:
-		break;
-	}
-	dev_kfree_skb(skb);
-}
-
-void mt7663_mcu_rx_event(struct mt7615_dev *dev, struct sk_buff *skb)
-{
-	struct mt7663_mcu_rxd *rxd = (struct mt7663_mcu_rxd *)skb->data;
-
-	if (rxd->ext_eid == MCU_EXT_EVENT_THERMAL_PROTECT ||
-	    rxd->ext_eid == MCU_EXT_EVENT_FW_LOG_2_HOST ||
-	    rxd->ext_eid == MCU_EXT_EVENT_ASSERT_DUMP ||
-	    rxd->ext_eid == MCU_EXT_EVENT_PS_SYNC ||
-	    !rxd->seq)
-		mt7663_mcu_rx_unsolicited_event(dev, skb);
-	else
-		mt76_mcu_rx_event(&dev->mt76.mcu, skb);
-}
-
 static int mt7663_mcu_init_download(struct mt7615_dev *dev, u32 addr,
 				    u32 len, u32 mode)
 {

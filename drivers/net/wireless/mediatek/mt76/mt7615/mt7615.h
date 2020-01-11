@@ -437,9 +437,6 @@ void mt7663u_sta_assoc(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 		       struct ieee80211_sta *sta);
 
 /* XXX */
-int mt7663_mac_fill_rx(struct mt7615_dev *dev, struct sk_buff *skb);
-void mt7663_mac_add_txs(struct mt7615_dev *dev, void *data);
-void mt7663_mcu_rx_event(struct mt7615_dev *dev, struct sk_buff *skb);
 void mt7663u_mac_cca_stats_reset(struct mt7615_dev *dev);
 int mt7663u_mac_wtbl_set_key(struct mt7615_dev *dev,
 			     struct mt76_wcid *wcid,
@@ -453,8 +450,6 @@ int mt7663_mcu_ctrl_pm_state(struct mt7615_dev *dev, int enter);
 void mt7663u_mac_write_txwi(struct mt7615_dev *dev, struct mt76_wcid *wcid,
 			    enum mt76_txq_id qid, struct ieee80211_sta *sta,
 			    struct sk_buff *skb);
-void mt7663_queue_rx_skb(struct mt76_dev *mdev, enum mt76_rxq_id q,
-			 struct sk_buff *skb);
 int mt7663_mcu_load_ram(struct mt7615_dev *dev);
 int mt7663_mcu_load_patch(struct mt7615_dev *dev);
 void mt7663_mcu_exit(struct mt7615_dev *dev);
