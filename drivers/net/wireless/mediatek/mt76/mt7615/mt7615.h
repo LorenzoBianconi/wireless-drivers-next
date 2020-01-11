@@ -51,6 +51,7 @@
 
 struct mt7615_vif;
 struct mt7615_sta;
+enum mt7615_cipher_type;
 
 enum mt7615_hw_txq_id {
 	MT7615_TXQ_MAIN,
@@ -339,13 +340,17 @@ int mt7615_mac_write_txwi(struct mt7615_dev *dev, __le32 *txwi,
 			  struct sk_buff *skb, struct mt76_wcid *wcid,
 			  struct ieee80211_sta *sta, int pid,
 			  struct ieee80211_key_conf *key);
+u32 mt7615_mac_wtbl_addr(int wcid);
 void mt7615_mac_set_timing(struct mt7615_phy *phy);
-int mt7615_mac_fill_rx(struct mt7615_dev *dev, struct sk_buff *skb);
-void mt7615_mac_add_txs(struct mt7615_dev *dev, void *data);
-void mt7615_mac_tx_free(struct mt7615_dev *dev, struct sk_buff *skb);
 int mt7615_mac_wtbl_set_key(struct mt7615_dev *dev, struct mt76_wcid *wcid,
 			    struct ieee80211_key_conf *key,
 			    enum set_key_cmd cmd);
+int mt7615_mac_wtbl_update_key(struct mt7615_dev *dev, struct mt76_wcid *wcid,
+			       u32 base_addr, struct ieee80211_key_conf *key,
+			       enum mt7615_cipher_type cipher, enum set_key_cmd cmd);
+void mt7615_mac_wtbl_update_cipher(struct mt7615_dev *dev, struct mt76_wcid *wcid,
+				   u32 addr, enum mt7615_cipher_type cipher,
+				   enum set_key_cmd cmd);
 int mt7615_load_patch(struct mt7615_dev *dev);
 int mt7615_mcu_restart(struct mt76_dev *dev);
 int mt7615_mcu_set_dbdc(struct mt7615_dev *dev);
