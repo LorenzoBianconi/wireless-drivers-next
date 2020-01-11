@@ -30,6 +30,34 @@ struct mt7615_fw_trailer {
 	__le32 len;
 } __packed;
 
+#define FW_V3_COMMON_TAILER_SIZE	36
+#define FW_V3_REGION_TAILER_SIZE	40
+#define FW_START_OVERRIDE		BIT(0)
+#define FW_START_DLYCAL                 BIT(1)
+#define FW_START_WORKING_PDA_CR4	BIT(2)
+
+struct mt7663_fw_trailer {
+	u8 chip_id;
+	u8 eco_code;
+	u8 n_region;
+	u8 format_ver;
+	u8 format_flag;
+	u8 reserv[2];
+	char fw_ver[10];
+	char build_date[15];
+	u32 crc;
+} __packed;
+
+struct mt7663_fw_buf {
+	u32 crc;
+	u32 d_img_size;
+	u32 block_size;
+	u8 rsv[4];
+	u32 img_dest_addr;
+	u32 img_size;
+	u8 feature_set;
+};
+
 #define MCU_PATCH_ADDRESS		0x80000
 
 #define N9_REGION_NUM			2
@@ -44,6 +72,7 @@ struct mt7615_fw_trailer {
 #define DL_MODE_KEY_IDX			GENMASK(2, 1)
 #define DL_MODE_RESET_SEC_IV		BIT(3)
 #define DL_MODE_WORKING_PDA_CR4		BIT(4)
+#define DL_MODE_VALID_RAM_ENTRY		BIT(5) /* 7663 */
 #define DL_MODE_NEED_RSP		BIT(31)
 
 #define FW_START_OVERRIDE		BIT(0)
@@ -564,6 +593,98 @@ out:
 
 	return ret;
 }
+
+int mt7663_load_ram(struct mt7615_dev *dev)
+{
+	u32 offset = 0, override_addr = 0, flag = 0;
+	const struct mt7663_fw_trailer *hdr;
+	const struct mt7663_fw_buf *buf;
+	const struct firmware *fw;
+	bool extra_info = false;
+	const char *fw_name;
+	const u8 *base_addr;
+	int i, ret;
+
+	switch (mt76_chip(&dev->mt76)) {
+	case 0x7629:
+		fw_name = MT7629_FIRMWARE_N9;
+		break;
+	case 0x7663:
+		fw_name = MT7663_FIRMWARE_N9;
+		extra_info = true;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	ret = request_firmware(&fw, fw_name, dev->mt76.dev);
+	if (ret)
+		return ret;
+
+	if (!fw || !fw->data || fw->size < FW_V3_COMMON_TAILER_SIZE) {
+		dev_err(dev->mt76.dev, "Invalid firmware\n");
+		ret = -EINVAL;
+		goto out;
+	}
+
+	hdr = (const struct mt7663_fw_trailer *)(fw->data + fw->size -
+						 FW_V3_COMMON_TAILER_SIZE);
+
+	dev_info(dev->mt76.dev, "N9 Firmware Version: %.10s, Build Time: %.15s\n",
+		 hdr->fw_ver, hdr->build_date);
+	dev_info(dev->mt76.dev, "Region number: 0x%x\n", hdr->n_region);
+
+	base_addr = fw->data + fw->size - FW_V3_COMMON_TAILER_SIZE;
+	for (i = 0; i < hdr->n_region; i++) {
+		u32 shift = (hdr->n_region - i) * FW_V3_REGION_TAILER_SIZE;
+		u32 len, addr, mode;
+
+		dev_info(dev->mt76.dev, "Parsing tailer Region: %d\n", i);
+
+		buf = (const struct mt7663_fw_buf *)(base_addr - shift);
+		mode = mt7615_mcu_gen_dl_mode(buf->feature_set, false);
+		addr = le32_to_cpu(buf->img_dest_addr);
+		len = le32_to_cpu(buf->img_size);
+
+		ret = mt7615_mcu_init_download(dev, addr, len, mode);
+		if (ret) {
+			dev_err(dev->mt76.dev, "Download request failed\n");
+			goto out;
+		}
+
+		ret = mt7615_mcu_send_firmware(dev, fw->data + offset, len);
+		if (ret) {
+			dev_err(dev->mt76.dev, "Failed to send firmware\n");
+			goto out;
+		}
+
+		offset += buf->img_size;
+		if (buf->feature_set & DL_MODE_VALID_RAM_ENTRY) {
+			override_addr = le32_to_cpu(buf->img_dest_addr);
+			dev_info(dev->mt76.dev, "Region %d, override_addr = 0x%08x\n",
+				 i, override_addr);
+		}
+	}
+
+	if (extra_info) {
+		flag |= FW_START_DLYCAL;
+		if (override_addr)
+			flag |= FW_START_OVERRIDE;
+
+		dev_info(dev->mt76.dev, "override_addr = 0x%08x, option = %d\n",
+			 override_addr, flag);
+	}
+
+	ret = mt7615_mcu_start_firmware(dev, override_addr, flag);
+	if (ret)
+		dev_err(dev->mt76.dev, "Failed to start N9 firmware\n");
+
+out:
+	release_firmware(fw);
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(mt7663_load_ram);
 
 static int mt7615_load_firmware(struct mt7615_dev *dev)
 {

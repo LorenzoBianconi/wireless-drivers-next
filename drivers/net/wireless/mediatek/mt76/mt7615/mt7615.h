@@ -417,6 +417,8 @@ void mt7615_init_device_cap(struct mt7615_dev *dev);
 /* mt7663u */
 extern const struct ieee80211_ops mt7663_usb_ops;
 
+int mt7663_load_ram(struct mt7615_dev *dev);
+int mt7615_mcu_wait_response(struct mt7615_dev *dev, int cmd, int seq);
 int mt7663_mcu_set_eeprom(struct mt7615_dev *dev);
 int mt7663_mcu_set_sta_rec(struct mt7615_dev *dev, struct ieee80211_vif *vif,
 			   struct ieee80211_sta *sta, bool en);
@@ -447,6 +449,5 @@ void mt7663_mac_cca_stats_reset(struct mt7615_dev *dev);
 void mt7663u_mac_write_txwi(struct mt7615_dev *dev, struct mt76_wcid *wcid,
 			    enum mt76_txq_id qid, struct ieee80211_sta *sta,
 			    struct sk_buff *skb);
-int mt7663_mcu_load_ram(struct mt7615_dev *dev);
 
 #endif

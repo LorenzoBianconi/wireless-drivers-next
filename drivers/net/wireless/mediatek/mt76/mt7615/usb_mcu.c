@@ -76,7 +76,7 @@ static int mt7663u_load_firmware(struct mt7615_dev *dev)
 	if (ret)
 		return ret;
 
-	ret = mt7663_mcu_load_ram(dev);
+	ret = mt7663_load_ram(dev);
 	if (ret)
 		return ret;
 
