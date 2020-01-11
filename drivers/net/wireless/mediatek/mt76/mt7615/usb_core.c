@@ -168,7 +168,6 @@ static int mt7663u_set_channel(struct mt7615_dev *dev)
 
 	mt7663u_mac_cca_stats_reset(dev);
 	dev->mphy.survey_time = ktime_get_boottime();
-	/* TODO: add DBDC support */
 	mt76_rr(dev, MT_MIB_SDR16(0));
 
 out:
