@@ -286,7 +286,8 @@ static int mt7615_mcu_send_firmware(struct mt7615_dev *dev, const void *data,
 
 		data += cur_len;
 		len -= cur_len;
-		mt76_queue_tx_cleanup(dev, MT_TXQ_FWDL, false);
+		if (mt76_is_mmio(&dev->mt76))
+			mt76_queue_tx_cleanup(dev, MT_TXQ_FWDL, false);
 	}
 
 	return ret;
@@ -350,11 +351,28 @@ static int mt7615_driver_own(struct mt7615_dev *dev)
 	return 0;
 }
 
-static int mt7615_load_patch(struct mt7615_dev *dev)
+int mt7615_load_patch(struct mt7615_dev *dev)
 {
 	const struct mt7615_patch_hdr *hdr;
 	const struct firmware *fw = NULL;
+	const char *fw_name;
 	int len, ret, sem;
+	u32 addr;
+
+	switch (mt76_chip(&dev->mt76)) {
+	case 0x7629:
+		fw_name = MT7629_ROM_PATCH;
+		addr = 0x1c000;
+		break;
+	case 0x7663:
+		fw_name = MT7663_ROM_PATCH;
+		addr = 0xdc000;
+		break;
+	default:
+		fw_name = MT7615_ROM_PATCH;
+		addr = MCU_PATCH_ADDRESS;
+		break;
+	}
 
 	sem = mt7615_mcu_patch_sem_ctrl(dev, 1);
 	switch (sem) {
@@ -367,7 +385,7 @@ static int mt7615_load_patch(struct mt7615_dev *dev)
 		return -EAGAIN;
 	}
 
-	ret = request_firmware(&fw, MT7615_ROM_PATCH, dev->mt76.dev);
+	ret = request_firmware(&fw, fw_name, dev->mt76.dev);
 	if (ret)
 		goto out;
 
@@ -384,8 +402,7 @@ static int mt7615_load_patch(struct mt7615_dev *dev)
 
 	len = fw->size - sizeof(*hdr);
 
-	ret = mt7615_mcu_init_download(dev, MCU_PATCH_ADDRESS, len,
-				       DL_MODE_NEED_RSP);
+	ret = mt7615_mcu_init_download(dev, addr, len, DL_MODE_NEED_RSP);
 	if (ret) {
 		dev_err(dev->mt76.dev, "Download request failed\n");
 		goto out;

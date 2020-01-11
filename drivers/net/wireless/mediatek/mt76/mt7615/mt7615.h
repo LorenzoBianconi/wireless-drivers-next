@@ -43,6 +43,10 @@
 #define MT7615_CFEND_RATE_DEFAULT	0x49 /* OFDM 24M */
 #define MT7615_CFEND_RATE_11B		0x03 /* 11B LP, 11M */
 
+#define MT7663_ROM_PATCH	"mediatek/mt7663pr2h_rebb.bin"
+
+#define MT7629_ROM_PATCH	"mediatek/mt7629_rom_patch.bin"
+
 struct mt7615_vif;
 struct mt7615_sta;
 
@@ -312,6 +316,7 @@ void mt7615_mac_tx_free(struct mt7615_dev *dev, struct sk_buff *skb);
 int mt7615_mac_wtbl_set_key(struct mt7615_dev *dev, struct mt76_wcid *wcid,
 			    struct ieee80211_key_conf *key,
 			    enum set_key_cmd cmd);
+int mt7615_load_patch(struct mt7615_dev *dev);
 int mt7615_mcu_set_dbdc(struct mt7615_dev *dev);
 int mt7615_mcu_set_eeprom(struct mt7615_dev *dev);
 int mt7615_mcu_set_mac_enable(struct mt7615_dev *dev, int band, bool enable);
