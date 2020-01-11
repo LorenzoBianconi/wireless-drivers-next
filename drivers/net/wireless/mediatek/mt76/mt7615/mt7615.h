@@ -455,16 +455,6 @@ void mt7663u_mac_write_txwi(struct mt7615_dev *dev, struct mt76_wcid *wcid,
 			    struct sk_buff *skb);
 void mt7663_queue_rx_skb(struct mt76_dev *mdev, enum mt76_rxq_id q,
 			 struct sk_buff *skb);
-u16
-mt7615_mac_tx_rate_val(struct mt7615_dev *dev,
-		       struct mt76_phy *mphy,
-		       const struct ieee80211_tx_rate *rate,
-		       bool stbc, u8 *bw);
-int mt7663_mac_write_txwi(struct mt7615_dev *dev, __le32 *txwi,
-			  struct sk_buff *skb,
-			  struct mt76_wcid *wcid,
-			  struct ieee80211_sta *sta, int pid,
-			  struct ieee80211_key_conf *key);
 void mt7663_mac_wtbl_update_cipher(struct mt7615_dev *dev,
 				   struct mt76_wcid *wcid, u32 addr,
 				   int cipher, enum set_key_cmd cmd);

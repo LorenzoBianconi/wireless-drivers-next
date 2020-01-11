@@ -139,7 +139,7 @@ void mt7663u_mac_write_txwi(struct mt7615_dev *dev, struct mt76_wcid *wcid,
 
 	txwi = (__le32 *)(skb->data - MT7663_USB_TXD_SIZE);
 	memset(txwi, 0, MT7663_USB_TXD_SIZE);
-	mt7663_mac_write_txwi(dev, txwi, skb, wcid, sta, pid,
+	mt7615_mac_write_txwi(dev, txwi, skb, wcid, sta, pid,
 			      info->control.hw_key);
 	skb_push(skb, MT7663_USB_TXD_SIZE);
 }
