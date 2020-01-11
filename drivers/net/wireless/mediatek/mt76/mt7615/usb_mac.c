@@ -183,6 +183,15 @@ mt7663u_mac_wtbl_update_pk(struct mt7615_dev *dev, struct mt76_wcid *wcid,
 	return 0;
 }
 
+bool mt7663u_mac_wtbl_update(struct mt7615_dev *dev, int idx, u32 mask)
+{
+	mt76_rmw(dev, MT_WTBL_UPDATE, MT_WTBL_UPDATE_WLAN_IDX,
+		 FIELD_PREP(MT_WTBL_UPDATE_WLAN_IDX, idx) | mask);
+
+	return mt76_poll(dev, MT_WTBL_UPDATE, MT_WTBL_UPDATE_BUSY,
+			 0, 5000);
+}
+
 int mt7663u_mac_wtbl_set_key(struct mt7615_dev *dev,
 			     struct mt76_wcid *wcid,
 			     struct ieee80211_key_conf *key,

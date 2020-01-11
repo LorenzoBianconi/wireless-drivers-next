@@ -45,8 +45,8 @@ mt7663u_add_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 	if (idx < 0)
 		goto out;
 
-	mt7615_mac_wtbl_update(dev, idx,
-			       MT_WTBL_UPDATE_ADM_COUNT_CLEAR);
+	mt7663u_mac_wtbl_update(dev, idx,
+				MT_WTBL_UPDATE_ADM_COUNT_CLEAR);
 out:
 	mutex_unlock(&dev->mt76.mutex);
 
@@ -69,8 +69,8 @@ int mt7663u_sta_add(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 	msta->vif = mvif;
 	msta->wcid.sta = 1;
 	msta->wcid.idx = idx;
-	mt7615_mac_wtbl_update(dev, idx,
-			       MT_WTBL_UPDATE_ADM_COUNT_CLEAR);
+	mt7663u_mac_wtbl_update(dev, idx,
+				MT_WTBL_UPDATE_ADM_COUNT_CLEAR);
 
 	mt7663_mcu_set_sta_rec(dev, vif, sta, 1);
 
@@ -85,8 +85,8 @@ void mt7663u_sta_remove(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 
 	mt7663_mcu_set_sta_rec(dev, vif, sta, 0);
 
-	mt7615_mac_wtbl_update(dev, msta->wcid.idx,
-			       MT_WTBL_UPDATE_ADM_COUNT_CLEAR);
+	mt7663u_mac_wtbl_update(dev, msta->wcid.idx,
+				MT_WTBL_UPDATE_ADM_COUNT_CLEAR);
 
 	spin_lock_bh(&dev->sta_poll_lock);
 	if (!list_empty(&msta->poll_list))

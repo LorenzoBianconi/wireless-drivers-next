@@ -414,10 +414,11 @@ int mt7615_dfs_init_radar_detector(struct mt7615_phy *phy);
 int mt7615_init_debugfs(struct mt7615_dev *dev);
 void mt7615_init_device_cap(struct mt7615_dev *dev);
 
-/* mt7663u */
+/* mt7663 */
 extern const struct ieee80211_ops mt7663_usb_ops;
 
 int mt7663_load_ram(struct mt7615_dev *dev);
+bool mt7663u_mac_wtbl_update(struct mt7615_dev *dev, int idx, u32 mask);
 int mt7615_mcu_wait_response(struct mt7615_dev *dev, int cmd, int seq);
 int mt7663_mcu_set_eeprom(struct mt7615_dev *dev);
 int mt7663_mcu_set_sta_rec(struct mt7615_dev *dev, struct ieee80211_vif *vif,
