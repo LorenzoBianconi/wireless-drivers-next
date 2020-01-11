@@ -18,7 +18,7 @@ static struct sk_buff *
 mt7663u_mcu_msg_alloc(const void *data, int len)
 {
 	return mt76_mcu_msg_alloc(data, MT7663_USB_HDR_SIZE +
-				  sizeof(struct mt7663_mcu_txd), len,
+				  sizeof(struct mt7615_mcu_txd), len,
 				  MT7663_USB_TAIL_SIZE);
 }
 
@@ -36,7 +36,7 @@ mt7663u_mcu_msg_send(struct mt76_dev *mdev, int cmd, const void *data,
 
 	mutex_lock(&mdev->mcu.mutex);
 
-	mt7663_mcu_fill_msg(dev, skb, cmd, &seq);
+	mt7615_mcu_fill_msg(dev, skb, cmd, &seq);
 	if (cmd != -MCU_CMD_FW_SCATTER)
 		ep = MT_EP_OUT_INBAND_CMD;
 	else

@@ -4,7 +4,7 @@
 #ifndef __MT7663_MCU_H
 #define __MT7663_MCU_H
 
-struct mt7663_mcu_txd {
+struct mt7615_mcu_txd {
 	__le32 txd[8];
 
 	__le16 len;

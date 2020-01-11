@@ -63,61 +63,6 @@ struct mt7663_fw_dl_buf {
 #define FW_START_DLYCAL                 BIT(1)
 #define FW_START_WORKING_PDA_CR4	BIT(2)
 
-void mt7663_mcu_fill_msg(struct mt7615_dev *dev, struct sk_buff *skb,
-			 int cmd, int *wait_seq)
-{
-	struct mt7663_mcu_txd *mcu_txd;
-	u8 seq, q_idx, pkt_fmt;
-	__le32 *txd;
-	u32 val;
-
-	seq = ++dev->mt76.mcu.msg_seq & 0xf;
-	if (!seq)
-		seq = ++dev->mt76.mcu.msg_seq & 0xf;
-
-	mcu_txd = (struct mt7663_mcu_txd *)skb_push(skb, sizeof(*mcu_txd));
-	memset(mcu_txd, 0, sizeof(*mcu_txd));
-
-	if (cmd != -MCU_CMD_FW_SCATTER) {
-		q_idx = MT_TX_MCU_PORT_RX_Q0;
-		pkt_fmt = MT_TX_TYPE_CMD;
-	} else {
-		q_idx = MT_TX_MCU_PORT_RX_FWDL;
-		pkt_fmt = MT_TX_TYPE_FW;
-	}
-	txd = mcu_txd->txd;
-
-	val = FIELD_PREP(MT_TXD0_TX_BYTES, skb->len) |
-	      FIELD_PREP(MT_TXD0_P_IDX, MT_TX_PORT_IDX_MCU) |
-	      FIELD_PREP(MT_TXD0_Q_IDX, q_idx);
-	txd[0] = cpu_to_le32(val);
-
-	val = MT_TXD1_LONG_FORMAT |
-	      FIELD_PREP(MT_TXD1_HDR_FORMAT, MT_HDR_FORMAT_CMD) |
-	      FIELD_PREP(MT_TXD1_PKT_FMT, pkt_fmt);
-	txd[1] = cpu_to_le32(val);
-
-	mcu_txd->len = cpu_to_le16(skb->len - sizeof(mcu_txd->txd));
-	mcu_txd->pq_id = cpu_to_le16(MCU_PQ_ID(MT_TX_PORT_IDX_MCU, q_idx));
-	mcu_txd->pkt_type = MCU_PKT_ID;
-	mcu_txd->seq = seq;
-
-	if (cmd < 0) {
-		mcu_txd->set_query = MCU_Q_NA;
-		mcu_txd->cid = -cmd;
-	} else {
-		mcu_txd->cid = MCU_CMD_EXT_CID;
-		mcu_txd->set_query = MCU_Q_SET;
-		mcu_txd->ext_cid = cmd;
-		mcu_txd->ext_cid_ack = 1;
-	}
-	mcu_txd->s2d_index = MCU_S2D_H2N;
-
-	if (wait_seq)
-		*wait_seq = seq;
-}
-EXPORT_SYMBOL_GPL(mt7663_mcu_fill_msg);
-
 static int mt7663_mcu_init_download(struct mt7615_dev *dev, u32 addr,
 				    u32 len, u32 mode)
 {
@@ -141,7 +86,7 @@ static int mt7663_mcu_send_firmware(struct mt7615_dev *dev, const void *data,
 	int ret = 0, cur_len;
 
 	while (len > 0) {
-		cur_len = min_t(int, 4096 - sizeof(struct mt7663_mcu_txd),
+		cur_len = min_t(int, 4096 - sizeof(struct mt7615_mcu_txd),
 				len);
 
 		ret = __mt76_mcu_send_msg(&dev->mt76, -MCU_CMD_FW_SCATTER,
