@@ -253,6 +253,9 @@ int mt7663u_register_device(struct mt7615_dev *dev)
 	if (err)
 		return err;
 
+	mt7615_init_txpower(dev, &dev->mphy.sband_2g.sband);
+	mt7615_init_txpower(dev, &dev->mphy.sband_5g.sband);
+
 	err = mt7663u_init_debugfs(dev);
 	if (err < 0)
 		return err;
