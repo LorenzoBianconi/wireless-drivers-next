@@ -227,12 +227,16 @@ enum tx_phy_bandwidth {
 #define MT_TXD7_TYPE			GENMASK(21, 20)
 #define MT_TXD7_SUB_TYPE		GENMASK(19, 16)
 
+#define MT_TXD8_L_TYPE			GENMASK(5, 4)
+#define MT_TXD8_L_SUB_TYPE		GENMASK(3, 0)
+
 #define MT_TX_RATE_STBC			BIT(11)
 #define MT_TX_RATE_NSS			GENMASK(10, 9)
 #define MT_TX_RATE_MODE			GENMASK(8, 6)
 #define MT_TX_RATE_IDX			GENMASK(5, 0)
 
 #define MT_TXP_MAX_BUF_NUM		6
+#define MT_HW_TXP_MAX_BUF_NUM		4
 
 struct mt7615_txp {
 	__le16 flags;
