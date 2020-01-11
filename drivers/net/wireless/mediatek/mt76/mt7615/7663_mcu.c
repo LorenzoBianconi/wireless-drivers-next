@@ -14,7 +14,7 @@
 #include "7663_mcu.h"
 #include "mac.h"
 #include "eeprom.h"
-#include "7663_regs.h"
+#include "regs.h"
 
 struct mt7663_patch_hdr {
 	char build_date[16];
