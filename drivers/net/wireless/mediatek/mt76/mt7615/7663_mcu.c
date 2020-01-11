@@ -425,14 +425,6 @@ out:
 }
 EXPORT_SYMBOL_GPL(mt7663_mcu_load_ram);
 
-void mt7663_mcu_exit(struct mt7615_dev *dev)
-{
-	__mt76_mcu_restart(&dev->mt76);
-	if (mt76_is_mmio(&dev->mt76))
-		mt76_wr(dev, MT_CONN_HIF_ON_LPCTL, MT_CFG_LPCR_HOST_FW_OWN);
-	skb_queue_purge(&dev->mt76.mcu.res_q);
-}
-
 int mt7663_mcu_set_eeprom(struct mt7615_dev *dev)
 {
 	struct {
@@ -463,22 +455,6 @@ int mt7663_mcu_set_eeprom(struct mt7615_dev *dev)
 	return ret;
 }
 EXPORT_SYMBOL_GPL(mt7663_mcu_set_eeprom);
-
-int mt7663_mcu_init_mac(struct mt7615_dev *dev, u8 band)
-{
-	struct {
-		u8 enable;
-		u8 band;
-		u8 rsv[2];
-	} __packed req = {
-		.enable = band,
-		.band = 0,
-	};
-
-	return __mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD_MAC_INIT_CTRL,
-				   &req, sizeof(req), true);
-}
-EXPORT_SYMBOL_GPL(mt7663_mcu_init_mac);
 
 int mt7663_mcu_ctrl_pm_state(struct mt7615_dev *dev, int enter)
 {

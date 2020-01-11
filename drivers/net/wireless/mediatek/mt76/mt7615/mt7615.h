@@ -422,7 +422,6 @@ int mt7663_mcu_set_sta_rec(struct mt7615_dev *dev, struct ieee80211_vif *vif,
 			   struct ieee80211_sta *sta, bool en);
 int mt7663u_mcu_init(struct mt7615_dev *dev);
 int mt7663_mcu_init(struct mt7615_dev *dev);
-int mt7663_mcu_init_mac(struct mt7615_dev *dev, u8 band);
 int mt7663u_register_device(struct mt7615_dev *dev);
 void mt7663u_update_channel(struct mt76_dev *mdev);
 void mt7663u_rate_work(struct work_struct *work);
@@ -451,7 +450,6 @@ void mt7663u_mac_write_txwi(struct mt7615_dev *dev, struct mt76_wcid *wcid,
 			    struct sk_buff *skb);
 int mt7663_mcu_load_ram(struct mt7615_dev *dev);
 int mt7663_mcu_load_patch(struct mt7615_dev *dev);
-void mt7663_mcu_exit(struct mt7615_dev *dev);
 void mt7663_mcu_fill_msg(struct mt7615_dev *dev, struct sk_buff *skb,
 			 int cmd, int *wait_seq);
 int mt7663_mcu_wait_response(struct mt7615_dev *dev, int cmd, int seq);

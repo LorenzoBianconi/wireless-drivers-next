@@ -135,10 +135,9 @@ mt7663u_mac_init(struct mt7615_dev *dev)
 	mt76_rmw(dev, MT_AGG_SCR, MT_AGG_SCR_NLNAV_MID_PTEC_DIS,
 		 MT_AGG_SCR_NLNAV_MID_PTEC_DIS);
 
-	mt7663_mcu_init_mac(dev, 0);
-
+	mt7615_mcu_set_mac_enable(dev, 0, 0);
 	if (dev->mt76.rev == 0x76630010)
-		mt7663_mcu_init_mac(dev, 1);
+		mt7615_mcu_set_mac_enable(dev, 0, 1);
 
 #define RF_LOW_BEACON_BAND0 0x11900
 #define RF_LOW_BEACON_BAND1 0x11d00
