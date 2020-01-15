@@ -172,7 +172,7 @@ static int mt7615_init_hardware(struct mt7615_dev *dev)
 	.hw_value_short = (MT_PHY_TYPE_OFDM << 8) | (_idx),		\
 }
 
-static struct ieee80211_rate mt7615_rates[] = {
+struct ieee80211_rate mt7615_rates[] = {
 	CCK_RATE(0, 10),
 	CCK_RATE(1, 20),
 	CCK_RATE(2, 55),
@@ -186,6 +186,7 @@ static struct ieee80211_rate mt7615_rates[] = {
 	OFDM_RATE(8,  480),
 	OFDM_RATE(12, 540),
 };
+EXPORT_SYMBOL_GPL(mt7615_rates);
 
 static const struct ieee80211_iface_limit if_limits[] = {
 	{

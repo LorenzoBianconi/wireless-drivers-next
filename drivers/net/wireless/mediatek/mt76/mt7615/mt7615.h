@@ -240,8 +240,11 @@ extern struct pci_driver mt7615_pci_driver;
 
 u32 mt7615_reg_map(struct mt7615_dev *dev, u32 addr);
 
+void mt7615_tx(struct ieee80211_hw *hw, struct ieee80211_tx_control *control,
+	       struct sk_buff *skb);
 int mt7615_conf_tx(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 		   u16 queue, const struct ieee80211_tx_queue_params *params);
+int mt7615_set_rts_threshold(struct ieee80211_hw *hw, u32 val);
 int mt7615_setup_interface(struct ieee80211_hw *hw,
 			   struct ieee80211_vif *vif);
 void mt7615_remove_interface(struct ieee80211_hw *hw,
@@ -296,6 +299,8 @@ int mt7615_mcu_rdd_cmd(struct mt7615_dev *dev,
 		       u8 rx_sel, u8 val);
 int mt7615_mcu_rdd_send_pattern(struct mt7615_dev *dev);
 
+extern struct ieee80211_rate mt7615_rates[12];
+
 static inline bool is_mt7622(struct mt76_dev *dev)
 {
 	return mt76_chip(dev) == 0x7622;
@@ -329,6 +334,11 @@ mt7615_wmm_queue_map(struct mt7615_dev *dev, u8 queue)
 void mt7615_irq_enable(struct mt7615_dev *dev, u32 mask);
 void mt7615_irq_disable(struct mt7615_dev *dev, u32 mask);
 
+void mt7615_sta_rate_tbl_update(struct ieee80211_hw *hw,
+				struct ieee80211_vif *vif,
+				struct ieee80211_sta *sta);
+int mt7615_ampdu_action(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
+			struct ieee80211_ampdu_params *params);
 void mt7615_update_channel(struct mt76_dev *mdev);
 bool mt7615_mac_wtbl_update(struct mt7615_dev *dev, int idx, u32 mask);
 void mt7615_mac_reset_counters(struct mt7615_dev *dev);
