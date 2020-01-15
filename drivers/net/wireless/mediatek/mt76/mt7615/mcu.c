@@ -102,6 +102,7 @@ void mt7615_mcu_fill_msg(struct mt7615_dev *dev, struct sk_buff *skb,
 	if (wait_seq)
 		*wait_seq = seq;
 }
+EXPORT_SYMBOL_GPL(mt7615_mcu_fill_msg);
 
 static int __mt7615_mcu_msg_send(struct mt7615_dev *dev, struct sk_buff *skb,
 				 int cmd, int *wait_seq)
@@ -165,6 +166,7 @@ int mt7615_mcu_wait_response(struct mt7615_dev *dev, int cmd, int seq)
 
 	return ret;
 }
+EXPORT_SYMBOL_GPL(mt7615_mcu_wait_response);
 
 static int
 mt7615_mcu_msg_send(struct mt76_dev *mdev, int cmd, const void *data,
@@ -318,11 +320,12 @@ static int mt7615_mcu_start_firmware(struct mt7615_dev *dev, u32 addr,
 				   &req, sizeof(req), true);
 }
 
-static int mt7615_mcu_restart(struct mt76_dev *dev)
+int mt7615_mcu_restart(struct mt76_dev *dev)
 {
 	return __mt76_mcu_send_msg(dev, -MCU_CMD_RESTART_DL_REQ, NULL,
 				   0, true);
 }
+EXPORT_SYMBOL_GPL(mt7615_mcu_restart);
 
 static int mt7615_mcu_patch_sem_ctrl(struct mt7615_dev *dev, bool get)
 {
@@ -443,6 +446,7 @@ out:
 
 	return ret;
 }
+EXPORT_SYMBOL_GPL(mt7615_load_patch);
 
 static u32 mt7615_mcu_gen_dl_mode(u8 feature_set, bool is_cr4)
 {
@@ -617,6 +621,7 @@ int mt7615_mcu_init(struct mt7615_dev *dev)
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(mt7615_mcu_init);
 
 void mt7615_mcu_exit(struct mt7615_dev *dev)
 {
@@ -624,6 +629,7 @@ void mt7615_mcu_exit(struct mt7615_dev *dev)
 	mt76_wr(dev, MT_CFG_LPCR_HOST, MT_CFG_LPCR_HOST_FW_OWN);
 	skb_queue_purge(&dev->mt76.mmio.mcu.res_q);
 }
+EXPORT_SYMBOL_GPL(mt7615_mcu_exit);
 
 int mt7615_mcu_set_eeprom(struct mt7615_dev *dev)
 {
@@ -652,6 +658,7 @@ int mt7615_mcu_set_eeprom(struct mt7615_dev *dev)
 
 	return ret;
 }
+EXPORT_SYMBOL_GPL(mt7615_mcu_set_eeprom);
 
 int mt7615_mcu_set_mac_enable(struct mt7615_dev *dev, int band, bool enable)
 {
@@ -667,6 +674,7 @@ int mt7615_mcu_set_mac_enable(struct mt7615_dev *dev, int band, bool enable)
 	return __mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD_MAC_INIT_CTRL,
 				   &req, sizeof(req), true);
 }
+EXPORT_SYMBOL_GPL(mt7615_mcu_set_mac_enable);
 
 int mt7615_mcu_set_rts_thresh(struct mt7615_phy *phy, u32 val)
 {
@@ -687,6 +695,7 @@ int mt7615_mcu_set_rts_thresh(struct mt7615_phy *phy, u32 val)
 	return __mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD_PROTECT_CTRL,
 				   &req, sizeof(req), true);
 }
+EXPORT_SYMBOL_GPL(mt7615_mcu_set_rts_thresh);
 
 int mt7615_mcu_set_wmm(struct mt7615_dev *dev, u8 queue,
 		       const struct ieee80211_tx_queue_params *params)
@@ -754,6 +763,7 @@ int mt7615_mcu_ctrl_pm_state(struct mt7615_dev *dev, int band, int enter)
 	return __mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD_PM_STATE_CTRL,
 				   &req, sizeof(req), true);
 }
+EXPORT_SYMBOL_GPL(mt7615_mcu_ctrl_pm_state);
 
 int mt7615_mcu_set_dbdc(struct mt7615_dev *dev)
 {
@@ -1009,6 +1019,7 @@ int mt7615_mcu_set_bss_info(struct mt7615_dev *dev,
 
 	return ret;
 }
+EXPORT_SYMBOL_GPL(mt7615_mcu_set_bss_info);
 
 static int
 mt7615_mcu_add_wtbl_bmc(struct mt7615_dev *dev,
@@ -1060,6 +1071,7 @@ int mt7615_mcu_wtbl_bmc(struct mt7615_dev *dev,
 
 	return mt7615_mcu_add_wtbl_bmc(dev, mvif);
 }
+EXPORT_SYMBOL_GPL(mt7615_mcu_wtbl_bmc);
 
 int mt7615_mcu_add_wtbl(struct mt7615_dev *dev, struct ieee80211_vif *vif,
 			struct ieee80211_sta *sta)
@@ -1096,6 +1108,7 @@ int mt7615_mcu_add_wtbl(struct mt7615_dev *dev, struct ieee80211_vif *vif,
 	return __mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD_WTBL_UPDATE,
 				   &req, sizeof(req), true);
 }
+EXPORT_SYMBOL_GPL(mt7615_mcu_add_wtbl);
 
 int mt7615_mcu_del_wtbl(struct mt7615_dev *dev,
 			struct ieee80211_sta *sta)
@@ -1109,6 +1122,7 @@ int mt7615_mcu_del_wtbl(struct mt7615_dev *dev,
 	return __mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD_WTBL_UPDATE,
 				   &req, sizeof(req), true);
 }
+EXPORT_SYMBOL_GPL(mt7615_mcu_del_wtbl);
 
 int mt7615_mcu_del_wtbl_all(struct mt7615_dev *dev)
 {
@@ -1119,6 +1133,7 @@ int mt7615_mcu_del_wtbl_all(struct mt7615_dev *dev)
 	return __mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD_WTBL_UPDATE,
 				   &req, sizeof(req), true);
 }
+EXPORT_SYMBOL_GPL(mt7615_mcu_del_wtbl_all);
 
 int mt7615_mcu_set_sta_rec_bmc(struct mt7615_dev *dev,
 			       struct ieee80211_vif *vif, bool en)
@@ -1155,6 +1170,7 @@ int mt7615_mcu_set_sta_rec_bmc(struct mt7615_dev *dev,
 	return __mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD_STA_REC_UPDATE,
 				   &req, sizeof(req), true);
 }
+EXPORT_SYMBOL_GPL(mt7615_mcu_set_sta_rec_bmc);
 
 int mt7615_mcu_set_sta_rec(struct mt7615_dev *dev, struct ieee80211_vif *vif,
 			   struct ieee80211_sta *sta, bool en)
@@ -1210,6 +1226,7 @@ int mt7615_mcu_set_sta_rec(struct mt7615_dev *dev, struct ieee80211_vif *vif,
 	return __mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD_STA_REC_UPDATE,
 				   &req, sizeof(req), true);
 }
+EXPORT_SYMBOL_GPL(mt7615_mcu_set_sta_rec);
 
 int mt7615_mcu_set_bcn(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 		       int en)
@@ -1274,6 +1291,7 @@ int mt7615_mcu_set_bcn(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	return __mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD_BCN_OFFLOAD,
 				   &req, sizeof(req), true);
 }
+EXPORT_SYMBOL_GPL(mt7615_mcu_set_bcn);
 
 int mt7615_mcu_set_tx_power(struct mt7615_phy *phy)
 {
@@ -1343,6 +1361,7 @@ out:
 
 	return ret;
 }
+EXPORT_SYMBOL_GPL(mt7615_mcu_set_tx_power);
 
 int mt7615_mcu_rdd_cmd(struct mt7615_dev *dev,
 		       enum mt7615_rdd_cmd cmd, u8 index,
@@ -1395,6 +1414,7 @@ int mt7615_mcu_rdd_send_pattern(struct mt7615_dev *dev)
 	return __mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD_SET_RDD_PATTERN,
 				   &req, sizeof(req), false);
 }
+EXPORT_SYMBOL_GPL(mt7615_mcu_rdd_send_pattern);
 
 int mt7615_mcu_set_channel(struct mt7615_phy *phy)
 {
@@ -1476,6 +1496,7 @@ int mt7615_mcu_set_channel(struct mt7615_phy *phy)
 	return __mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD_SET_RX_PATH,
 				   &req, sizeof(req), true);
 }
+EXPORT_SYMBOL_GPL(mt7615_mcu_set_channel);
 
 int mt7615_mcu_set_ht_cap(struct mt7615_dev *dev, struct ieee80211_vif *vif,
 			  struct ieee80211_sta *sta)
@@ -1600,6 +1621,7 @@ out:
 
 	return ret;
 }
+EXPORT_SYMBOL_GPL(mt7615_mcu_set_ht_cap);
 
 int mt7615_mcu_set_tx_ba(struct mt7615_dev *dev,
 			 struct ieee80211_ampdu_params *params,
@@ -1743,3 +1765,6 @@ int mt7615_mcu_get_temperature(struct mt7615_dev *dev, int index)
 	return __mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD_GET_TEMP, &req,
 				   sizeof(req), true);
 }
+EXPORT_SYMBOL_GPL(mt7615_mcu_get_temperature);
+
+MODULE_LICENSE("Dual BSD/GPL");
