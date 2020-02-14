@@ -323,6 +323,7 @@ mt7615_ext_phy(struct mt7615_dev *dev)
 	return phy->priv;
 }
 
+extern struct ieee80211_rate mt7615_rates[12];
 extern const struct ieee80211_ops mt7615_ops;
 extern const u32 mt7615e_reg_map[__MT_BASE_MAX];
 extern const u32 mt7663e_reg_map[__MT_BASE_MAX];
@@ -396,6 +397,47 @@ static inline void mt7615_irq_disable(struct mt7615_dev *dev, u32 mask)
 {
 	mt76_set_irq_mask(&dev->mt76, MT_INT_MASK_CSR, mask, 0);
 }
+
+void mt7615_tx(struct ieee80211_hw *hw,
+	       struct ieee80211_tx_control *control,
+	       struct sk_buff *skb);
+void mt7615_set_coverage_class(struct ieee80211_hw *hw,
+			       s16 coverage_class);
+int mt7615_set_antenna(struct ieee80211_hw *hw, u32 tx_ant,
+		       u32 rx_ant);
+int mt7615_start(struct ieee80211_hw *hw);
+int mt7615_add_interface(struct ieee80211_hw *hw,
+			 struct ieee80211_vif *vif);
+void mt7615_remove_interface(struct ieee80211_hw *hw,
+			     struct ieee80211_vif *vif);
+int mt7615_sta_add(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
+		   struct ieee80211_sta *sta);
+int mt7615_sta_remove(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
+		      struct ieee80211_sta *sta);
+int mt7615_config(struct ieee80211_hw *hw, u32 changed);
+int mt7615_conf_tx(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
+		   u16 queue, const struct ieee80211_tx_queue_params *params);
+void mt7615_configure_filter(struct ieee80211_hw *hw,
+			     unsigned int changed_flags,
+			     unsigned int *total_flags,
+			     u64 multicast);
+void mt7615_bss_info_changed(struct ieee80211_hw *hw,
+			     struct ieee80211_vif *vif,
+			     struct ieee80211_bss_conf *info,
+			     u32 changed);
+int mt7615_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
+		   struct ieee80211_vif *vif, struct ieee80211_sta *sta,
+		   struct ieee80211_key_conf *key);
+int mt7615_ampdu_action(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
+			struct ieee80211_ampdu_params *params);
+int mt7615_set_rts_threshold(struct ieee80211_hw *hw, u32 val);
+void mt7615_sta_rate_tbl_update(struct ieee80211_hw *hw,
+				struct ieee80211_vif *vif,
+				struct ieee80211_sta *sta);
+void mt7615_init_txpower(struct mt7615_dev *dev,
+			 struct ieee80211_supported_band *sband);
+void mt7615_phy_init(struct mt7615_dev *dev);
+void mt7615_mac_init(struct mt7615_dev *dev);
 
 void mt7615_update_channel(struct mt76_dev *mdev);
 bool mt7615_mac_wtbl_update(struct mt7615_dev *dev, int idx, u32 mask);
