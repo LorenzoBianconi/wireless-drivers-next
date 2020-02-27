@@ -481,6 +481,29 @@ mt7615_mcu_bss_event(struct mt7615_dev *dev, struct sk_buff *skb)
 }
 
 static void
+mt7615_mcu_debug_msg_event(struct mt7615_dev *dev, struct sk_buff *skb)
+{
+	struct mt7615_mcu_rxd *rxd = (struct mt7615_mcu_rxd *)skb->data;
+	struct mt7615_debug_tlv *msg;
+
+	skb_pull(skb, sizeof(*rxd));
+	msg = (struct mt7615_debug_tlv *)skb->data;
+
+	if (msg->type == 0x3) {
+		int i, len;
+
+		len = min_t(int, le16_to_cpu(msg->len), sizeof(msg->data));
+		for (i = 0 ; i < len; i++) {
+			if (msg->data[i])
+				continue;
+
+			msg->data[i] = ' ';
+		}
+		trace_printk("%s", msg->data);
+	}
+}
+
+static void
 mt7615_mcu_rx_unsolicited_event(struct mt7615_dev *dev, struct sk_buff *skb)
 {
 	struct mt7615_mcu_rxd *rxd = (struct mt7615_mcu_rxd *)skb->data;
@@ -502,6 +525,9 @@ mt7615_mcu_rx_unsolicited_event(struct mt7615_dev *dev, struct sk_buff *skb)
 	case MCU_EVENT_BSS_ABSENCE:
 		mt7615_mcu_bss_event(dev, skb);
 		break;
+	case MCU_EVENT_DBG_MSG:
+		mt7615_mcu_debug_msg_event(dev, skb);
+		break;
 	default:
 		break;
 	}
@@ -520,6 +546,7 @@ void mt7615_mcu_rx_event(struct mt7615_dev *dev, struct sk_buff *skb)
 	    rxd->eid == MCU_EVENT_SCHED_SCAN_DONE ||
 	    rxd->eid == MCU_EVENT_BSS_ABSENCE ||
 	    rxd->eid == MCU_EVENT_SCAN_DONE ||
+	    rxd->eid == MCU_EVENT_DBG_MSG ||
 	    rxd->eid == MCU_EVENT_ROC ||
 	    !rxd->seq)
 		mt7615_mcu_rx_unsolicited_event(dev, skb);

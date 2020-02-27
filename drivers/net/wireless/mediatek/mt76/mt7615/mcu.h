@@ -87,6 +87,7 @@ enum {
 	MCU_EVENT_BSS_BEACON_LOSS = 0x13,
 	MCU_EVENT_CH_PRIVILEGE = 0x18,
 	MCU_EVENT_SCHED_SCAN_DONE = 0x23,
+	MCU_EVENT_DBG_MSG = 0x27,
 	MCU_EVENT_EXT = 0xed,
 	MCU_EVENT_RESTART_DL = 0xef,
 };
@@ -567,6 +568,23 @@ struct mt7615_arpns_tlv {
 	u8 ips_num;
 	u8 option;
 	u8 pad[1];
+} __packed;
+
+struct mt7615_debug_tlv {
+	__le16 id; /* 0: unknown
+		    * 1: print
+		    * 2: fwlog
+		    */
+	u8 type; /* 0: unknown
+		  * 1: mem8
+		  * 2: mem32
+		  * 3: ascii
+		  * 4: binary
+		  */
+	u8 flag;
+	__le32 value;
+	__le16 len;
+	u8 data[512];
 } __packed;
 
 /* offload mcu commands */
