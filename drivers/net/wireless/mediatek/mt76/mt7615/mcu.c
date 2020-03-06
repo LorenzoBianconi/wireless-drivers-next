@@ -52,7 +52,8 @@ struct mt7615_fw_trailer {
 void mt7615_mcu_fill_msg(struct mt7615_dev *dev, struct sk_buff *skb,
 			 int cmd, int *wait_seq)
 {
-	int mcu_cmd = cmd & MCU_CMD_MASK;
+	int txd_len, mcu_cmd = cmd & MCU_CMD_MASK;
+	bool uni_cmd = cmd & MCU_UNI_PREFIX;
 	struct mt7615_mcu_txd *mcu_txd;
 	u8 seq, q_idx, pkt_fmt;
 	__le32 *txd;
@@ -62,7 +63,8 @@ void mt7615_mcu_fill_msg(struct mt7615_dev *dev, struct sk_buff *skb,
 	if (!seq)
 		seq = ++dev->mt76.mcu.msg_seq & 0xf;
 
-	mcu_txd = (struct mt7615_mcu_txd *)skb_push(skb, sizeof(*mcu_txd));
+	txd_len = uni_cmd ? sizeof(*mcu_txd) - 20 : sizeof(*mcu_txd);
+	mcu_txd = (struct mt7615_mcu_txd *)skb_push(skb, txd_len);
 
 	if (cmd != MCU_CMD_FW_SCATTER) {
 		q_idx = MT_TX_MCU_PORT_RX_Q0;
@@ -90,6 +92,9 @@ void mt7615_mcu_fill_msg(struct mt7615_dev *dev, struct sk_buff *skb,
 
 	if (cmd & MCU_FW_PREFIX) {
 		mcu_txd->set_query = MCU_Q_NA;
+		mcu_txd->cid = mcu_cmd;
+	} else if (uni_cmd) {
+		mcu_txd->ext_cid_ack = MCU_CMD_UNI_EXT_ACK;
 		mcu_txd->cid = mcu_cmd;
 	} else {
 		mcu_txd->cid = MCU_CMD_EXT_CID;
