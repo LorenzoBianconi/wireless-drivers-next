@@ -237,7 +237,7 @@ mt7615_mcu_msg_send(struct mt76_dev *mdev, int cmd, const void *data,
 {
 	struct sk_buff *skb;
 
-	skb = mt7615_mcu_msg_alloc(data, len);
+	skb = mt76_mcu_msg_alloc(mdev, data, len);
 	if (!skb)
 		return -ENOMEM;
 
@@ -493,7 +493,8 @@ mt7615_mcu_ctrl_pm_state(struct mt7615_dev *dev, int band, int state)
 }
 
 static struct sk_buff *
-mt7615_mcu_alloc_sta_req(struct mt7615_vif *mvif, struct mt7615_sta *msta)
+mt7615_mcu_alloc_sta_req(struct mt7615_dev *dev, struct mt7615_vif *mvif,
+			 struct mt7615_sta *msta)
 {
 	struct sta_req_hdr hdr = {
 		.bss_idx = mvif->idx,
@@ -503,7 +504,7 @@ mt7615_mcu_alloc_sta_req(struct mt7615_vif *mvif, struct mt7615_sta *msta)
 	};
 	struct sk_buff *skb;
 
-	skb = mt7615_mcu_msg_alloc(NULL, MT7615_STA_UPDATE_MAX_SIZE);
+	skb = mt76_mcu_msg_alloc(&dev->mt76, NULL, MT7615_STA_UPDATE_MAX_SIZE);
 	if (!skb)
 		return ERR_PTR(-ENOMEM);
 
@@ -513,8 +514,8 @@ mt7615_mcu_alloc_sta_req(struct mt7615_vif *mvif, struct mt7615_sta *msta)
 }
 
 static struct wtbl_req_hdr *
-mt7615_mcu_alloc_wtbl_req(struct mt7615_sta *msta, int cmd,
-			  void *sta_wtbl, struct sk_buff **skb)
+mt7615_mcu_alloc_wtbl_req(struct mt7615_dev *dev, struct mt7615_sta *msta,
+			  int cmd, void *sta_wtbl, struct sk_buff **skb)
 {
 	struct tlv *sta_hdr = sta_wtbl;
 	struct wtbl_req_hdr hdr = {
@@ -524,7 +525,8 @@ mt7615_mcu_alloc_wtbl_req(struct mt7615_sta *msta, int cmd,
 	struct sk_buff *nskb = *skb;
 
 	if (!nskb) {
-		nskb = mt7615_mcu_msg_alloc(NULL, MT7615_WTBL_UPDATE_BA_SIZE);
+		nskb = mt76_mcu_msg_alloc(&dev->mt76, NULL,
+					  MT7615_WTBL_UPDATE_BA_SIZE);
 		if (!nskb)
 			return ERR_PTR(-ENOMEM);
 
@@ -914,7 +916,7 @@ mt7615_mcu_add_bss(struct mt7615_dev *dev, struct ieee80211_vif *vif,
 	struct mt7615_vif *mvif = (struct mt7615_vif *)vif->drv_priv;
 	struct sk_buff *skb;
 
-	skb = mt7615_mcu_alloc_sta_req(mvif, NULL);
+	skb = mt7615_mcu_alloc_sta_req(dev, mvif, NULL);
 	if (IS_ERR(skb))
 		return PTR_ERR(skb);
 
@@ -941,7 +943,7 @@ mt7615_mcu_wtbl_tx_ba(struct mt7615_dev *dev,
 	struct sk_buff *skb = NULL;
 	int err;
 
-	wtbl_hdr = mt7615_mcu_alloc_wtbl_req(msta, WTBL_SET, NULL, &skb);
+	wtbl_hdr = mt7615_mcu_alloc_wtbl_req(dev, msta, WTBL_SET, NULL, &skb);
 	if (IS_ERR(wtbl_hdr))
 		return PTR_ERR(wtbl_hdr);
 
@@ -952,7 +954,7 @@ mt7615_mcu_wtbl_tx_ba(struct mt7615_dev *dev,
 	if (err < 0)
 		return err;
 
-	skb = mt7615_mcu_alloc_sta_req(mvif, msta);
+	skb = mt7615_mcu_alloc_sta_req(dev, mvif, msta);
 	if (IS_ERR(skb))
 		return PTR_ERR(skb);
 
@@ -973,7 +975,7 @@ mt7615_mcu_wtbl_rx_ba(struct mt7615_dev *dev,
 	struct sk_buff *skb;
 	int err;
 
-	skb = mt7615_mcu_alloc_sta_req(mvif, msta);
+	skb = mt7615_mcu_alloc_sta_req(dev, mvif, msta);
 	if (IS_ERR(skb))
 		return PTR_ERR(skb);
 
@@ -985,7 +987,7 @@ mt7615_mcu_wtbl_rx_ba(struct mt7615_dev *dev,
 		return err;
 
 	skb = NULL;
-	wtbl_hdr = mt7615_mcu_alloc_wtbl_req(msta, WTBL_SET, NULL, &skb);
+	wtbl_hdr = mt7615_mcu_alloc_wtbl_req(dev, msta, WTBL_SET, NULL, &skb);
 	if (IS_ERR(wtbl_hdr))
 		return PTR_ERR(wtbl_hdr);
 
@@ -1007,7 +1009,7 @@ mt7615_mcu_wtbl_sta_add(struct mt7615_dev *dev, struct ieee80211_vif *vif,
 
 	msta = sta ? (struct mt7615_sta *)sta->drv_priv : &mvif->sta;
 
-	sskb = mt7615_mcu_alloc_sta_req(mvif, msta);
+	sskb = mt7615_mcu_alloc_sta_req(dev, mvif, msta);
 	if (IS_ERR(sskb))
 		return PTR_ERR(sskb);
 
@@ -1015,8 +1017,8 @@ mt7615_mcu_wtbl_sta_add(struct mt7615_dev *dev, struct ieee80211_vif *vif,
 	if (enable && sta)
 		mt7615_mcu_sta_ht_tlv(sskb, sta);
 
-	wtbl_hdr = mt7615_mcu_alloc_wtbl_req(msta, WTBL_RESET_AND_SET, NULL,
-					     &wskb);
+	wtbl_hdr = mt7615_mcu_alloc_wtbl_req(dev, msta, WTBL_RESET_AND_SET,
+					     NULL, &wskb);
 	if (IS_ERR(wtbl_hdr))
 		return PTR_ERR(wtbl_hdr);
 
@@ -1060,7 +1062,7 @@ mt7615_mcu_sta_ba(struct mt7615_dev *dev,
 	struct tlv *sta_wtbl;
 	struct sk_buff *skb;
 
-	skb = mt7615_mcu_alloc_sta_req(mvif, msta);
+	skb = mt7615_mcu_alloc_sta_req(dev, mvif, msta);
 	if (IS_ERR(skb))
 		return PTR_ERR(skb);
 
@@ -1068,7 +1070,8 @@ mt7615_mcu_sta_ba(struct mt7615_dev *dev,
 
 	sta_wtbl = mt7615_mcu_add_tlv(skb, STA_REC_WTBL, sizeof(struct tlv));
 
-	wtbl_hdr = mt7615_mcu_alloc_wtbl_req(msta, WTBL_SET, sta_wtbl, &skb);
+	wtbl_hdr = mt7615_mcu_alloc_wtbl_req(dev, msta, WTBL_SET, sta_wtbl,
+					     &skb);
 	mt7615_mcu_wtbl_ba_tlv(skb, params, enable, tx, sta_wtbl, wtbl_hdr);
 
 	return __mt76_mcu_skb_send_msg(&dev->mt76, skb,
@@ -1103,7 +1106,7 @@ mt7615_mcu_add_sta_cmd(struct mt7615_dev *dev, struct ieee80211_vif *vif,
 
 	msta = sta ? (struct mt7615_sta *)sta->drv_priv : &mvif->sta;
 
-	skb = mt7615_mcu_alloc_sta_req(mvif, msta);
+	skb = mt7615_mcu_alloc_sta_req(dev, mvif, msta);
 	if (IS_ERR(skb))
 		return PTR_ERR(skb);
 
@@ -1113,7 +1116,7 @@ mt7615_mcu_add_sta_cmd(struct mt7615_dev *dev, struct ieee80211_vif *vif,
 
 	sta_wtbl = mt7615_mcu_add_tlv(skb, STA_REC_WTBL, sizeof(struct tlv));
 
-	wtbl_hdr = mt7615_mcu_alloc_wtbl_req(msta, WTBL_RESET_AND_SET,
+	wtbl_hdr = mt7615_mcu_alloc_wtbl_req(dev, msta, WTBL_RESET_AND_SET,
 					     sta_wtbl, &skb);
 	if (enable) {
 		mt7615_mcu_wtbl_generic_tlv(skb, vif, sta, sta_wtbl, wtbl_hdr);
@@ -1355,13 +1358,14 @@ mt7615_mcu_uni_tx_ba(struct mt7615_dev *dev,
 	struct sk_buff *skb;
 	int err;
 
-	skb = mt7615_mcu_alloc_sta_req(mvif, msta);
+	skb = mt7615_mcu_alloc_sta_req(dev, mvif, msta);
 	if (IS_ERR(skb))
 		return PTR_ERR(skb);
 
 	sta_wtbl = mt7615_mcu_add_tlv(skb, STA_REC_WTBL, sizeof(struct tlv));
 
-	wtbl_hdr = mt7615_mcu_alloc_wtbl_req(msta, WTBL_SET, sta_wtbl, &skb);
+	wtbl_hdr = mt7615_mcu_alloc_wtbl_req(dev, msta, WTBL_SET, sta_wtbl,
+					     &skb);
 	if (IS_ERR(wtbl_hdr))
 		return PTR_ERR(wtbl_hdr);
 
@@ -1373,7 +1377,7 @@ mt7615_mcu_uni_tx_ba(struct mt7615_dev *dev,
 	if (err < 0)
 		return err;
 
-	skb = mt7615_mcu_alloc_sta_req(mvif, msta);
+	skb = mt7615_mcu_alloc_sta_req(dev, mvif, msta);
 	if (IS_ERR(skb))
 		return PTR_ERR(skb);
 
@@ -1395,7 +1399,7 @@ mt7615_mcu_uni_rx_ba(struct mt7615_dev *dev,
 	struct sk_buff *skb;
 	int err;
 
-	skb = mt7615_mcu_alloc_sta_req(mvif, msta);
+	skb = mt7615_mcu_alloc_sta_req(dev, mvif, msta);
 	if (IS_ERR(skb))
 		return PTR_ERR(skb);
 
@@ -1406,13 +1410,14 @@ mt7615_mcu_uni_rx_ba(struct mt7615_dev *dev,
 	if (err < 0 || !enable)
 		return err;
 
-	skb = mt7615_mcu_alloc_sta_req(mvif, msta);
+	skb = mt7615_mcu_alloc_sta_req(dev, mvif, msta);
 	if (IS_ERR(skb))
 		return PTR_ERR(skb);
 
 	sta_wtbl = mt7615_mcu_add_tlv(skb, STA_REC_WTBL, sizeof(struct tlv));
 
-	wtbl_hdr = mt7615_mcu_alloc_wtbl_req(msta, WTBL_SET, sta_wtbl, &skb);
+	wtbl_hdr = mt7615_mcu_alloc_wtbl_req(dev, msta, WTBL_SET, sta_wtbl,
+					     &skb);
 	if (IS_ERR(wtbl_hdr))
 		return PTR_ERR(wtbl_hdr);
 
@@ -1964,6 +1969,7 @@ static int mt7663_load_firmware(struct mt7615_dev *dev)
 int mt7615_mcu_init(struct mt7615_dev *dev)
 {
 	static const struct mt76_mcu_ops mt7615_mcu_ops = {
+		.headroom = sizeof(struct mt7615_mcu_txd),
 		.mcu_skb_send_msg = mt7615_mcu_send_message,
 		.mcu_send_msg = mt7615_mcu_msg_send,
 		.mcu_restart = mt7615_mcu_restart,
@@ -2036,7 +2042,7 @@ int mt7615_mcu_set_eeprom(struct mt7615_dev *dev)
 
 	req_hdr.len = cpu_to_le16(eep_len);
 
-	skb = mt7615_mcu_msg_alloc(NULL, sizeof(req_hdr) + eep_len);
+	skb = mt76_mcu_msg_alloc(&dev->mt76, NULL, sizeof(req_hdr) + eep_len);
 	if (!skb)
 		return -ENOMEM;
 
