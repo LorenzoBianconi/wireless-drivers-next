@@ -719,6 +719,29 @@ mt7615_cancel_hw_scan(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 	mt7615_mcu_cancel_hw_scan(mphy->priv, vif);
 }
 
+static int
+mt7615_start_sched_scan(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
+			struct cfg80211_sched_scan_request *req,
+			struct ieee80211_scan_ies *ies)
+{
+	struct mt76_phy *mphy = hw->priv;
+	int err;
+
+	err = mt7615_mcu_sched_scan_req(mphy->priv, vif, req);
+	if (err < 0)
+		return err;
+
+	return mt7615_mcu_sched_scan_enable(mphy->priv, vif, true);
+}
+
+static int
+mt7615_stop_sched_scan(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
+{
+	struct mt76_phy *mphy = hw->priv;
+
+	return mt7615_mcu_sched_scan_enable(mphy->priv, vif, false);
+}
+
 const struct ieee80211_ops mt7615_ops = {
 	.tx = mt7615_tx,
 	.start = mt7615_start,
@@ -750,6 +773,8 @@ const struct ieee80211_ops mt7615_ops = {
 	.set_coverage_class = mt7615_set_coverage_class,
 	.hw_scan = mt7615_hw_scan,
 	.cancel_hw_scan = mt7615_cancel_hw_scan,
+	.sched_scan_start = mt7615_start_sched_scan,
+	.sched_scan_stop = mt7615_stop_sched_scan,
 };
 
 static int __init mt7615_init(void)

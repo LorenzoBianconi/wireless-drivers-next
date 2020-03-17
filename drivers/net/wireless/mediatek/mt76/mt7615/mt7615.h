@@ -58,6 +58,9 @@
 #define MT7615_CFEND_RATE_11B		0x03 /* 11B LP, 11M */
 
 #define MT7615_SCAN_IE_LEN		600
+#define MT7615_MAX_SCHED_SCAN_INTERVAL	10
+#define MT7615_MAX_SCHED_SCAN_SSID	10
+#define MT7615_MAX_SCAN_MATCH		16
 
 struct mt7615_vif;
 struct mt7615_sta;
@@ -405,6 +408,12 @@ int mt7615_mcu_hw_scan(struct mt7615_phy *phy, struct ieee80211_vif *vif,
 		       struct ieee80211_scan_request *scan_req);
 int mt7615_mcu_cancel_hw_scan(struct mt7615_phy *phy,
 			      struct ieee80211_vif *vif);
+int mt7615_mcu_sched_scan_req(struct mt7615_phy *phy,
+			      struct ieee80211_vif *vif,
+			      struct cfg80211_sched_scan_request *sreq);
+int mt7615_mcu_sched_scan_enable(struct mt7615_phy *phy,
+				 struct ieee80211_vif *vif,
+				 bool enable);
 
 int mt7615_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 			  enum mt76_txq_id qid, struct mt76_wcid *wcid,
