@@ -167,8 +167,12 @@ mt7615_ampdu_stat_read(struct seq_file *file, void *data)
 {
 	struct mt7615_dev *dev = file->private;
 
+	mt7615_mutex_acquire(dev, &dev->mt76.mutex);
+
 	mt7615_ampdu_stat_read_phy(&dev->phy, file);
 	mt7615_ampdu_stat_read_phy(mt7615_ext_phy(dev), file);
+
+	mt7615_mutex_release(dev, &dev->mt76.mutex);
 
 	return 0;
 }
@@ -233,6 +237,8 @@ mt7615_queues_acq(struct seq_file *s, void *data)
 	struct mt7615_dev *dev = dev_get_drvdata(s->private);
 	int i;
 
+	mt7615_mutex_acquire(dev, &dev->mt76.mutex);
+
 	for (i = 0; i < 16; i++) {
 		int j, wmm_idx = i % MT7615_MAX_WMM_SETS;
 		int acs = i / MT7615_MAX_WMM_SETS;
@@ -252,6 +258,8 @@ mt7615_queues_acq(struct seq_file *s, void *data)
 		}
 		seq_printf(s, "AC%d%d: queued=%d\n", wmm_idx, acs, qlen);
 	}
+
+	mt7615_mutex_release(dev, &dev->mt76.mutex);
 
 	return 0;
 }
