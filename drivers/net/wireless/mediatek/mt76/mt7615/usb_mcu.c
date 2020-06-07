@@ -20,7 +20,7 @@ mt7663u_mcu_send_message(struct mt76_dev *mdev, struct sk_buff *skb,
 	struct mt7615_dev *dev = container_of(mdev, struct mt7615_dev, mt76);
 	int ret, seq, ep;
 
-	mutex_lock(&mdev->mcu.mutex);
+	mt7615_mutex_acquire(dev, &mdev->mcu.mutex);
 
 	mt7615_mcu_fill_msg(dev, skb, cmd, &seq);
 	if (cmd != MCU_CMD_FW_SCATTER)
@@ -42,7 +42,7 @@ mt7663u_mcu_send_message(struct mt76_dev *mdev, struct sk_buff *skb,
 		ret = mt7615_mcu_wait_response(dev, cmd, seq);
 
 out:
-	mutex_unlock(&mdev->mcu.mutex);
+	mt7615_mutex_release(dev, &mdev->mcu.mutex);
 
 	return ret;
 }
