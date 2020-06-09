@@ -156,6 +156,10 @@ enum tx_phy_bandwidth {
 #define MT_USB_HDR_SIZE			4
 #define MT_USB_TAIL_SIZE		4
 
+#define MT_SDIO_TXD_SIZE		(MT_TXD_SIZE + 8 * 4)
+#define MT_SDIO_HDR_SIZE		0
+#define MT_SDIO_TAIL_SIZE		4
+
 #define MT_TXD0_P_IDX			BIT(31)
 #define MT_TXD0_Q_IDX			GENMASK(30, 26)
 #define MT_TXD0_UDP_TCP_SUM		BIT(24)
