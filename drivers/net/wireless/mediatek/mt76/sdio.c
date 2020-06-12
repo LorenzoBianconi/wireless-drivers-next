@@ -104,7 +104,7 @@ static void mt76s_wr(struct mt76_dev *dev, u32 offset, u32 val)
 		goto err;
 	}
 
-	sdio_writel(func, H2D_SW_INT_READ, MCR_WHISR, &err);
+	sdio_writel(func, H2D_SW_INT_WRITE, MCR_WHISR, &err);
 	if (err < 0)
 		goto err;
 
