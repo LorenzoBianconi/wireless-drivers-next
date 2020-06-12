@@ -221,7 +221,6 @@ static void mt76s_free_rx(struct mt76_dev *dev)
 
 void mt76s_stop_rx(struct mt76_dev *dev)
 {
-	cancel_work_sync(&dev->sdio.rx_work);
 	tasklet_kill(&dev->sdio.rx_tasklet);
 }
 EXPORT_SYMBOL_GPL(mt76s_stop_rx);
@@ -497,7 +496,7 @@ static void mt76s_rx_tasklet(unsigned long data)
 	rcu_read_unlock();
 }
 
-static void __mt76s_rx_work(struct mt76_dev *dev, int num)
+static void mt76s_rx_work(struct mt76_dev *dev, int num)
 {
 	struct mt76_sdio *sdio = &dev->sdio;
 	struct mt76_queue_entry *e;
@@ -712,20 +711,6 @@ static void mt76s_vo_kick(struct work_struct *work)
 	clear_bit(MT76S_VO_TXING, &sdio->state);
 }
 
-static void mt76s_rx_work(struct work_struct *work)
-{
-	struct mt76_sdio *sdio;
-	struct mt76_dev *dev;
-
-	sdio = container_of(work, struct mt76_sdio, rx_work);
-	dev = container_of(sdio, struct mt76_dev, sdio);
-
-	__mt76s_rx_work(dev, 64);
-	tasklet_schedule(&dev->sdio.rx_tasklet);
-
-	clear_bit(MT76S_RXING, &sdio->state);
-}
-
 static int
 mt76s_tx_queue_skb(struct mt76_dev *dev, enum mt76_txq_id qid,
 		   struct sk_buff *skb, struct mt76_wcid *wcid,
@@ -800,9 +785,9 @@ static void mt76s_sdio_irq(struct sdio_func *func)
 	if (!test_bit(MT76_STATE_INITIALIZED, &dev->phy.state))
 		goto out;
 
-	if (intr & (WHIER_RX0_DONE_INT_EN)){
-		if(!test_and_set_bit(MT76S_RXING, &sdio->state))
-			queue_work(sdio->wq, &sdio->rx_work);
+	if (intr & WHIER_RX0_DONE_INT_EN) {
+		mt76s_rx_work(dev, 64);
+		tasklet_schedule(&dev->sdio.rx_tasklet);
 	}
 
 out:
@@ -950,7 +935,6 @@ int mt76s_init(struct mt76_dev *dev, struct sdio_func *func)
 	INIT_WORK(&sdio->bk_work, mt76s_bk_kick);
 	INIT_WORK(&sdio->vi_work, mt76s_vi_kick);
 	INIT_WORK(&sdio->vo_work, mt76s_vo_kick);
-	INIT_WORK(&sdio->rx_work, mt76s_rx_work);
 
 	sdio->wq = alloc_workqueue("mt76s", WQ_UNBOUND, 0);
 	if (!sdio->wq)
