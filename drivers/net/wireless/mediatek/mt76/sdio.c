@@ -539,10 +539,10 @@ static void mt76s_rx_work(struct mt76_dev *dev, int num)
 			dev_err(dev->dev, "sdio read data failed:%d\n", err);
 		sdio_release_host(sdio->func);
 
-		spin_lock(&q->lock);
+		spin_lock_bh(&q->lock);
 		q->tail = (q->tail + 1) % q->ndesc;
 		q->queued++;
-		spin_unlock(&q->lock);
+		spin_unlock_bh(&q->lock);
 	}
 }
 
