@@ -653,7 +653,6 @@ static void mt76s_tx_kick(struct mt76_dev *dev, int qid)
 		sdio_release_host(sdio->func);
 
 		q->entry[q->first].done = true;
-		tasklet_schedule(&dev->tx_tasklet);
 
 		q->first = (q->first + 1) % q->ndesc;
 	}
@@ -790,6 +789,8 @@ static void mt76s_sdio_irq(struct sdio_func *func)
 		tasklet_schedule(&dev->sdio.rx_tasklet);
 	}
 
+	if (intr & WHIER_TX_DONE_INT_EN)
+		tasklet_schedule(&dev->tx_tasklet);
 out:
 	/* enable interrupt */
 	sdio_writel(func, WHLPCR_INT_EN_SET, MCR_WHLPCR, 0);
@@ -872,7 +873,7 @@ static int mt76s_hw_init(struct mt76_dev *dev, struct sdio_func *func)
 	if (ret < 0)
 		goto disable_func;
 
-	ctrl = WHIER_RX0_DONE_INT_EN;
+	ctrl = WHIER_RX0_DONE_INT_EN | WHIER_TX_DONE_INT_EN;
 	sdio_writel(func, ctrl, MCR_WHIER, &ret);
 	if (ret < 0)
 		goto disable_func;
