@@ -812,12 +812,16 @@ int mt76s_driver_own(struct mt76_dev *dev)
 	u32 status;
 	int ret;
 
+	sdio_claim_host(func);
+
 	sdio_writel(func, WHLPCR_FW_OWN_REQ_CLR, MCR_WHLPCR, 0);
 
 	ret = readx_poll_timeout(mt76s_sdio_read_pcr, dev, status,
 				 status & WHLPCR_IS_DRIVER_OWN, 2000, 1000000);
 	if (ret < 0)
 		dev_err(dev->dev, "Cannot get ownership from device");
+
+	sdio_release_host(func);
 
 	return ret;
 }
@@ -829,12 +833,16 @@ int mt76s_firmware_own(struct mt76_dev *dev)
 	u32 status;
 	int ret;
 
+	sdio_claim_host(func);
+
 	sdio_writel(func, WHLPCR_FW_OWN_REQ_SET, MCR_WHLPCR, 0);
 
 	ret = readx_poll_timeout(mt76s_sdio_read_pcr, dev, status,
 				 !(status & WHLPCR_IS_DRIVER_OWN), 2000, 1000000);
 	if (ret < 0)
 		dev_err(dev->dev, "Cannot set ownership to device");
+
+	sdio_release_host(func);
 
 	return ret;
 }
