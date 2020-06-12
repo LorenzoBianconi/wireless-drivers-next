@@ -104,7 +104,7 @@ static void mt76s_wr(struct mt76_dev *dev, u32 offset, u32 val)
 		goto err;
 	}
 
-	sdio_writel(func, H2D_SW_INT_READ, MCR_WHISR, &err);
+	sdio_writel(func, H2D_SW_INT_WRITE, MCR_WHISR, &err);
 	if (err < 0)
 		goto err;
 
@@ -221,7 +221,6 @@ static void mt76s_free_rx(struct mt76_dev *dev)
 
 void mt76s_stop_rx(struct mt76_dev *dev)
 {
-	cancel_work_sync(&dev->sdio.rx_work);
 	tasklet_kill(&dev->sdio.rx_tasklet);
 }
 EXPORT_SYMBOL_GPL(mt76s_stop_rx);
@@ -497,7 +496,7 @@ static void mt76s_rx_tasklet(unsigned long data)
 	rcu_read_unlock();
 }
 
-static void __mt76s_rx_work(struct mt76_dev *dev, int num)
+static void mt76s_rx_work(struct mt76_dev *dev, int num)
 {
 	struct mt76_sdio *sdio = &dev->sdio;
 	struct mt76_queue_entry *e;
@@ -540,10 +539,10 @@ static void __mt76s_rx_work(struct mt76_dev *dev, int num)
 			dev_err(dev->dev, "sdio read data failed:%d\n", err);
 		sdio_release_host(sdio->func);
 
-		spin_lock(&q->lock);
+		spin_lock_bh(&q->lock);
 		q->tail = (q->tail + 1) % q->ndesc;
 		q->queued++;
-		spin_unlock(&q->lock);
+		spin_unlock_bh(&q->lock);
 	}
 }
 
@@ -654,7 +653,6 @@ static void mt76s_tx_kick(struct mt76_dev *dev, int qid)
 		sdio_release_host(sdio->func);
 
 		q->entry[q->first].done = true;
-		tasklet_schedule(&dev->tx_tasklet);
 
 		q->first = (q->first + 1) % q->ndesc;
 	}
@@ -710,20 +708,6 @@ static void mt76s_vo_kick(struct work_struct *work)
 	mt76s_tx_kick(dev, MT_TXQ_VO);
 
 	clear_bit(MT76S_VO_TXING, &sdio->state);
-}
-
-static void mt76s_rx_work(struct work_struct *work)
-{
-	struct mt76_sdio *sdio;
-	struct mt76_dev *dev;
-
-	sdio = container_of(work, struct mt76_sdio, rx_work);
-	dev = container_of(sdio, struct mt76_dev, sdio);
-
-	__mt76s_rx_work(dev, 64);
-	tasklet_schedule(&dev->sdio.rx_tasklet);
-
-	clear_bit(MT76S_RXING, &sdio->state);
 }
 
 static int
@@ -800,11 +784,13 @@ static void mt76s_sdio_irq(struct sdio_func *func)
 	if (!test_bit(MT76_STATE_INITIALIZED, &dev->phy.state))
 		goto out;
 
-	if (intr & (WHIER_RX0_DONE_INT_EN)){
-		if(!test_and_set_bit(MT76S_RXING, &sdio->state))
-			queue_work(sdio->wq, &sdio->rx_work);
+	if (intr & WHIER_RX0_DONE_INT_EN) {
+		mt76s_rx_work(dev, 64);
+		tasklet_schedule(&dev->sdio.rx_tasklet);
 	}
 
+	if (intr & WHIER_TX_DONE_INT_EN)
+		tasklet_schedule(&dev->tx_tasklet);
 out:
 	/* enable interrupt */
 	sdio_writel(func, WHLPCR_INT_EN_SET, MCR_WHLPCR, 0);
@@ -826,12 +812,16 @@ int mt76s_driver_own(struct mt76_dev *dev)
 	u32 status;
 	int ret;
 
+	sdio_claim_host(func);
+
 	sdio_writel(func, WHLPCR_FW_OWN_REQ_CLR, MCR_WHLPCR, 0);
 
 	ret = readx_poll_timeout(mt76s_sdio_read_pcr, dev, status,
 				 status & WHLPCR_IS_DRIVER_OWN, 2000, 1000000);
 	if (ret < 0)
 		dev_err(dev->dev, "Cannot get ownership from device");
+
+	sdio_release_host(func);
 
 	return ret;
 }
@@ -843,12 +833,16 @@ int mt76s_firmware_own(struct mt76_dev *dev)
 	u32 status;
 	int ret;
 
+	sdio_claim_host(func);
+
 	sdio_writel(func, WHLPCR_FW_OWN_REQ_SET, MCR_WHLPCR, 0);
 
 	ret = readx_poll_timeout(mt76s_sdio_read_pcr, dev, status,
 				 !(status & WHLPCR_IS_DRIVER_OWN), 2000, 1000000);
 	if (ret < 0)
 		dev_err(dev->dev, "Cannot set ownership to device");
+
+	sdio_release_host(func);
 
 	return ret;
 }
@@ -887,7 +881,7 @@ static int mt76s_hw_init(struct mt76_dev *dev, struct sdio_func *func)
 	if (ret < 0)
 		goto disable_func;
 
-	ctrl = WHIER_RX0_DONE_INT_EN;
+	ctrl = WHIER_RX0_DONE_INT_EN | WHIER_TX_DONE_INT_EN;
 	sdio_writel(func, ctrl, MCR_WHIER, &ret);
 	if (ret < 0)
 		goto disable_func;
@@ -950,7 +944,6 @@ int mt76s_init(struct mt76_dev *dev, struct sdio_func *func)
 	INIT_WORK(&sdio->bk_work, mt76s_bk_kick);
 	INIT_WORK(&sdio->vi_work, mt76s_vi_kick);
 	INIT_WORK(&sdio->vo_work, mt76s_vo_kick);
-	INIT_WORK(&sdio->rx_work, mt76s_rx_work);
 
 	sdio->wq = alloc_workqueue("mt76s", WQ_UNBOUND, 0);
 	if (!sdio->wq)
