@@ -301,7 +301,11 @@ mt7615_queue_key_update(struct mt7615_dev *dev, enum set_key_cmd cmd,
 	wd->key.cmd = cmd;
 
 	list_add_tail(&wd->node, &dev->wd_head);
-	queue_work(dev->mt76.usb.wq, &dev->wtbl_work);
+
+	if (mt76_is_usb(&dev->mt76))
+		queue_work(dev->mt76.usb.wq, &dev->wtbl_work);
+	else if (mt76_is_sdio(&dev->mt76))
+		queue_work(dev->mt76.sdio.wq, &dev->wtbl_work);
 
 	return 0;
 }
