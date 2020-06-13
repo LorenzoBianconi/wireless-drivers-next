@@ -730,8 +730,6 @@ mt76s_tx_queue_skb(struct mt76_dev *dev, enum mt76_txq_id qid,
 	if (err < 0)
 		return err;
 
-	skb->prev = skb->next = NULL;
-
 	q->tail = (q->tail + 1) % q->ndesc;
 	q->entry[idx].skb = tx_info.skb;
 	q->queued++;
