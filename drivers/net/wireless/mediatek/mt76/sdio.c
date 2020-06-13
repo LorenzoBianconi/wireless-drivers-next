@@ -633,6 +633,7 @@ static void mt76s_tx_kick(struct mt76_dev *dev, int qid)
 	struct mt76_queue *q;
 	struct sk_buff *skb;
 	int err, len;
+	u16 idx;
 
 	q = dev->q_tx[qid].q;
 
@@ -652,9 +653,11 @@ static void mt76s_tx_kick(struct mt76_dev *dev, int qid)
 			dev_err(dev->dev, "sdio write failed:%d\n", err);
 		sdio_release_host(sdio->func);
 
-		q->entry[q->first].done = true;
+		idx = q->first;
 
 		q->first = (q->first + 1) % q->ndesc;
+
+		q->entry[idx].done = true;
 	}
 }
 
