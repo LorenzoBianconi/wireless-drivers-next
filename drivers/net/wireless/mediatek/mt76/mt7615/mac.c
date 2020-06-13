@@ -1905,7 +1905,8 @@ void mt7615_pm_power_save_sched(struct mt7615_dev *dev)
 {
 	struct mt76_phy *mphy = dev->phy.mt76;
 
-	if (!mt7615_firmware_offload(dev) || !mt76_is_mmio(mphy->dev) ||
+	if (!mt7615_firmware_offload(dev) ||
+	    !dev->pm.enable || !mt76_is_mmio(mphy->dev) ||
 	    !test_bit(MT76_STATE_RUNNING, &mphy->state))
 		return;
 
@@ -1926,6 +1927,25 @@ void mt7615_pm_power_save_work(struct work_struct *work)
 	if (mt7615_firmware_own(dev))
 		queue_delayed_work(dev->mt76.wq, &dev->pm.ps_work,
 				   MT7615_PM_TIMEOUT);
+}
+
+int mt7615_pm_set_enable(struct mt7615_dev *dev, bool enable)
+{
+	if (!mt7615_firmware_offload(dev) || !mt76_is_mmio(&dev->mt76))
+		return -EOPNOTSUPP;
+
+	mutex_lock(&dev->mt76.mutex);
+
+	if (dev->pm.enable == enable)
+		goto out;
+
+	dev->pm.enable = enable;
+	if (!enable)
+		cancel_delayed_work_sync(&dev->pm.ps_work);
+out:
+	mutex_unlock(&dev->mt76.mutex);
+
+	return 0;
 }
 
 void mt7615_mac_work(struct work_struct *work)
