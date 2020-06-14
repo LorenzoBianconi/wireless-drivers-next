@@ -427,7 +427,6 @@ struct mt76_usb {
 	u16 data_len;
 
 	struct tasklet_struct rx_tasklet;
-	struct workqueue_struct *wq;
 	struct work_struct stat_work;
 
 	u8 out_ep[__MT_EP_OUT_MAX];
@@ -591,6 +590,8 @@ struct mt76_dev {
 	u8 csa_complete;
 
 	u32 rxfilter;
+
+	struct workqueue_struct *wq;
 
 	union {
 		struct mt76_mmio mmio;
@@ -962,7 +963,6 @@ int mt76u_vendor_request(struct mt76_dev *dev, u8 req,
 			 void *buf, size_t len);
 void mt76u_single_wr(struct mt76_dev *dev, const u8 req,
 		     const u16 offset, const u32 val);
-void mt76u_deinit(struct mt76_dev *dev);
 int mt76u_init(struct mt76_dev *dev, struct usb_interface *intf,
 	       bool ext);
 int mt76u_alloc_mcu_queue(struct mt76_dev *dev);
