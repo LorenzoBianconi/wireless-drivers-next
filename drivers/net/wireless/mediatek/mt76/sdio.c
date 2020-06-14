@@ -508,11 +508,9 @@ static void mt76s_rx_work(struct mt76_dev *dev, int num)
 	q = &dev->q_rx[qid];
 
 	for (n = 0; n < num; n++) {
-		sdio_claim_host(sdio->func);
 		val = sdio_readl(sdio->func, MCR_WRPLR, &err);
 		if (err < 0)
 			dev_err(dev->dev, "sdio read len failed:%d\n", err);
-		sdio_release_host(sdio->func);
 		len = FIELD_GET(RX0_PACKET_LENGTH, val);
 		if (!len)
 			break;
@@ -533,11 +531,9 @@ static void mt76s_rx_work(struct mt76_dev *dev, int num)
 			len = rounddown(q->buf_size, sdio->func->cur_blksize);
 		}
 
-		sdio_claim_host(sdio->func);
 		err = sdio_readsb(sdio->func, e->buf, MCR_WRDR(0), len);
 		if (err < 0)
 			dev_err(dev->dev, "sdio read data failed:%d\n", err);
-		sdio_release_host(sdio->func);
 
 		spin_lock_bh(&q->lock);
 		q->tail = (q->tail + 1) % q->ndesc;
