@@ -746,7 +746,7 @@ static void mt76s_tx_kick_async(struct mt76_dev *dev, struct mt76_queue *q)
 			queue_work(sdio->wq, &sdio->be_work);
 		break;
 	case MT_TXQ_BK:
-		if(!test_and_set_bit(MT76S_BE_TXING, &sdio->state))
+		if(!test_and_set_bit(MT76S_BK_TXING, &sdio->state))
 			queue_work(sdio->wq, &sdio->bk_work);
 		break;
 	case MT_TXQ_VI:
