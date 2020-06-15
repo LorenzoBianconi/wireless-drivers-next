@@ -27,7 +27,7 @@ static u32 mt76s_read_whisr(struct mt76_dev *dev)
 	return status;
 }
 
-static u32 mt76s_rr(struct mt76_dev *dev, u32 offset)
+static u32 __mt76s_rr_mailbox(struct mt76_dev *dev, u32 offset)
 {
 	struct sdio_func *func = dev->sdio.func;
 	u32 val, status;
@@ -77,7 +77,7 @@ err:
 	return err;
 }
 
-static void mt76s_wr(struct mt76_dev *dev, u32 offset, u32 val)
+static void __mt76s_wr_mailbox(struct mt76_dev *dev, u32 offset, u32 val)
 {
 	struct sdio_func *func = dev->sdio.func;
 	u32 status;
@@ -123,6 +123,22 @@ static void mt76s_wr(struct mt76_dev *dev, u32 offset, u32 val)
 err:
 	dev_err(dev->dev, "%s: err = %d\n", __func__, err);
 	sdio_release_host(func);
+}
+
+static u32 mt76s_rr(struct mt76_dev *dev, u32 offset)
+{
+	if (test_bit(MT76_STATE_MCU_RUNNING, &dev->phy.state))
+		return dev->mcu_ops->mcu_rr(dev, offset);
+	else
+		return __mt76s_rr_mailbox(dev, offset);
+}
+
+static void mt76s_wr(struct mt76_dev *dev, u32 offset, u32 val)
+{
+	if (test_bit(MT76_STATE_MCU_RUNNING, &dev->phy.state))
+		dev->mcu_ops->mcu_wr(dev, offset, val);
+	else
+		__mt76s_wr_mailbox(dev, offset, val);
 }
 
 static u32 mt76s_rmw(struct mt76_dev *dev, u32 offset, u32 mask, u32 val)
