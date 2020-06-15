@@ -613,7 +613,7 @@ static void mt76s_tx_status_data(struct work_struct *work)
 
 static void mt76s_tx_kick(struct mt76_dev *dev, int qid)
 {
-	struct mt76_sdio *sdio = &dev->sdio;
+	struct sdio_func *func = dev->sdio.func;
 	struct mt76_queue *q;
 	struct sk_buff *skb;
 	int err, len;
@@ -626,16 +626,16 @@ static void mt76s_tx_kick(struct mt76_dev *dev, int qid)
 		skb = q->entry[q->first].skb;
 
 		len = skb->len;
-		if (len > sdio->func->cur_blksize)
-			len = roundup(len, sdio->func->cur_blksize);
+		if (len > func->cur_blksize)
+			len = roundup(len, func->cur_blksize);
 
-		sdio_claim_host(sdio->func);
+		sdio_claim_host(func);
 
 		/* TODO: skb_walk_frags and then write to SDIO port */
-		err = sdio_writesb(sdio->func, MCR_WTDR1, skb->data, len);
+		err = sdio_writesb(func, MCR_WTDR1, skb->data, len);
 		if (err < 0)
 			dev_err(dev->dev, "sdio write failed:%d\n", err);
-		sdio_release_host(sdio->func);
+		sdio_release_host(func);
 
 		idx = q->first;
 
