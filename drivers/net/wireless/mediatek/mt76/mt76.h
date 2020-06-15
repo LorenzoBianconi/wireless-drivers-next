@@ -452,10 +452,12 @@ struct mt76_sdio {
 	struct work_struct vi_work;
 	struct work_struct vo_work;
 
-#define MT76S_BE_TXING BIT(0)
-#define MT76S_BK_TXING BIT(1)
-#define MT76S_VI_TXING BIT(2)
-#define MT76S_VO_TXING BIT(3)
+enum {
+	MT76S_BE_TXING,
+	MT76S_BK_TXING,
+	MT76S_VI_TXING,
+	MT76S_VO_TXING,
+};
 	unsigned long state;
 
 	struct sdio_func *func;
