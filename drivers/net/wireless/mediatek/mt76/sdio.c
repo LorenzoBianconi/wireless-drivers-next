@@ -510,7 +510,7 @@ static void mt76s_rx_work(struct mt76_dev *dev, int num)
 		 */
 		e->buf_sz = len;
 
-		len = roundup(len, 4) + 4;
+		len = roundup(len + 4, 4);
 		if (len > sdio->func->cur_blksize)
 			len = roundup(len, sdio->func->cur_blksize);
 
