@@ -752,7 +752,6 @@ static void mt76s_tx_kick_async(struct mt76_dev *dev, struct mt76_queue *q)
 static void mt76s_sdio_irq(struct sdio_func *func)
 {
 	struct mt76_dev *dev = sdio_get_drvdata(func);
-	struct mt76_sdio *sdio = &dev->sdio;
 	u32 intr;
 
 	/* disable interrupt */
