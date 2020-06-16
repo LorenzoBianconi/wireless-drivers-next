@@ -65,8 +65,7 @@ int mt7663s_register_device(struct mt7615_dev *dev)
 		return err;
 
 	hw->extra_tx_headroom += MT_SDIO_HDR_SIZE + MT_SDIO_TXD_SIZE;
-	/* check hw sg support in order to enable AMSDU */
-	hw->max_tx_fragments = MT_HW_TXP_MAX_BUF_NUM;
+	hw->max_tx_fragments = 1;
 
 	err = mt76_register_device(&dev->mt76, true, mt7615_rates,
 				   ARRAY_SIZE(mt7615_rates));

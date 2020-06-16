@@ -149,6 +149,8 @@ struct mt76_mcu_ops {
 			    int len, bool wait_resp);
 	int (*mcu_skb_send_msg)(struct mt76_dev *dev, struct sk_buff *skb,
 				int cmd, bool wait_resp);
+	u32 (*mcu_rr)(struct mt76_dev *dev, u32 offset);
+	void (*mcu_wr)(struct mt76_dev *dev, u32 offset, u32 val);
 	int (*mcu_wr_rp)(struct mt76_dev *dev, u32 base,
 			 const struct mt76_reg_pair *rp, int len);
 	int (*mcu_rd_rp)(struct mt76_dev *dev, u32 base,
@@ -452,10 +454,12 @@ struct mt76_sdio {
 	struct work_struct vi_work;
 	struct work_struct vo_work;
 
-#define MT76S_BE_TXING BIT(0)
-#define MT76S_BK_TXING BIT(1)
-#define MT76S_VI_TXING BIT(2)
-#define MT76S_VO_TXING BIT(3)
+enum {
+	MT76S_BE_TXING,
+	MT76S_BK_TXING,
+	MT76S_VI_TXING,
+	MT76S_VO_TXING,
+};
 	unsigned long state;
 
 	struct sdio_func *func;

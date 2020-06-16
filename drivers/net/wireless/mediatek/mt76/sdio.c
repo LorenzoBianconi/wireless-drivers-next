@@ -27,7 +27,7 @@ static u32 mt76s_read_whisr(struct mt76_dev *dev)
 	return status;
 }
 
-static u32 mt76s_rr(struct mt76_dev *dev, u32 offset)
+static u32 __mt76s_rr_mailbox(struct mt76_dev *dev, u32 offset)
 {
 	struct sdio_func *func = dev->sdio.func;
 	u32 val, status;
@@ -77,7 +77,7 @@ err:
 	return err;
 }
 
-static void mt76s_wr(struct mt76_dev *dev, u32 offset, u32 val)
+static void __mt76s_wr_mailbox(struct mt76_dev *dev, u32 offset, u32 val)
 {
 	struct sdio_func *func = dev->sdio.func;
 	u32 status;
@@ -123,6 +123,22 @@ static void mt76s_wr(struct mt76_dev *dev, u32 offset, u32 val)
 err:
 	dev_err(dev->dev, "%s: err = %d\n", __func__, err);
 	sdio_release_host(func);
+}
+
+static u32 mt76s_rr(struct mt76_dev *dev, u32 offset)
+{
+	if (test_bit(MT76_STATE_MCU_RUNNING, &dev->phy.state))
+		return dev->mcu_ops->mcu_rr(dev, offset);
+	else
+		return __mt76s_rr_mailbox(dev, offset);
+}
+
+static void mt76s_wr(struct mt76_dev *dev, u32 offset, u32 val)
+{
+	if (test_bit(MT76_STATE_MCU_RUNNING, &dev->phy.state))
+		dev->mcu_ops->mcu_wr(dev, offset, val);
+	else
+		__mt76s_wr_mailbox(dev, offset, val);
 }
 
 static u32 mt76s_rmw(struct mt76_dev *dev, u32 offset, u32 mask, u32 val)
@@ -364,23 +380,11 @@ EXPORT_SYMBOL_GPL(mt76s_alloc_queues);
 
 int mt76s_skb_dma_info(struct sk_buff *skb, u32 info)
 {
-	struct sk_buff *iter, *last = skb;
+	struct sk_buff *last = skb;
 	u32 pad;
 
 	/* Add zero pad of 4 - 7 bytes */
 	pad = round_up(skb->len, 4) + 4 - skb->len;
-
-	/* First packet of a A-MSDU burst keeps track of the whole burst
-	 * length, need to update length of it and the last packet.
-	 */
-	skb_walk_frags(skb, iter) {
-		last = iter;
-		if (!iter->next) {
-			skb->data_len += pad;
-			skb->len += pad;
-			break;
-		}
-	}
 
 	if (skb_pad(last, pad))
 		return -ENOMEM;
@@ -508,11 +512,9 @@ static void mt76s_rx_work(struct mt76_dev *dev, int num)
 	q = &dev->q_rx[qid];
 
 	for (n = 0; n < num; n++) {
-		sdio_claim_host(sdio->func);
 		val = sdio_readl(sdio->func, MCR_WRPLR, &err);
 		if (err < 0)
 			dev_err(dev->dev, "sdio read len failed:%d\n", err);
-		sdio_release_host(sdio->func);
 		len = FIELD_GET(RX0_PACKET_LENGTH, val);
 		if (!len)
 			break;
@@ -524,7 +526,7 @@ static void mt76s_rx_work(struct mt76_dev *dev, int num)
 		 */
 		e->buf_sz = len;
 
-		len = roundup(len, 4) + 4;
+		len = roundup(len + 4, 4);
 		if (len > sdio->func->cur_blksize)
 			len = roundup(len, sdio->func->cur_blksize);
 
@@ -533,11 +535,9 @@ static void mt76s_rx_work(struct mt76_dev *dev, int num)
 			len = rounddown(q->buf_size, sdio->func->cur_blksize);
 		}
 
-		sdio_claim_host(sdio->func);
 		err = sdio_readsb(sdio->func, e->buf, MCR_WRDR(0), len);
 		if (err < 0)
 			dev_err(dev->dev, "sdio read data failed:%d\n", err);
-		sdio_release_host(sdio->func);
 
 		spin_lock_bh(&q->lock);
 		q->tail = (q->tail + 1) % q->ndesc;
@@ -629,7 +629,7 @@ static void mt76s_tx_status_data(struct work_struct *work)
 
 static void mt76s_tx_kick(struct mt76_dev *dev, int qid)
 {
-	struct mt76_sdio *sdio = &dev->sdio;
+	struct sdio_func *func = dev->sdio.func;
 	struct mt76_queue *q;
 	struct sk_buff *skb;
 	int err, len;
@@ -642,16 +642,16 @@ static void mt76s_tx_kick(struct mt76_dev *dev, int qid)
 		skb = q->entry[q->first].skb;
 
 		len = skb->len;
-		if (len > sdio->func->cur_blksize)
-			len = roundup(len, sdio->func->cur_blksize);
+		if (len > func->cur_blksize)
+			len = roundup(len, func->cur_blksize);
 
-		sdio_claim_host(sdio->func);
+		sdio_claim_host(func);
 
 		/* TODO: skb_walk_frags and then write to SDIO port */
-		err = sdio_writesb(sdio->func, MCR_WTDR1, skb->data, len);
+		err = sdio_writesb(func, MCR_WTDR1, skb->data, len);
 		if (err < 0)
 			dev_err(dev->dev, "sdio write failed:%d\n", err);
-		sdio_release_host(sdio->func);
+		sdio_release_host(func);
 
 		idx = q->first;
 
@@ -750,7 +750,7 @@ static void mt76s_tx_kick_async(struct mt76_dev *dev, struct mt76_queue *q)
 			queue_work(sdio->wq, &sdio->be_work);
 		break;
 	case MT_TXQ_BK:
-		if(!test_and_set_bit(MT76S_BE_TXING, &sdio->state))
+		if(!test_and_set_bit(MT76S_BK_TXING, &sdio->state))
 			queue_work(sdio->wq, &sdio->bk_work);
 		break;
 	case MT_TXQ_VI:
@@ -768,7 +768,6 @@ static void mt76s_tx_kick_async(struct mt76_dev *dev, struct mt76_queue *q)
 static void mt76s_sdio_irq(struct sdio_func *func)
 {
 	struct mt76_dev *dev = sdio_get_drvdata(func);
-	struct mt76_sdio *sdio = &dev->sdio;
 	u32 intr;
 
 	/* disable interrupt */
