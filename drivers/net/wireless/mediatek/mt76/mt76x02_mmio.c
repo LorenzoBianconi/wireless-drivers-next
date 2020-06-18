@@ -348,6 +348,21 @@ void mt76x02_dma_disable(struct mt76x02_dev *dev)
 }
 EXPORT_SYMBOL_GPL(mt76x02_dma_disable);
 
+void mt76x02_dma_reset(struct mt76x02_dev *dev)
+{
+	int i;
+
+	mt76x02_dma_disable(dev);
+	usleep_range(1000, 2000);
+
+	for (i = 0; i < __MT_TXQ_MAX; i++)
+		mt76_queue_tx_cleanup(dev, i, true);
+	mt76_for_each_q_rx(&dev->mt76, i)
+		mt76_queue_rx_reset(dev, i);
+
+	mt76x02_dma_enable(dev);
+}
+
 void mt76x02_mac_start(struct mt76x02_dev *dev)
 {
 	mt76x02_mac_reset_counters(dev);
