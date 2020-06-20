@@ -637,7 +637,7 @@ static void mt76s_tx_kick(struct mt76_dev *dev, int qid)
 
 	q = dev->q_tx[qid].q;
 
-	/* TODO: lock q ? */
+	spin_lock_bh(&q->lock);
 	while (q->first != q->tail) {
 		skb = q->entry[q->first].skb;
 
@@ -659,6 +659,7 @@ static void mt76s_tx_kick(struct mt76_dev *dev, int qid)
 
 		q->entry[idx].done = true;
 	}
+	spin_unlock_bh(&q->lock);
 }
 
 static void mt76s_be_kick(struct work_struct *work)
