@@ -670,8 +670,6 @@ static void mt76s_be_kick(struct work_struct *work)
 	dev = container_of(sdio, struct mt76_dev, sdio);
 
 	mt76s_tx_kick(dev, MT_TXQ_BE);
-
-	clear_bit(MT76S_BE_TXING, &sdio->state);
 }
 
 static void mt76s_bk_kick(struct work_struct *work)
@@ -683,8 +681,6 @@ static void mt76s_bk_kick(struct work_struct *work)
 	dev = container_of(sdio, struct mt76_dev, sdio);
 
 	mt76s_tx_kick(dev, MT_TXQ_BK);
-
-	clear_bit(MT76S_BK_TXING, &sdio->state);
 }
 
 static void mt76s_vi_kick(struct work_struct *work)
@@ -696,8 +692,6 @@ static void mt76s_vi_kick(struct work_struct *work)
 	dev = container_of(sdio, struct mt76_dev, sdio);
 
 	mt76s_tx_kick(dev, MT_TXQ_VI);
-
-	clear_bit(MT76S_VI_TXING, &sdio->state);
 }
 
 static void mt76s_vo_kick(struct work_struct *work)
@@ -709,8 +703,6 @@ static void mt76s_vo_kick(struct work_struct *work)
 	dev = container_of(sdio, struct mt76_dev, sdio);
 
 	mt76s_tx_kick(dev, MT_TXQ_VO);
-
-	clear_bit(MT76S_VO_TXING, &sdio->state);
 }
 
 static int
@@ -745,22 +737,18 @@ static void mt76s_tx_kick_async(struct mt76_dev *dev, struct mt76_queue *q)
 	struct mt76_sdio *sdio = &dev->sdio;
 
 	switch (q->hw_idx) {
-	case MT_TXQ_BE:
-		if(!test_and_set_bit(MT76S_BE_TXING, &sdio->state))
-			queue_work(sdio->wq, &sdio->be_work);
+	case MT_TXQ_VO:
+		queue_work(sdio->wq, &sdio->vo_work);
 		break;
 	case MT_TXQ_BK:
-		if(!test_and_set_bit(MT76S_BK_TXING, &sdio->state))
-			queue_work(sdio->wq, &sdio->bk_work);
+		queue_work(sdio->wq, &sdio->bk_work);
 		break;
 	case MT_TXQ_VI:
-		if(!test_and_set_bit(MT76S_VI_TXING, &sdio->state))
-			queue_work(sdio->wq, &sdio->vi_work);
+		queue_work(sdio->wq, &sdio->vi_work);
 		break;
-	case MT_TXQ_VO:
+	case MT_TXQ_BE:
 	default:
-		if(!test_and_set_bit(MT76S_VO_TXING, &sdio->state))
-			queue_work(sdio->wq, &sdio->vo_work);
+		queue_work(sdio->wq, &sdio->be_work);
 		break;
 	}
 }
