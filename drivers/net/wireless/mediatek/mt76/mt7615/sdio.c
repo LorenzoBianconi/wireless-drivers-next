@@ -335,9 +335,7 @@ static int mt7663s_sdio_probe(struct sdio_func *func,
 error_freeq:
 	mt76s_queues_deinit(&dev->mt76);
 error:
-	mt76s_deinit(&dev->mt76);
-
-	ieee80211_free_hw(mdev->hw);
+	mt76_free_device(&dev->mt76);
 
 	return ret;
 }
@@ -352,8 +350,7 @@ static void mt7663s_sdio_remove(struct sdio_func *func)
 	ieee80211_unregister_hw(dev->mt76.hw);
 	mt7663s_cleanup(dev);
 
-	mt76s_deinit(&dev->mt76);
-	ieee80211_free_hw(dev->mt76.hw);
+	mt76_free_device(&dev->mt76);
 }
 
 #ifdef CONFIG_PM
