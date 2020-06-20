@@ -446,11 +446,7 @@ struct mt76_usb {
 struct mt76_sdio {
 	struct tasklet_struct rx_tasklet;
 	struct work_struct stat_work;
-
-	struct work_struct be_work;
-	struct work_struct bk_work;
-	struct work_struct vi_work;
-	struct work_struct vo_work;
+	struct work_struct tx_work;
 
 	unsigned long state;
 
