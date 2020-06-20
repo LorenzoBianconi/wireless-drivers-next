@@ -596,7 +596,7 @@ static void mt76s_tx_tasklet(unsigned long data)
 
 		if (dev->drv->tx_status_data &&
 		    !test_and_set_bit(MT76_READING_STATS, &dev->phy.state))
-			queue_work(dev->sdio.wq, &dev->sdio.stat_work);
+			queue_work(dev->wq, &dev->sdio.stat_work);
 		if (wake)
 			ieee80211_wake_queue(dev->hw, i);
 	}
@@ -622,7 +622,7 @@ static void mt76s_tx_status_data(struct work_struct *work)
 	}
 
 	if (count && test_bit(MT76_STATE_RUNNING, &dev->phy.state))
-		queue_work(sdio->wq, &sdio->stat_work);
+		queue_work(dev->wq, &sdio->stat_work);
 	else
 		clear_bit(MT76_READING_STATS, &dev->phy.state);
 }
@@ -738,17 +738,17 @@ static void mt76s_tx_kick_async(struct mt76_dev *dev, struct mt76_queue *q)
 
 	switch (q->hw_idx) {
 	case MT_TXQ_VO:
-		queue_work(sdio->wq, &sdio->vo_work);
+		queue_work(dev->wq, &sdio->vo_work);
 		break;
 	case MT_TXQ_BK:
-		queue_work(sdio->wq, &sdio->bk_work);
+		queue_work(dev->wq, &sdio->bk_work);
 		break;
 	case MT_TXQ_VI:
-		queue_work(sdio->wq, &sdio->vi_work);
+		queue_work(dev->wq, &sdio->vi_work);
 		break;
 	case MT_TXQ_BE:
 	default:
-		queue_work(sdio->wq, &sdio->be_work);
+		queue_work(dev->wq, &sdio->be_work);
 		break;
 	}
 }
@@ -895,15 +895,6 @@ release:
 	return ret;
 }
 
-void mt76s_deinit(struct mt76_dev *dev)
-{
-	if (dev->sdio.wq) {
-		destroy_workqueue(dev->sdio.wq);
-		dev->sdio.wq = NULL;
-	}
-}
-EXPORT_SYMBOL_GPL(mt76s_deinit);
-
 static const struct mt76_queue_ops sdio_queue_ops = {
 	.tx_queue_skb = mt76s_tx_queue_skb,
 	.kick = mt76s_tx_kick_async,
@@ -932,10 +923,6 @@ int mt76s_init(struct mt76_dev *dev, struct sdio_func *func)
 	INIT_WORK(&sdio->bk_work, mt76s_bk_kick);
 	INIT_WORK(&sdio->vi_work, mt76s_vi_kick);
 	INIT_WORK(&sdio->vo_work, mt76s_vo_kick);
-
-	sdio->wq = alloc_workqueue("mt76s", WQ_UNBOUND, 0);
-	if (!sdio->wq)
-		return -ENOMEM;
 
 	dev->bus = &mt76s_ops;
 	dev->sdio.func = func;

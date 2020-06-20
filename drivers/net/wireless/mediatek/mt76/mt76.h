@@ -445,7 +445,6 @@ struct mt76_usb {
 
 struct mt76_sdio {
 	struct tasklet_struct rx_tasklet;
-	struct workqueue_struct *wq;
 	struct work_struct stat_work;
 
 	struct work_struct be_work;
@@ -973,7 +972,6 @@ int mt76u_resume_rx(struct mt76_dev *dev);
 void mt76u_queues_deinit(struct mt76_dev *dev);
 
 int mt76s_skb_dma_info(struct sk_buff *skb, u32 info);
-void mt76s_deinit(struct mt76_dev *dev);
 int mt76s_init(struct mt76_dev *dev, struct sdio_func *func);
 int mt76s_alloc_mcu_queue(struct mt76_dev *dev);
 int mt76s_alloc_queues(struct mt76_dev *dev);
