@@ -63,13 +63,6 @@ static void mt7663s_stop(struct ieee80211_hw *hw)
 	mt76s_stop_tx(&dev->mt76);
 }
 
-static void mt7663s_cleanup(struct mt7615_dev *dev)
-{
-	clear_bit(MT76_STATE_INITIALIZED, &dev->mphy.state);
-
-	mt76s_queues_deinit(&dev->mt76);
-}
-
 static void
 mt7663s_mac_write_txwi(struct mt7615_dev *dev, struct mt76_wcid *wcid,
 		       enum mt76_txq_id qid, struct ieee80211_sta *sta,
@@ -312,7 +305,7 @@ static int mt7663s_sdio_probe(struct sdio_func *func,
 
 	ret = mt76s_init(mdev, func);
 	if (ret < 0)
-		goto error;
+		goto err_free;
 
 	mdev->rev = (mt76_rr(dev, MT_HW_CHIPID) << 16) |
 		    (mt76_rr(dev, MT_HW_REV) & 0xff);
@@ -320,21 +313,21 @@ static int mt7663s_sdio_probe(struct sdio_func *func,
 
 	ret = mt76s_alloc_mcu_queue(&dev->mt76);
 	if (ret)
-		goto error;
+		goto err_deinit;
 
 	ret = mt76s_alloc_queues(&dev->mt76);
 	if (ret)
-		goto error;
+		goto err_deinit;
 
 	ret = mt7663s_register_device(dev);
 	if (ret)
-		goto error_freeq;
+		goto err_deinit;
 
 	return 0;
 
-error_freeq:
-	mt76s_queues_deinit(&dev->mt76);
-error:
+err_deinit:
+	mt76s_deinit(&dev->mt76);
+err_free:
 	mt76_free_device(&dev->mt76);
 
 	return ret;
@@ -344,12 +337,11 @@ static void mt7663s_sdio_remove(struct sdio_func *func)
 {
 	struct mt7615_dev *dev = sdio_get_drvdata(func);
 
-	if (!test_bit(MT76_STATE_INITIALIZED, &dev->mphy.state))
+	if (!test_and_clear_bit(MT76_STATE_INITIALIZED, &dev->mphy.state))
 		return;
 
 	ieee80211_unregister_hw(dev->mt76.hw);
-	mt7663s_cleanup(dev);
-
+	mt76s_deinit(&dev->mt76);
 	mt76_free_device(&dev->mt76);
 }
 

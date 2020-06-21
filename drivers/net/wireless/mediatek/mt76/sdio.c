@@ -332,6 +332,8 @@ void mt76s_stop_tx(struct mt76_dev *dev)
 
 		for (i = 0; i < IEEE80211_NUM_ACS; i++) {
 			q = dev->q_tx[i].q;
+			if (!q)
+				continue;
 
 			spin_lock_bh(&q->lock);
 			while (q->queued) {
@@ -353,7 +355,7 @@ void mt76s_stop_tx(struct mt76_dev *dev)
 }
 EXPORT_SYMBOL_GPL(mt76s_stop_tx);
 
-void mt76s_queues_deinit(struct mt76_dev *dev)
+static void mt76s_queues_deinit(struct mt76_dev *dev)
 {
 	mt76s_stop_rx(dev);
 	mt76s_stop_tx(dev);
@@ -361,7 +363,13 @@ void mt76s_queues_deinit(struct mt76_dev *dev)
 	mt76s_free_rx(dev);
 	mt76s_free_tx(dev);
 }
-EXPORT_SYMBOL_GPL(mt76s_queues_deinit);
+
+void mt76s_deinit(struct mt76_dev *dev)
+{
+	mt76s_queues_deinit(dev);
+	sdio_release_irq(dev->sdio.func);
+}
+EXPORT_SYMBOL_GPL(mt76s_deinit);
 
 int mt76s_alloc_queues(struct mt76_dev *dev)
 {
