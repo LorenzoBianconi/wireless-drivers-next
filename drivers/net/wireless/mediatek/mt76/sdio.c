@@ -197,15 +197,6 @@ static int mt76s_rd_rp(struct mt76_dev *dev, u32 base,
 	return 0;
 }
 
-static int
-mt76s_rx_buf_alloc(struct mt76_dev *dev, struct mt76_queue *q,
-		   struct mt76_queue_entry *e, gfp_t gfp)
-{
-	e->buf = page_frag_alloc(&q->rx_page, q->buf_size, gfp);
-
-	return e->buf ? 0 : -ENOMEM;
-}
-
 static void
 mt76s_free_rx_queue(struct mt76_dev *dev, struct mt76_queue *q)
 {
@@ -213,10 +204,11 @@ mt76s_free_rx_queue(struct mt76_dev *dev, struct mt76_queue *q)
 	int i;
 
 	for (i = 0; i < q->ndesc; i++) {
-		if (q->entry[i].buf) {
-			skb_free_frag(q->entry[i].buf);
-			q->entry[i].buf = NULL;
-		}
+		if (!q->entry[i].buf)
+			continue;
+
+		skb_free_frag(q->entry[i].buf);
+		q->entry[i].buf = NULL;
 	}
 
 	if (!q->rx_page.va)
@@ -245,7 +237,7 @@ static int
 mt76s_alloc_rx_queue(struct mt76_dev *dev, enum mt76_rxq_id qid)
 {
 	struct mt76_queue *q = &dev->q_rx[qid];
-	int i, err;
+	int i;
 
 	spin_lock_init(&q->lock);
 	q->entry = devm_kcalloc(dev->dev,
@@ -258,20 +250,20 @@ mt76s_alloc_rx_queue(struct mt76_dev *dev, enum mt76_rxq_id qid)
 	q->buf_size = PAGE_SIZE;
 
 	for (i = 0; i < q->ndesc; i++) {
-		err = mt76s_rx_buf_alloc(dev, q, &q->entry[i], GFP_KERNEL);
-		if (err < 0)
-			goto free_rx_queue;
+		struct mt76_queue_entry *e = &q->entry[i];
+
+		e->buf = page_frag_alloc(&q->rx_page, q->buf_size,
+					 GFP_KERNEL);
+		if (!e->buf) {
+			mt76s_free_rx_queue(dev, q);
+			return -ENOMEM;
+		}
 	}
 
 	q->head = q->tail = 0;
 	q->queued = 0;
 
 	return 0;
-
-free_rx_queue:
-	mt76s_free_rx_queue(dev, q);
-
-	return err;
 }
 
 int mt76s_alloc_mcu_queue(struct mt76_dev *dev)
@@ -472,18 +464,20 @@ static void
 mt76s_process_rx_queue(struct mt76_dev *dev, struct mt76_queue *q)
 {
 	int qid = q - &dev->q_rx[MT_RXQ_MAIN];
-	struct mt76_queue_entry *e;
-	int err, count;
 
 	while (true) {
+		struct mt76_queue_entry *e;
+		int count;
+
 		e = mt76s_get_next_rx_entry(q);
 		if (!e)
 			break;
 
 		count = mt76s_process_rx_entry(dev, e, q->buf_size);
 		if (count > 0) {
-			err = mt76s_rx_buf_alloc(dev, q, e, GFP_ATOMIC);
-			if (err < 0)
+			e->buf = page_frag_alloc(&q->rx_page, q->buf_size,
+						 GFP_ATOMIC);
+			if (!e->buf)
 				break;
 		}
 	}
@@ -502,26 +496,26 @@ static void mt76s_rx_tasklet(unsigned long data)
 	rcu_read_unlock();
 }
 
-static void mt76s_rx_work(struct mt76_dev *dev, int num)
+static int mt76s_rx_work(struct mt76_dev *dev, int quota)
 {
-	struct mt76_queue *q = &dev->q_rx[qid];
-	struct mt76_sdio *sdio = &dev->sdio;
-	struct mt76_queue_entry *e;
-	int len, qid, n, err;
-	u32 val;
+	int i;
 
-	qid = MT_RXQ_MAIN;
-	q = &dev->q_rx[qid];
+	for (i = 0; i < quota; i++) {
+		struct mt76_queue *q = &dev->q_rx[MT_RXQ_MAIN];
+		struct mt76_queue_entry *e = &q->entry[q->tail];
+		struct mt76_sdio *sdio = &dev->sdio;
+		int len, err;
+		u32 val;
 
-	for (n = 0; n < num; n++) {
 		val = sdio_readl(sdio->func, MCR_WRPLR, &err);
-		if (err < 0)
+		if (err < 0) {
 			dev_err(dev->dev, "sdio read len failed:%d\n", err);
+			return err;
+		}
+
 		len = FIELD_GET(RX0_PACKET_LENGTH, val);
 		if (!len)
-			break;
-
-		e = &q->entry[q->tail];
+			return -EIO;
 
 		/* Assume that an entry can hold a complete packet from SDIO
 		 * port.
@@ -533,19 +527,23 @@ static void mt76s_rx_work(struct mt76_dev *dev, int num)
 			len = roundup(len, sdio->func->cur_blksize);
 
 		if (len > q->buf_size) {
-			dev_warn(dev->dev, "sdio data over holding buffer\n");
 			len = rounddown(q->buf_size, sdio->func->cur_blksize);
+			dev_warn(dev->dev, "sdio data over holding buffer\n");
 		}
 
 		err = sdio_readsb(sdio->func, e->buf, MCR_WRDR(0), len);
-		if (err < 0)
+		if (err < 0) {
 			dev_err(dev->dev, "sdio read data failed:%d\n", err);
+			return err;
+		}
 
 		spin_lock_bh(&q->lock);
 		q->tail = (q->tail + 1) % q->ndesc;
 		q->queued++;
 		spin_unlock_bh(&q->lock);
 	}
+
+	return 0;
 }
 
 static void mt76s_tx_tasklet(unsigned long data)
