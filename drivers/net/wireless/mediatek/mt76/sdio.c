@@ -312,25 +312,23 @@ static int mt76s_alloc_tx(struct mt76_dev *dev)
 	return 0;
 }
 
-static void mt76s_free_tx(struct mt76_dev *dev)
-{
-
-}
-
 void mt76s_stop_tx(struct mt76_dev *dev)
 {
-	struct mt76_queue_entry entry;
-	struct mt76_queue *q;
-	int i, ret;
+	int ret;
 
 	ret = wait_event_timeout(dev->tx_wait, !mt76_has_tx_pending(&dev->phy),
 				 HZ / 5);
 	if (!ret) {
+		struct mt76_queue_entry entry;
+		int i;
+
 		dev_err(dev->dev, "timed out waiting for pending tx\n");
 
 		tasklet_kill(&dev->tx_tasklet);
 
 		for (i = 0; i < IEEE80211_NUM_ACS; i++) {
+			struct mt76_queue *q;
+
 			q = dev->q_tx[i].q;
 			if (!q)
 				continue;
@@ -361,7 +359,6 @@ static void mt76s_queues_deinit(struct mt76_dev *dev)
 	mt76s_stop_tx(dev);
 
 	mt76s_free_rx(dev);
-	mt76s_free_tx(dev);
 }
 
 void mt76s_deinit(struct mt76_dev *dev)
@@ -507,9 +504,9 @@ static void mt76s_rx_tasklet(unsigned long data)
 
 static void mt76s_rx_work(struct mt76_dev *dev, int num)
 {
+	struct mt76_queue *q = &dev->q_rx[qid];
 	struct mt76_sdio *sdio = &dev->sdio;
 	struct mt76_queue_entry *e;
-	struct mt76_queue *q;
 	int len, qid, n, err;
 	u32 val;
 
@@ -842,6 +839,7 @@ static int mt76s_hw_init(struct mt76_dev *dev, struct sdio_func *func)
 	sdio_release_host(func);
 
 	return 0;
+
 disable_func:
 	sdio_disable_func(func);
 release:
