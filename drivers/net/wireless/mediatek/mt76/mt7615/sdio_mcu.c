@@ -38,15 +38,16 @@ mt7663s_mcu_send_message(struct mt76_dev *mdev, struct sk_buff *skb,
 		len = roundup(len, sdio->func->cur_blksize);
 
 	sdio_claim_host(func);
+
 	ret = sdio_writesb(sdio->func, MCR_WTDR1, skb->data, len);
 	if (ret < 0)
 		dev_err(mdev->dev, "sdio write failed:%d\n", ret);
 
 	sdio_release_host(func);
 
-	dev_kfree_skb(skb);
 	if (wait_resp)
 		ret = mt7615_mcu_wait_response(dev, cmd, seq);
+	dev_kfree_skb(skb);
 out:
 	mutex_unlock(&mdev->mcu.mutex);
 
