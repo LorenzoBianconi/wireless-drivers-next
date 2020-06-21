@@ -496,12 +496,11 @@ static void mt76s_rx_tasklet(unsigned long data)
 	rcu_read_unlock();
 }
 
-static int mt76s_rx_work(struct mt76_dev *dev, int quota)
+static int mt76s_rx_work(struct mt76_dev *dev, struct mt76_queue *q)
 {
-	int i;
+	int i, ret = 0;
 
-	for (i = 0; i < quota; i++) {
-		struct mt76_queue *q = &dev->q_rx[MT_RXQ_MAIN];
+	for (i = 0; i < 64; i++) {
 		struct mt76_queue_entry *e = &q->entry[q->tail];
 		struct mt76_sdio *sdio = &dev->sdio;
 		int len, err;
@@ -515,12 +514,13 @@ static int mt76s_rx_work(struct mt76_dev *dev, int quota)
 
 		len = FIELD_GET(RX0_PACKET_LENGTH, val);
 		if (!len)
-			return -EIO;
+			break;
 
 		/* Assume that an entry can hold a complete packet from SDIO
 		 * port.
 		 */
 		e->buf_sz = len;
+		ret += len;
 
 		len = roundup(len + 4, 4);
 		if (len > sdio->func->cur_blksize)
@@ -543,7 +543,7 @@ static int mt76s_rx_work(struct mt76_dev *dev, int quota)
 		spin_unlock_bh(&q->lock);
 	}
 
-	return 0;
+	return ret;
 }
 
 static void mt76s_tx_tasklet(unsigned long data)
@@ -723,7 +723,12 @@ static void mt76s_sdio_irq(struct sdio_func *func)
 		goto out;
 
 	if (intr & WHIER_RX0_DONE_INT_EN) {
-		mt76s_rx_work(dev, 64);
+		mt76s_rx_work(dev, &dev->q_rx[MT_RXQ_MAIN]);
+		tasklet_schedule(&dev->sdio.rx_tasklet);
+	}
+
+	if (intr & WHIER_RX1_DONE_INT_EN) {
+		mt76s_rx_work(dev, &dev->q_rx[MT_RXQ_MCU]);
 		tasklet_schedule(&dev->sdio.rx_tasklet);
 	}
 
