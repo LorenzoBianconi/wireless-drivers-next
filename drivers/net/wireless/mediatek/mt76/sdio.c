@@ -16,6 +16,7 @@
 #include <linux/module.h>
 #include "mt76.h"
 #include "mt76s.h"
+#include "trace.h"
 
 static u32 mt76s_read_whisr(struct mt76_dev *dev)
 {
@@ -712,6 +713,7 @@ static void mt76s_sdio_irq(struct sdio_func *func)
 	sdio_writel(func, WHLPCR_INT_EN_CLR, MCR_WHLPCR, 0);
 
 	intr = sdio_readl(func, MCR_WHISR, 0);
+	trace_dev_irq(dev, intr, 0);
 
 	/* Don't ACK read/wirte software interrupt otherwise it probably breaks
 	 * mt76s_wr or mt76s_rr.
