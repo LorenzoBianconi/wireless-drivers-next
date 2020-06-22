@@ -373,22 +373,6 @@ int mt76s_alloc_queues(struct mt76_dev *dev)
 }
 EXPORT_SYMBOL_GPL(mt76s_alloc_queues);
 
-int mt76s_skb_dma_info(struct sk_buff *skb, u32 info)
-{
-	struct sk_buff *last = skb;
-	u32 pad;
-
-	/* Add zero pad of 4 - 7 bytes */
-	pad = round_up(skb->len, 4) + 4 - skb->len;
-
-	if (skb_pad(last, pad))
-		return -ENOMEM;
-	__skb_put(last, pad);
-
-	return 0;
-}
-EXPORT_SYMBOL_GPL(mt76s_skb_dma_info);
-
 static struct mt76_queue_entry *
 mt76s_get_next_rx_entry(struct mt76_queue *q)
 {

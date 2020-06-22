@@ -250,9 +250,7 @@ mt7663s_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 	}
 	mt7663s_mac_write_txwi(dev, wcid, qid, sta, tx_info->skb);
 
-	mt76s_skb_dma_info(tx_info->skb, tx_info->skb->len);
-
-	return 0;
+	return mt76_skb_adjust_pad(tx_info->skb);
 }
 
 static bool mt7663s_tx_status_data(struct mt76_dev *mdev, u8 *update)

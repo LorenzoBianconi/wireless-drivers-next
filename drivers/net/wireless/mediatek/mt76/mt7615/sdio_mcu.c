@@ -28,7 +28,7 @@ mt7663s_mcu_send_message(struct mt76_dev *mdev, struct sk_buff *skb,
 
 	mt7615_mcu_fill_msg(dev, skb, cmd, &seq);
 
-	ret = mt76s_skb_dma_info(skb, skb->len);
+	ret = mt76_skb_adjust_pad(skb);
 	if (ret < 0)
 		goto out;
 
