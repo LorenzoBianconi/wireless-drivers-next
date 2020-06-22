@@ -237,7 +237,8 @@ mt7663u_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 		       struct mt76_tx_info *tx_info)
 {
 	struct mt7615_dev *dev = container_of(mdev, struct mt7615_dev, mt76);
-	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(tx_info->skb);
+	struct sk_buff *skb = tx_info->skb;
+	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
 
 	if (info->flags & IEEE80211_TX_CTL_RATE_CTRL_PROBE) {
 		struct mt7615_sta *msta;
@@ -249,9 +250,10 @@ mt7663u_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 		msta->rate_probe = true;
 		spin_unlock_bh(&dev->mt76.lock);
 	}
-	mt7663u_mac_write_txwi(dev, wcid, qid, sta, tx_info->skb);
+	mt7663u_mac_write_txwi(dev, wcid, qid, sta, skb);
 
-	return mt76u_skb_dma_info(tx_info->skb, tx_info->skb->len);
+	put_unaligned_le32(skb->len, skb_push(skb, sizeof(skb->len)));
+	return mt76_skb_adjust_pad(skb);
 }
 
 static bool mt7663u_tx_status_data(struct mt76_dev *mdev, u8 *update)
