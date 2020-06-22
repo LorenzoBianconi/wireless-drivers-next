@@ -264,6 +264,21 @@ static bool mt7663s_tx_status_data(struct mt76_dev *mdev, u8 *update)
 	return 0;
 }
 
+static void mt7663s_init_work(struct work_struct *work)
+{
+	struct mt7615_dev *dev;
+
+	dev = container_of(work, struct mt7615_dev, mcu_work);
+	if (mt7663s_mcu_init(dev))
+		return;
+
+	mt7615_mcu_set_eeprom(dev);
+	mt7615_mac_init(dev);
+	mt7615_phy_init(dev);
+	mt7615_mcu_del_wtbl_all(dev);
+	mt7615_check_offload_capability(dev);
+}
+
 static int mt7663s_sdio_probe(struct sdio_func *func,
 			      const struct sdio_device_id *id)
 {
@@ -297,6 +312,7 @@ static int mt7663s_sdio_probe(struct sdio_func *func,
 
 	dev = container_of(mdev, struct mt7615_dev, mt76);
 
+	INIT_WORK(&dev->mcu_work, mt7663s_init_work);
 	dev->reg_map = mt7663s_reg_map;
 	dev->ops = ops;
 	sdio_set_drvdata(func, dev);

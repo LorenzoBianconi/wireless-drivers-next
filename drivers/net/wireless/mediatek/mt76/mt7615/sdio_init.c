@@ -35,28 +35,12 @@ static int mt7663s_init_hardware(struct mt7615_dev *dev)
 	return 0;
 }
 
-static void mt7663s_init_work(struct work_struct *work)
-{
-	struct mt7615_dev *dev;
-
-	dev = container_of(work, struct mt7615_dev, mcu_work);
-	if (mt7663s_mcu_init(dev))
-		return;
-
-	mt7615_mcu_set_eeprom(dev);
-	mt7615_mac_init(dev);
-	mt7615_phy_init(dev);
-	mt7615_mcu_del_wtbl_all(dev);
-	mt7615_check_offload_capability(dev);
-}
-
 int mt7663s_register_device(struct mt7615_dev *dev)
 {
 	struct ieee80211_hw *hw = mt76_hw(dev);
 	int err;
 
 	INIT_WORK(&dev->wtbl_work, mt7663s_wtbl_work);
-	INIT_WORK(&dev->mcu_work, mt7663s_init_work);
 	INIT_LIST_HEAD(&dev->wd_head);
 	mt7615_init_device(dev);
 
