@@ -609,5 +609,7 @@ int mt7663u_mcu_init(struct mt7615_dev *dev);
 
 /* sdio */
 int mt7663s_mcu_init(struct mt7615_dev *dev);
+int mt7663s_driver_own(struct mt76_dev *dev);
+int mt7663s_firmware_own(struct mt76_dev *dev);
 
 #endif

@@ -153,7 +153,7 @@ static int mt7663s_sdio_suspend(struct device *dev)
 	mt76s_stop_tx(&mdev->mt76);
 	tasklet_kill(&mdev->mt76.tx_tasklet);
 
-	return mt76s_firmware_own(&mdev->mt76);
+	return mt7663s_firmware_own(&mdev->mt76);
 }
 
 static int mt7663s_sdio_resume(struct device *dev)
@@ -162,7 +162,7 @@ static int mt7663s_sdio_resume(struct device *dev)
 	struct mt7615_dev *mdev = sdio_get_drvdata(func);
 	int err;
 
-	err = mt76s_driver_own(&mdev->mt76);
+	err = mt7663s_driver_own(&mdev->mt76);
 	if (err)
 		return err;
 

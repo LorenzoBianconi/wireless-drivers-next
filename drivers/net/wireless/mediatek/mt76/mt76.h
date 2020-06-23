@@ -973,8 +973,7 @@ int mt76s_alloc_queues(struct mt76_dev *dev);
 void mt76s_stop_tx(struct mt76_dev *dev);
 void mt76s_stop_rx(struct mt76_dev *dev);
 void mt76s_deinit(struct mt76_dev *dev);
-int mt76s_driver_own(struct mt76_dev *dev);
-int mt76s_firmware_own(struct mt76_dev *dev);
+u32 mt76s_read_pcr(struct mt76_dev *dev);
 
 struct sk_buff *
 mt76_mcu_msg_alloc(struct mt76_dev *dev, const void *data,

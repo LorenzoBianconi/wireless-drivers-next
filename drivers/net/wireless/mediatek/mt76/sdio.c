@@ -20,12 +20,7 @@
 
 static u32 mt76s_read_whisr(struct mt76_dev *dev)
 {
-	struct sdio_func *func = dev->sdio.func;
-	u32 status;
-
-	status = sdio_readl(func, MCR_WHISR, NULL);
-
-	return status;
+	return sdio_readl(dev->sdio.func, MCR_WHISR, NULL);
 }
 
 static u32 __mt76s_rr_mailbox(struct mt76_dev *dev, u32 offset)
@@ -45,7 +40,7 @@ static u32 __mt76s_rr_mailbox(struct mt76_dev *dev, u32 offset)
 		goto err;
 
 	err = readx_poll_timeout(mt76s_read_whisr, dev, status,
-			status & H2D_SW_INT_READ, 0, 1000000);
+				 status & H2D_SW_INT_READ, 0, 1000000);
 	if (err < 0) {
 		dev_err(dev->dev, "%s: query whisr timeout\n", __func__);
 		goto err;
@@ -60,7 +55,7 @@ static u32 __mt76s_rr_mailbox(struct mt76_dev *dev, u32 offset)
 		goto err;
 
 	if (val != offset) {
-		dev_err(dev->dev, "register is mismatch\n");
+		dev_err(dev->dev, "register mismatch\n");
 		goto err;
 	}
 
@@ -71,6 +66,7 @@ static u32 __mt76s_rr_mailbox(struct mt76_dev *dev, u32 offset)
 	sdio_release_host(func);
 
 	return val;
+
 err:
 	dev_err(dev->dev, "%s: err = %d\n", __func__, err);
 	sdio_release_host(func);
@@ -99,7 +95,7 @@ static void __mt76s_wr_mailbox(struct mt76_dev *dev, u32 offset, u32 val)
 		goto err;
 
 	err = readx_poll_timeout(mt76s_read_whisr, dev, status,
-			status & H2D_SW_INT_WRITE, 0, 1000000);
+				 status & H2D_SW_INT_WRITE, 0, 1000000);
 	if (err < 0) {
 		dev_err(dev->dev, "%s: query whisr timeout\n", __func__);
 		goto err;
@@ -150,8 +146,8 @@ static u32 mt76s_rmw(struct mt76_dev *dev, u32 offset, u32 mask, u32 val)
 	return val;
 }
 
-static void mt76s_write_copy(struct mt76_dev *dev, u32 offset, const void *data,
-		int len)
+static void mt76s_write_copy(struct mt76_dev *dev, u32 offset,
+			     const void *data, int len)
 {
 	while (len) {
 		mt76s_wr(dev, offset, *(u32 *)data);
@@ -162,8 +158,8 @@ static void mt76s_write_copy(struct mt76_dev *dev, u32 offset, const void *data,
 	}
 }
 
-static void mt76s_read_copy(struct mt76_dev *dev, u32 offset, void *data,
-		int len)
+static void mt76s_read_copy(struct mt76_dev *dev, u32 offset,
+			    void *data, int len)
 {
 	while (len) {
 		*(u32 *)data = mt76s_rr(dev, offset);
@@ -174,8 +170,9 @@ static void mt76s_read_copy(struct mt76_dev *dev, u32 offset, void *data,
 	}
 }
 
-static int mt76s_wr_rp(struct mt76_dev *dev, u32 base,
-		const struct mt76_reg_pair *data, int len)
+static int
+mt76s_wr_rp(struct mt76_dev *dev, u32 base,
+	    const struct mt76_reg_pair *data, int len)
 {
 	while (len > 0) {
 		mt76s_wr(dev, data->reg, data->value);
@@ -186,8 +183,9 @@ static int mt76s_wr_rp(struct mt76_dev *dev, u32 base,
 	return 0;
 }
 
-static int mt76s_rd_rp(struct mt76_dev *dev, u32 base,
-		struct mt76_reg_pair *data, int len)
+static int
+mt76s_rd_rp(struct mt76_dev *dev, u32 base,
+	    struct mt76_reg_pair *data, int len)
 {
 	while (len > 0) {
 		data->value = mt76s_rr(dev, data->reg);
@@ -730,57 +728,11 @@ out:
 	sdio_writel(func, WHLPCR_INT_EN_SET, MCR_WHLPCR, 0);
 }
 
-static u32 mt76s_sdio_read_pcr(struct mt76_dev *dev)
+u32 mt76s_read_pcr(struct mt76_dev *dev)
 {
-	struct sdio_func *func = dev->sdio.func;
-	u32 status;
-
-	status = sdio_readl(func, MCR_WHLPCR, NULL);
-
-	return status;
+	return sdio_readl(dev->sdio.func, MCR_WHLPCR, NULL);
 }
-
-int mt76s_driver_own(struct mt76_dev *dev)
-{
-	struct sdio_func *func = dev->sdio.func;
-	u32 status;
-	int ret;
-
-	sdio_claim_host(func);
-
-	sdio_writel(func, WHLPCR_FW_OWN_REQ_CLR, MCR_WHLPCR, 0);
-
-	ret = readx_poll_timeout(mt76s_sdio_read_pcr, dev, status,
-				 status & WHLPCR_IS_DRIVER_OWN, 2000, 1000000);
-	if (ret < 0)
-		dev_err(dev->dev, "Cannot get ownership from device");
-
-	sdio_release_host(func);
-
-	return ret;
-}
-EXPORT_SYMBOL_GPL(mt76s_driver_own);
-
-int mt76s_firmware_own(struct mt76_dev *dev)
-{
-	struct sdio_func *func = dev->sdio.func;
-	u32 status;
-	int ret;
-
-	sdio_claim_host(func);
-
-	sdio_writel(func, WHLPCR_FW_OWN_REQ_SET, MCR_WHLPCR, 0);
-
-	ret = readx_poll_timeout(mt76s_sdio_read_pcr, dev, status,
-				 !(status & WHLPCR_IS_DRIVER_OWN), 2000, 1000000);
-	if (ret < 0)
-		dev_err(dev->dev, "Cannot set ownership to device");
-
-	sdio_release_host(func);
-
-	return ret;
-}
-EXPORT_SYMBOL_GPL(mt76s_firmware_own);
+EXPORT_SYMBOL_GPL(mt76s_read_pcr);
 
 static int mt76s_hw_init(struct mt76_dev *dev, struct sdio_func *func)
 {
@@ -799,7 +751,7 @@ static int mt76s_hw_init(struct mt76_dev *dev, struct sdio_func *func)
 	if (ret < 0)
 		goto disable_func;
 
-	ret = readx_poll_timeout(mt76s_sdio_read_pcr, dev, status,
+	ret = readx_poll_timeout(mt76s_read_pcr, dev, status,
 				 status & WHLPCR_IS_DRIVER_OWN, 2000, 1000000);
 	if (ret < 0) {
 		dev_err(dev->dev, "Cannot get ownership from device");
