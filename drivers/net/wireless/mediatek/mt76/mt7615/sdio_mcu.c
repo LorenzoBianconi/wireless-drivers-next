@@ -47,6 +47,7 @@ mt7663s_mcu_send_message(struct mt76_dev *mdev, struct sk_buff *skb,
 
 	if (wait_resp)
 		ret = mt7615_mcu_wait_response(dev, cmd, seq);
+
 	dev_kfree_skb(skb);
 out:
 	mutex_unlock(&mdev->mcu.mutex);
