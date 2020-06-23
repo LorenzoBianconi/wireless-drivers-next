@@ -708,7 +708,6 @@ static void mt76s_sdio_irq(struct sdio_func *func)
 {
 	struct mt76_dev *dev = sdio_get_drvdata(func);
 	u32 intr;
-	int i;
 
 	/* disable interrupt */
 	sdio_writel(func, WHLPCR_INT_EN_CLR, MCR_WHLPCR, 0);
@@ -736,9 +735,10 @@ static void mt76s_sdio_irq(struct sdio_func *func)
 	}
 
 	if (intr & WHIER_TX_DONE_INT_EN) {
+		int i;
+
 		for (i = 0 ; i < 8 ; i++)
 			sdio_readl(func, MCR_WTQCR(i), 0);
-
 		tasklet_schedule(&dev->tx_tasklet);
 	}
 out:
