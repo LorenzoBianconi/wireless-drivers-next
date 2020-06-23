@@ -94,6 +94,8 @@
 #define MCR_WTQCR5			0x0144
 #define MCR_WTQCR6			0x0148
 #define MCR_WTQCR7			0x014C
+#define MCR_WTQCR(x)                   (0x130 + 4 * (x))
+
 #define MCR_SWPCDBGR			0x0154
 
 #endif
