@@ -132,6 +132,14 @@ int mt7663s_mcu_init(struct mt7615_dev *dev)
 
 	dev->mt76.mcu_ops = &mt7663s_mcu_ops,
 
+	ret = mt76_get_field(dev, MT_CONN_ON_MISC, MT_TOP_MISC2_FW_N9_RDY);
+	if (ret) {
+		mt7615_mcu_restart(&dev->mt76);
+		if (!mt76_poll_msec(dev, MT_CONN_ON_MISC,
+				    MT_TOP_MISC2_FW_N9_RDY, 0, 500))
+			return -EIO;
+	}
+
 	ret = __mt7663_load_firmware(dev);
 	if (ret)
 		return ret;
