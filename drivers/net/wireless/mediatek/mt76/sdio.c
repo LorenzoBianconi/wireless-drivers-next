@@ -12,8 +12,9 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/mmc/sdio_func.h>
+#include <linux/sched.h>
+#include <linux/kthread.h>
 
-#include <linux/module.h>
 #include "mt76.h"
 #include "sdio.h"
 #include "trace.h"
@@ -305,39 +306,32 @@ static int mt76s_alloc_tx(struct mt76_dev *dev)
 
 void mt76s_stop_tx(struct mt76_dev *dev)
 {
-	int ret;
+	struct mt76_sdio *sdio = &dev->sdio;
+	int i;
 
-	ret = wait_event_timeout(dev->tx_wait, !mt76_has_tx_pending(&dev->phy),
-				 HZ / 5);
-	if (!ret) {
+	kthread_stop(sdio->kthread);
+	tasklet_kill(&dev->tx_tasklet);
+
+	for (i = 0; i < IEEE80211_NUM_ACS; i++) {
 		struct mt76_queue_entry entry;
-		int i;
+		struct mt76_queue *q;
 
-		dev_err(dev->dev, "timed out waiting for pending tx\n");
+		q = dev->q_tx[i].q;
+		if (!q)
+			continue;
 
-		tasklet_kill(&dev->tx_tasklet);
+		spin_lock_bh(&q->lock);
+		while (q->queued) {
+			entry = q->entry[q->head];
+			q->head = (q->head + 1) % q->ndesc;
+			q->queued--;
 
-		for (i = 0; i < IEEE80211_NUM_ACS; i++) {
-			struct mt76_queue *q;
-
-			q = dev->q_tx[i].q;
-			if (!q)
-				continue;
-
-			spin_lock_bh(&q->lock);
-			while (q->queued) {
-				entry = q->entry[q->head];
-				q->head = (q->head + 1) % q->ndesc;
-				q->queued--;
-
-				dev->drv->tx_complete_skb(dev, i, &entry);
-			}
-			spin_unlock_bh(&q->lock);
+			dev->drv->tx_complete_skb(dev, i, &entry);
 		}
+		spin_unlock_bh(&q->lock);
 	}
-	cancel_work_sync(&dev->sdio.tx_work);
 
-	cancel_work_sync(&dev->sdio.stat_work);
+	cancel_work_sync(&sdio->stat_work);
 	clear_bit(MT76_READING_STATS, &dev->phy.state);
 
 	mt76_tx_status_check(dev, NULL, true);
@@ -351,17 +345,6 @@ static void mt76s_queues_deinit(struct mt76_dev *dev)
 
 	mt76s_free_rx(dev);
 }
-
-void mt76s_deinit(struct mt76_dev *dev)
-{
-	mt76s_queues_deinit(dev);
-	if (dev->sdio.wq) {
-		destroy_workqueue(dev->sdio.wq);
-		dev->sdio.wq = NULL;
-	}
-	sdio_release_irq(dev->sdio.func);
-}
-EXPORT_SYMBOL_GPL(mt76s_deinit);
 
 int mt76s_alloc_queues(struct mt76_dev *dev)
 {
@@ -536,22 +519,16 @@ static int mt76s_rx_work(struct mt76_dev *dev, struct mt76_queue *q)
 static void mt76s_tx_tasklet(unsigned long data)
 {
 	struct mt76_dev *dev = (struct mt76_dev *)data;
-	struct mt76_queue_entry entry;
-	struct mt76_sw_queue *sq;
-	struct mt76_queue *q;
-	bool wake;
 	int i;
 
 	for (i = 0; i < IEEE80211_NUM_ACS; i++) {
+		struct mt76_sw_queue *sq = &dev->q_tx[i];
 		u32 n_dequeued = 0, n_sw_dequeued = 0;
-
-		sq = &dev->q_tx[i];
-		q = sq->q;
+		struct mt76_queue_entry entry;
+		struct mt76_queue *q = sq->q;
+		bool wake;
 
 		while (q->queued > n_dequeued) {
-			if (!q->entry[q->head].done)
-				break;
-
 			if (q->entry[q->head].schedule) {
 				q->entry[q->head].schedule = false;
 				n_sw_dequeued++;
@@ -587,6 +564,7 @@ static void mt76s_tx_tasklet(unsigned long data)
 		if (wake)
 			ieee80211_wake_queue(dev->hw, i);
 	}
+	wake_up_process(dev->sdio.kthread);
 }
 
 static void mt76s_tx_status_data(struct work_struct *work)
@@ -631,29 +609,57 @@ static int mt76s_tx_add_buff(struct mt76_sdio *sdio, struct sk_buff *skb)
 	return err;
 }
 
-static void mt76s_tx_work(struct work_struct *work)
+static int mt76s_tx_run_queue(struct mt76_dev *dev, struct mt76_queue *q)
 {
-	struct mt76_sdio *sdio = container_of(work, struct mt76_sdio, tx_work);
-	struct mt76_dev *dev = container_of(sdio, struct mt76_dev, sdio);
-	int i;
+	int nframes = 0;
 
-	for (i = 0; i < IEEE80211_NUM_ACS; i++) {
-		struct mt76_queue *q = dev->q_tx[i].q;
+	while (q->first != q->tail) {
+		int err;
 
-		while (q->first != q->tail) {
-			u16 idx = q->first;
-			int err;
+		err = mt76s_tx_add_buff(&dev->sdio, q->entry[q->first].skb);
+		if (err) {
+			dev_err(dev->dev, "sdio write failed: %d\n", err);
+			return -EIO;
+		}
 
-			err = mt76s_tx_add_buff(sdio, q->entry[q->first].skb);
-			if (err) {
-				dev_err(dev->dev, "sdio write failed: %d\n", err);
-				return;
+		q->first = (q->first + 1) % q->ndesc;
+		nframes++;
+	}
+
+	spin_lock_bh(&q->lock);
+	q->queued += nframes;
+	spin_unlock_bh(&q->lock);
+
+	return nframes;
+}
+
+static int mt76s_kthread_run(void *data)
+{
+	struct mt76_dev *dev = data;
+
+	while (!kthread_should_stop()) {
+		int i, nframes = 0;
+
+		cond_resched();
+
+		for (i = 0; i < IEEE80211_NUM_ACS; i++) {
+			int ret;
+
+			ret = mt76s_tx_run_queue(dev, dev->q_tx[i].q);
+			if (ret < 0) {
+				nframes = 0;
+				break;
 			}
+			nframes += ret;
+		}
 
-			q->first = (q->first + 1) % q->ndesc;
-			q->entry[idx].done = true;
+		if (!nframes) {
+			set_current_state(TASK_INTERRUPTIBLE);
+			schedule();
 		}
 	}
+
+	return 0;
 }
 
 static int
@@ -676,9 +682,8 @@ mt76s_tx_queue_skb(struct mt76_dev *dev, enum mt76_txq_id qid,
 	if (err < 0)
 		return err;
 
+	q->entry[q->tail].skb = tx_info.skb;
 	q->tail = (q->tail + 1) % q->ndesc;
-	q->entry[idx].skb = tx_info.skb;
-	q->queued++;
 
 	return idx;
 }
@@ -687,7 +692,7 @@ static void mt76s_tx_kick(struct mt76_dev *dev, struct mt76_queue *q)
 {
 	struct mt76_sdio *sdio = &dev->sdio;
 
-	queue_work(sdio->wq, &sdio->tx_work);
+	wake_up_process(sdio->kthread);
 }
 
 static void mt76s_sdio_irq(struct sdio_func *func)
@@ -803,6 +808,19 @@ static const struct mt76_queue_ops sdio_queue_ops = {
 	.kick = mt76s_tx_kick,
 };
 
+void mt76s_deinit(struct mt76_dev *dev)
+{
+	struct mt76_sdio *sdio = &dev->sdio;
+
+	mt76s_queues_deinit(dev);
+	if (sdio->kthread) {
+		kthread_stop(sdio->kthread);
+		sdio->kthread = NULL;
+	}
+	sdio_release_irq(dev->sdio.func);
+}
+EXPORT_SYMBOL_GPL(mt76s_deinit);
+
 int mt76s_init(struct mt76_dev *dev, struct sdio_func *func)
 {
 	static const struct mt76_bus_ops mt76s_ops = {
@@ -817,15 +835,14 @@ int mt76s_init(struct mt76_dev *dev, struct sdio_func *func)
 	};
 	struct mt76_sdio *sdio = &dev->sdio;
 
-	sdio->wq = alloc_workqueue("mt76s", WQ_UNBOUND, 0);
-	if (!sdio->wq)
-		return -ENOMEM;
+	sdio->kthread = kthread_create(mt76s_kthread_run, dev, "mt76s");
+	if (IS_ERR(sdio->kthread))
+		 return PTR_ERR(sdio->kthread);
 
 	tasklet_init(&sdio->rx_tasklet, mt76s_rx_tasklet, (unsigned long)dev);
 	tasklet_init(&dev->tx_tasklet, mt76s_tx_tasklet, (unsigned long)dev);
 
 	INIT_WORK(&sdio->stat_work, mt76s_tx_status_data);
-	INIT_WORK(&sdio->tx_work, mt76s_tx_work);
 
 	dev->bus = &mt76s_ops;
 	dev->sdio.func = func;
