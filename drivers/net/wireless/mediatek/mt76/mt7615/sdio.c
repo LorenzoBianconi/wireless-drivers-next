@@ -35,7 +35,7 @@ static void mt7663s_stop(struct ieee80211_hw *hw)
 	cancel_delayed_work_sync(&phy->scan_work);
 	cancel_delayed_work_sync(&phy->mac_work);
 
-	mt76s_stop_tx(&dev->mt76);
+	mt76s_stop_txrx(&dev->mt76);
 }
 
 static void mt7663s_init_work(struct work_struct *work)
@@ -148,10 +148,7 @@ static int mt7663s_sdio_suspend(struct device *dev)
 			return err;
 	}
 
-	mt76s_stop_rx(&mdev->mt76);
-
-	mt76s_stop_tx(&mdev->mt76);
-	tasklet_kill(&mdev->mt76.tx_tasklet);
+	mt76s_stop_txrx(&mdev->mt76);
 
 	return mt7663s_firmware_own(mdev);
 }
