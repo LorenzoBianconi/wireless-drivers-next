@@ -362,10 +362,9 @@ static struct sk_buff *
 mt76s_build_rx_skb(struct mt76_dev *dev, void *data,
 		   int len, int buf_size)
 {
-	int head_room = 0;
 	struct sk_buff *skb;
 
-	if (SKB_WITH_OVERHEAD(buf_size) < head_room + len) {
+	if (SKB_WITH_OVERHEAD(buf_size) < len) {
 		struct page *page;
 
 		/* slow path, not enough space for data and
@@ -375,8 +374,8 @@ mt76s_build_rx_skb(struct mt76_dev *dev, void *data,
 		if (!skb)
 			return NULL;
 
-		skb_put_data(skb, data + head_room, MT_SKB_HEAD_LEN);
-		data += head_room + MT_SKB_HEAD_LEN;
+		skb_put_data(skb, data, MT_SKB_HEAD_LEN);
+		data += MT_SKB_HEAD_LEN;
 		page = virt_to_head_page(data);
 		skb_add_rx_frag(skb, skb_shinfo(skb)->nr_frags,
 				page, data - page_address(page),
@@ -389,7 +388,6 @@ mt76s_build_rx_skb(struct mt76_dev *dev, void *data,
 	if (!skb)
 		return NULL;
 
-	skb_reserve(skb, head_room);
 	__skb_put(skb, len);
 
 	return skb;
@@ -400,7 +398,6 @@ mt76s_process_rx_entry(struct mt76_dev *dev, struct mt76_queue_entry *e,
 		       int buf_size)
 {
 	struct sk_buff *skb;
-	int nsgs = 1;
 
 	if (!test_bit(MT76_STATE_INITIALIZED, &dev->phy.state))
 		return 0;
@@ -411,7 +408,7 @@ mt76s_process_rx_entry(struct mt76_dev *dev, struct mt76_queue_entry *e,
 
 	dev->drv->rx_skb(dev, MT_RXQ_MAIN, skb);
 
-	return nsgs;
+	return 1;
 }
 
 static void
@@ -454,7 +451,7 @@ static int mt76s_rx_work(struct mt76_dev *dev, struct mt76_queue *q)
 {
 	int i, ret = 0;
 
-	for (i = 0; i < 64; i++) {
+	for (i = 0; i < MT76_SDIO_RX_QUOTA; i++) {
 		struct mt76_queue_entry *e = &q->entry[q->tail];
 		struct mt76_sdio *sdio = &dev->sdio;
 		int len, err;
@@ -480,9 +477,9 @@ static int mt76s_rx_work(struct mt76_dev *dev, struct mt76_queue *q)
 		if (len > sdio->func->cur_blksize)
 			len = roundup(len, sdio->func->cur_blksize);
 
-		if (len > q->buf_size) {
+		if (WARN_ON_ONCE(len > q->buf_size)) {
 			len = rounddown(q->buf_size, sdio->func->cur_blksize);
-			dev_warn(dev->dev, "sdio data over holding buffer\n");
+			e->buf_sz = len;
 		}
 
 		err = sdio_readsb(sdio->func, e->buf, MCR_WRDR(0), len);
@@ -593,14 +590,43 @@ static int mt76s_tx_add_buff(struct mt76_sdio *sdio, struct sk_buff *skb)
 	return err;
 }
 
+static int mt76s_tx_update_sched(struct mt76_dev *dev, int len)
+{
+	struct mt76_sdio *sdio = &dev->sdio;
+	int size, ret = -EBUSY;
+
+	if (!test_bit(MT76_STATE_RUNNING, &dev->phy.state))
+		return 0;
+
+	size = DIV_ROUND_UP(len + sdio->sched.deficit - dev->drv->txwi_size,
+			    MT_PSE_PAGE_SZ);
+
+	mutex_lock(&sdio->sched.lock);
+	if (sdio->sched.pse_data_quota > size &&
+	    sdio->sched.ple_data_quota > 0) {
+		sdio->sched.pse_data_quota -= size;
+		sdio->sched.ple_data_quota--;
+		ret = 0;
+	}
+	mutex_unlock(&sdio->sched.lock);
+
+	return ret;
+}
+
 static int mt76s_tx_run_queue(struct mt76_dev *dev, struct mt76_queue *q)
 {
 	int nframes = 0;
 
 	while (q->first != q->tail) {
+		struct sk_buff *skb = q->entry[q->first].skb;
 		int err;
 
-		err = mt76s_tx_add_buff(&dev->sdio, q->entry[q->first].skb);
+		/* check available space in hw queues */
+		err = mt76s_tx_update_sched(dev, skb->len);
+		if (err < 0)
+			return err;
+
+		err = mt76s_tx_add_buff(&dev->sdio, skb);
 		if (err) {
 			dev_err(dev->dev, "sdio write failed: %d\n", err);
 			return -EIO;
@@ -680,43 +706,62 @@ static void mt76s_tx_kick(struct mt76_dev *dev, struct mt76_queue *q)
 	wake_up_process(sdio->kthread);
 }
 
+static void mt76s_refill_sched_quota(struct mt76_dev *dev)
+{
+	struct mt76_sdio *sdio = &dev->sdio;
+	u32 data[8];
+	int i;
+
+	for (i = 0 ; i < ARRAY_SIZE(data); i++)
+		data[i] = sdio_readl(sdio->func, MCR_WTQCR(i), 0);
+
+	if (!test_bit(MT76_STATE_MCU_RUNNING, &dev->phy.state))
+		return;
+
+	mutex_lock(&sdio->sched.lock);
+	sdio->sched.pse_data_quota += FIELD_GET(TXQ_CNT_L, data[0]) + /* BK */
+				      FIELD_GET(TXQ_CNT_H, data[0]) + /* BE */
+				      FIELD_GET(TXQ_CNT_L, data[1]) + /* VI */
+				      FIELD_GET(TXQ_CNT_H, data[1]);  /* VO */
+	sdio->sched.pse_mcu_quota += FIELD_GET(TXQ_CNT_L, data[2]);
+	sdio->sched.ple_data_quota += FIELD_GET(TXQ_CNT_H, data[2]) + /* BK */
+				      FIELD_GET(TXQ_CNT_L, data[3]) + /* BE */
+				      FIELD_GET(TXQ_CNT_H, data[3]) + /* VI */
+				      FIELD_GET(TXQ_CNT_L, data[4]);  /* VO */
+	mutex_unlock(&sdio->sched.lock);
+}
+
 static void mt76s_sdio_irq(struct sdio_func *func)
 {
 	struct mt76_dev *dev = sdio_get_drvdata(func);
+	struct mt76_sdio *sdio = &dev->sdio;
 	u32 intr;
 
 	/* disable interrupt */
 	sdio_writel(func, WHLPCR_INT_EN_CLR, MCR_WHLPCR, 0);
 
-	intr = sdio_readl(func, MCR_WHISR, 0);
-	trace_dev_irq(dev, intr, 0);
+	do {
+		intr = sdio_readl(func, MCR_WHISR, 0);
+		trace_dev_irq(dev, intr, 0);
 
-	/* Don't ACK read/wirte software interrupt otherwise it probably breaks
-	 * mt76s_wr or mt76s_rr.
-	 */
-	intr &= ~(H2D_SW_INT_READ | H2D_SW_INT_WRITE);
-	sdio_writel(func, intr, MCR_WHISR, 0);
+		if (!test_bit(MT76_STATE_INITIALIZED, &dev->phy.state))
+			goto out;
 
-	if (!test_bit(MT76_STATE_INITIALIZED, &dev->phy.state))
-		goto out;
+		if (intr & WHIER_RX0_DONE_INT_EN) {
+			mt76s_rx_work(dev, &dev->q_rx[MT_RXQ_MAIN]);
+			tasklet_schedule(&sdio->rx_tasklet);
+		}
 
-	if (intr & WHIER_RX0_DONE_INT_EN) {
-		mt76s_rx_work(dev, &dev->q_rx[MT_RXQ_MAIN]);
-		tasklet_schedule(&dev->sdio.rx_tasklet);
-	}
+		if (intr & WHIER_RX1_DONE_INT_EN) {
+			mt76s_rx_work(dev, &dev->q_rx[MT_RXQ_MCU]);
+			tasklet_schedule(&sdio->rx_tasklet);
+		}
 
-	if (intr & WHIER_RX1_DONE_INT_EN) {
-		mt76s_rx_work(dev, &dev->q_rx[MT_RXQ_MCU]);
-		tasklet_schedule(&dev->sdio.rx_tasklet);
-	}
-
-	if (intr & WHIER_TX_DONE_INT_EN) {
-		int i;
-
-		for (i = 0 ; i < 8 ; i++)
-			sdio_readl(func, MCR_WTQCR(i), 0);
-		tasklet_schedule(&dev->tx_tasklet);
-	}
+		if (intr & WHIER_TX_DONE_INT_EN) {
+			mt76s_refill_sched_quota(dev);
+			tasklet_schedule(&dev->tx_tasklet);
+		}
+	} while (intr);
 out:
 	/* enable interrupt */
 	sdio_writel(func, WHLPCR_INT_EN_SET, MCR_WHLPCR, 0);
@@ -760,8 +805,8 @@ static int mt76s_hw_init(struct mt76_dev *dev, struct sdio_func *func)
 	if (ret < 0)
 		goto disable_func;
 
-	/* set WHISR as write clear and Rx aggregation number as 1 */
-	ctrl = W_INT_CLR_CTRL | FIELD_PREP(MAX_HIF_RX_LEN_NUM, 1);
+	/* set WHISR as read clear and Rx aggregation number as 1 */
+	ctrl = FIELD_PREP(MAX_HIF_RX_LEN_NUM, 1);
 	sdio_writel(func, ctrl, MCR_WHCR, &ret);
 	if (ret < 0)
 		goto disable_func;
@@ -823,9 +868,10 @@ int mt76s_init(struct mt76_dev *dev, struct sdio_func *func)
 
 	INIT_WORK(&sdio->stat_work, mt76s_tx_status_data);
 
+	mutex_init(&sdio->sched.lock);
+	dev->queue_ops = &sdio_queue_ops;
 	dev->bus = &mt76s_ops;
 	dev->sdio.func = func;
-	dev->queue_ops = &sdio_queue_ops;
 
 	return mt76s_hw_init(dev, func);
 }

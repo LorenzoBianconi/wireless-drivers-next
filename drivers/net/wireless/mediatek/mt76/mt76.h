@@ -446,6 +446,7 @@ struct mt76_usb {
 	} mcu;
 };
 
+#define MT76_SDIO_RX_QUOTA	64
 struct mt76_sdio {
 	struct tasklet_struct rx_tasklet;
 
@@ -455,6 +456,14 @@ struct mt76_sdio {
 	unsigned long state;
 
 	struct sdio_func *func;
+
+	struct {
+		struct mutex lock;
+		int pse_data_quota;
+		int ple_data_quota;
+		int pse_mcu_quota;
+		int deficit;
+	} sched;
 };
 
 struct mt76_mmio {

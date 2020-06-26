@@ -8,6 +8,8 @@
 #ifndef __MT76S_H
 #define __MT76S_H
 
+#define MT_PSE_PAGE_SZ			128
+
 #define MCR_WCIR			0x0000
 #define MCR_WHLPCR			0x0004
 #define WHLPCR_FW_OWN_REQ_CLR		BIT(9)
@@ -95,6 +97,8 @@
 #define MCR_WTQCR6			0x0148
 #define MCR_WTQCR7			0x014C
 #define MCR_WTQCR(x)                   (0x130 + 4 * (x))
+#define TXQ_CNT_L			GENMASK(15, 0)
+#define TXQ_CNT_H			GENMASK(31, 16)
 
 #define MCR_SWPCDBGR			0x0154
 
