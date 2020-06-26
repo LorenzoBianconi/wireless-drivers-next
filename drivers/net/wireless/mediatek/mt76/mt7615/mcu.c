@@ -2413,18 +2413,8 @@ int __mt7663_load_firmware(struct mt7615_dev *dev)
 
 	ret = mt76_get_field(dev, MT_CONN_ON_MISC, MT_TOP_MISC2_FW_N9_RDY);
 	if (ret) {
-		dev_info(dev->mt76.dev, "N9 Fw is already download\n");
-
-		/* TODO: judge if the firmware is available in filesystem */
-		if (prefer_offload_fw) {
-			dev->fw_ver = MT7615_FIRMWARE_V3;
-			dev->mcu_ops = &uni_update_ops;
-		} else {
-			dev->fw_ver = MT7615_FIRMWARE_V2;
-			dev->mcu_ops = &sta_update_ops;
-		}
-
-		goto bypass_fw_download;
+		dev_dbg(dev->mt76.dev, "Firmware is already download\n");
+		return -EIO;
 	}
 
 	ret = mt7663_load_rom_patch(dev, &n9_firmware);
@@ -2443,7 +2433,6 @@ int __mt7663_load_firmware(struct mt7615_dev *dev)
 		return -EIO;
 	}
 
-bypass_fw_download:
 #ifdef CONFIG_PM
 	if (mt7615_firmware_offload(dev))
 		dev->mt76.hw->wiphy->wowlan = &mt7615_wowlan_support;
