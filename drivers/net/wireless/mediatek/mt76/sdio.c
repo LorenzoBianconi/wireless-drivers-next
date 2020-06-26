@@ -301,8 +301,6 @@ void mt76s_stop_txrx(struct mt76_dev *dev)
 	struct mt76_sdio *sdio = &dev->sdio;
 	int i;
 
-	if (sdio->kthread)
-		kthread_stop(sdio->kthread);
 	tasklet_kill(&dev->tx_tasklet);
 	tasklet_kill(&sdio->rx_tasklet);
 
@@ -622,6 +620,7 @@ static int mt76s_tx_run_queue(struct mt76_dev *dev, struct mt76_queue *q)
 static int mt76s_kthread_run(void *data)
 {
 	struct mt76_dev *dev = data;
+	struct mt76_phy *mphy = &dev->phy;
 
 	while (!kthread_should_stop()) {
 		int i, nframes = 0;
@@ -639,7 +638,7 @@ static int mt76s_kthread_run(void *data)
 			nframes += ret;
 		}
 
-		if (!nframes) {
+		if (!nframes || !test_bit(MT76_STATE_RUNNING, &mphy->state)) {
 			set_current_state(TASK_INTERRUPTIBLE);
 			schedule();
 		}
@@ -793,6 +792,7 @@ void mt76s_deinit(struct mt76_dev *dev)
 	struct mt76_sdio *sdio = &dev->sdio;
 	int i;
 
+	kthread_stop(sdio->kthread);
 	mt76s_stop_txrx(dev);
 	mt76_for_each_q_rx(dev, i)
 		mt76s_free_rx_queue(dev, &dev->q_rx[i]);
