@@ -19,7 +19,7 @@
 #include "mcu.h"
 #include "regs.h"
 
-static const struct sdio_device_id mt7663s_sdio_table[] = {
+static const struct sdio_device_id mt7663s_table[] = {
 	{ SDIO_DEVICE(SDIO_VENDOR_ID_MEDIATEK, 0x7603) },
 	{ }	/* Terminating entry */
 };
@@ -39,7 +39,7 @@ static void mt7663s_init_work(struct work_struct *work)
 	mt7615_check_offload_capability(dev);
 }
 
-static int mt7663s_sdio_probe(struct sdio_func *func,
+static int mt7663s_probe(struct sdio_func *func,
 			      const struct sdio_device_id *id)
 {
 	static const struct mt76_driver_ops drv_ops = {
@@ -105,7 +105,7 @@ err_free:
 	return ret;
 }
 
-static void mt7663s_sdio_remove(struct sdio_func *func)
+static void mt7663s_remove(struct sdio_func *func)
 {
 	struct mt7615_dev *dev = sdio_get_drvdata(func);
 
@@ -118,7 +118,7 @@ static void mt7663s_sdio_remove(struct sdio_func *func)
 }
 
 #ifdef CONFIG_PM
-static int mt7663s_sdio_suspend(struct device *dev)
+static int mt7663s_suspend(struct device *dev)
 {
 	struct sdio_func *func = dev_to_sdio_func(dev);
 	struct mt7615_dev *mdev = sdio_get_drvdata(func);
@@ -137,7 +137,7 @@ static int mt7663s_sdio_suspend(struct device *dev)
 	return mt7663s_firmware_own(mdev);
 }
 
-static int mt7663s_sdio_resume(struct device *dev)
+static int mt7663s_resume(struct device *dev)
 {
 	struct sdio_func *func = dev_to_sdio_func(dev);
 	struct mt7615_dev *mdev = sdio_get_drvdata(func);
@@ -155,29 +155,29 @@ static int mt7663s_sdio_resume(struct device *dev)
 }
 
 static const struct dev_pm_ops mt7663s_pm_ops = {
-	.suspend = mt7663s_sdio_suspend,
-	.resume = mt7663s_sdio_resume,
+	.suspend = mt7663s_suspend,
+	.resume = mt7663s_resume,
 };
 #endif
 
-MODULE_DEVICE_TABLE(sdio, mt7663s_sdio_table);
+MODULE_DEVICE_TABLE(sdio, mt7663s_table);
 MODULE_FIRMWARE(MT7663_OFFLOAD_FIRMWARE_N9);
 MODULE_FIRMWARE(MT7663_OFFLOAD_ROM_PATCH);
 MODULE_FIRMWARE(MT7663_FIRMWARE_N9);
 MODULE_FIRMWARE(MT7663_ROM_PATCH);
 
-static struct sdio_driver mt7663s_sdio_driver = {
-	.name		= "mt7663s_sdio",
-	.probe		= mt7663s_sdio_probe,
-	.remove		= mt7663s_sdio_remove,
-	.id_table	= mt7663s_sdio_table,
+static struct sdio_driver mt7663s_driver = {
+	.name		= KBUILD_MODNAME,
+	.probe		= mt7663s_probe,
+	.remove		= mt7663s_remove,
+	.id_table	= mt7663s_table,
 #ifdef CONFIG_PM
 	.drv = {
 		.pm = &mt7663s_pm_ops,
 	}
 #endif
 };
-module_sdio_driver(mt7663s_sdio_driver);
+module_sdio_driver(mt7663s_driver);
 
 MODULE_AUTHOR("Sean Wang <sean.wang@mediatek.com>");
 MODULE_AUTHOR("Lorenzo Bianconi <lorenzo@kernel.org>");

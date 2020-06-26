@@ -15,6 +15,57 @@
 #include "regs.h"
 #include "../sdio.h"
 
+static int mt7663s_mcu_init_sched(struct mt7615_dev *dev)
+{
+	struct mt76_sdio *sdio = &dev->mt76.sdio;
+	u32 pse0, ple, pse1, txdwcnt;
+
+	pse0 = mt76_get_field(dev, MT_PSE_PG_HIF0_GROUP, MT_HIF0_MIN_QUOTA);
+	pse1 = mt76_get_field(dev, MT_PSE_PG_HIF1_GROUP, MT_HIF1_MIN_QUOTA);
+	ple = mt76_get_field(dev, MT_PLE_PG_HIF0_GROUP, MT_HIF0_MIN_QUOTA);
+	txdwcnt = mt76_get_field(dev, MT_PP_TXDWCNT,
+				 MT_PP_TXDWCNT_TX1_ADD_DW_CNT);
+
+	mutex_lock(&sdio->sched.lock);
+
+	sdio->sched.pse_data_quota = pse0;
+	sdio->sched.ple_data_quota = ple;
+	sdio->sched.pse_mcu_quota = pse1;
+	sdio->sched.deficit = txdwcnt << 2;
+
+	mutex_unlock(&sdio->sched.lock);
+
+	return 0;
+}
+
+static int mt7663s_mcu_update_sched(struct mt7615_dev *dev, int len)
+{
+	struct mt76_sdio *sdio = &dev->mt76.sdio;
+	int size, i;
+
+	if (!test_bit(MT76_STATE_MCU_RUNNING, &dev->mphy.state))
+		return 0;
+
+	size = DIV_ROUND_UP(len + sdio->sched.deficit, MT_PSE_PAGE_SZ);
+	for (i = 0; i < 100; i++) {
+		if (sdio->sched.pse_mcu_quota > size)
+			break;
+
+		usleep_range(10000, 20000);
+	}
+
+	if (i == 100) {
+		dev_err(dev->mt76.dev, "cannot get free pse mcu pages");
+		return -ETIMEDOUT;
+	}
+
+	mutex_lock(&sdio->sched.lock);
+	sdio->sched.pse_mcu_quota -= size;
+	mutex_unlock(&sdio->sched.lock);
+
+	return 0;
+}
+
 static int
 mt7663s_mcu_send_message(struct mt76_dev *mdev, struct sk_buff *skb,
 			 int cmd, bool wait_resp)
@@ -27,9 +78,12 @@ mt7663s_mcu_send_message(struct mt76_dev *mdev, struct sk_buff *skb,
 	mt7615_mutex_acquire(dev, &mdev->mcu.mutex);
 
 	mt7615_mcu_fill_msg(dev, skb, cmd, &seq);
-
 	ret = mt76_skb_adjust_pad(skb);
 	if (ret < 0)
+		goto out;
+
+	ret = mt7663s_mcu_update_sched(dev, skb->len);
+	if (ret)
 		goto out;
 
 	len = skb->len;
@@ -141,6 +195,10 @@ int mt7663s_mcu_init(struct mt7615_dev *dev)
 	}
 
 	ret = __mt7663_load_firmware(dev);
+	if (ret)
+		return ret;
+
+	ret = mt7663s_mcu_init_sched(dev);
 	if (ret)
 		return ret;
 
