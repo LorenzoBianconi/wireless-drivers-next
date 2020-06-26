@@ -24,6 +24,12 @@ static u32 mt76s_read_whisr(struct mt76_dev *dev)
 	return sdio_readl(dev->sdio.func, MCR_WHISR, NULL);
 }
 
+u32 mt76s_read_pcr(struct mt76_dev *dev)
+{
+	return sdio_readl(dev->sdio.func, MCR_WHLPCR, NULL);
+}
+EXPORT_SYMBOL_GPL(mt76s_read_pcr);
+
 static u32 __mt76s_rr_mailbox(struct mt76_dev *dev, u32 offset)
 {
 	struct sdio_func *func = dev->sdio.func;
@@ -219,20 +225,6 @@ mt76s_free_rx_queue(struct mt76_dev *dev, struct mt76_queue *q)
 	memset(&q->rx_page, 0, sizeof(q->rx_page));
 }
 
-static void mt76s_free_rx(struct mt76_dev *dev)
-{
-	int i;
-
-	mt76_for_each_q_rx(dev, i)
-		mt76s_free_rx_queue(dev, &dev->q_rx[i]);
-}
-
-void mt76s_stop_rx(struct mt76_dev *dev)
-{
-	tasklet_kill(&dev->sdio.rx_tasklet);
-}
-EXPORT_SYMBOL_GPL(mt76s_stop_rx);
-
 static int
 mt76s_alloc_rx_queue(struct mt76_dev *dev, enum mt76_rxq_id qid)
 {
@@ -304,13 +296,15 @@ static int mt76s_alloc_tx(struct mt76_dev *dev)
 	return 0;
 }
 
-void mt76s_stop_tx(struct mt76_dev *dev)
+void mt76s_stop_txrx(struct mt76_dev *dev)
 {
 	struct mt76_sdio *sdio = &dev->sdio;
 	int i;
 
-	kthread_stop(sdio->kthread);
+	if (sdio->kthread)
+		kthread_stop(sdio->kthread);
 	tasklet_kill(&dev->tx_tasklet);
+	tasklet_kill(&sdio->rx_tasklet);
 
 	for (i = 0; i < IEEE80211_NUM_ACS; i++) {
 		struct mt76_queue_entry entry;
@@ -336,15 +330,7 @@ void mt76s_stop_tx(struct mt76_dev *dev)
 
 	mt76_tx_status_check(dev, NULL, true);
 }
-EXPORT_SYMBOL_GPL(mt76s_stop_tx);
-
-static void mt76s_queues_deinit(struct mt76_dev *dev)
-{
-	mt76s_stop_rx(dev);
-	mt76s_stop_tx(dev);
-
-	mt76s_free_rx(dev);
-}
+EXPORT_SYMBOL_GPL(mt76s_stop_txrx);
 
 int mt76s_alloc_queues(struct mt76_dev *dev)
 {
@@ -737,12 +723,6 @@ out:
 	sdio_writel(func, WHLPCR_INT_EN_SET, MCR_WHLPCR, 0);
 }
 
-u32 mt76s_read_pcr(struct mt76_dev *dev)
-{
-	return sdio_readl(dev->sdio.func, MCR_WHLPCR, NULL);
-}
-EXPORT_SYMBOL_GPL(mt76s_read_pcr);
-
 static int mt76s_hw_init(struct mt76_dev *dev, struct sdio_func *func)
 {
 	u32 status, ctrl;
@@ -811,13 +791,12 @@ static const struct mt76_queue_ops sdio_queue_ops = {
 void mt76s_deinit(struct mt76_dev *dev)
 {
 	struct mt76_sdio *sdio = &dev->sdio;
+	int i;
 
-	mt76s_queues_deinit(dev);
-	if (sdio->kthread) {
-		kthread_stop(sdio->kthread);
-		sdio->kthread = NULL;
-	}
-	sdio_release_irq(dev->sdio.func);
+	mt76s_stop_txrx(dev);
+	mt76_for_each_q_rx(dev, i)
+		mt76s_free_rx_queue(dev, &dev->q_rx[i]);
+	sdio_release_irq(sdio->func);
 }
 EXPORT_SYMBOL_GPL(mt76s_deinit);
 
