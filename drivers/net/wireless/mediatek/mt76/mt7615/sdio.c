@@ -24,20 +24,6 @@ static const struct sdio_device_id mt7663s_sdio_table[] = {
 	{ }	/* Terminating entry */
 };
 
-static void mt7663s_stop(struct ieee80211_hw *hw)
-{
-	struct mt7615_phy *phy = mt7615_hw_phy(hw);
-	struct mt7615_dev *dev = hw->priv;
-
-	clear_bit(MT76_STATE_RUNNING, &dev->mphy.state);
-	del_timer_sync(&phy->roc_timer);
-	cancel_work_sync(&phy->roc_work);
-	cancel_delayed_work_sync(&phy->scan_work);
-	cancel_delayed_work_sync(&phy->mac_work);
-
-	mt76s_stop_txrx(&dev->mt76);
-}
-
 static void mt7663s_init_work(struct work_struct *work)
 {
 	struct mt7615_dev *dev;
@@ -77,8 +63,6 @@ static int mt7663s_sdio_probe(struct sdio_func *func,
 			   GFP_KERNEL);
 	if (!ops)
 		return -ENOMEM;
-
-	ops->stop = mt7663s_stop;
 
 	mdev = mt76_alloc_device(&func->dev, sizeof(*dev), ops, &drv_ops);
 	if (!mdev)
