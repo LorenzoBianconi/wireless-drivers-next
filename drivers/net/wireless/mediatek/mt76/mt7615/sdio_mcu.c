@@ -38,71 +38,24 @@ static int mt7663s_mcu_init_sched(struct mt7615_dev *dev)
 	return 0;
 }
 
-static int mt7663s_mcu_update_sched(struct mt7615_dev *dev, int len)
-{
-	struct mt76_sdio *sdio = &dev->mt76.sdio;
-	int size, i;
-
-	if (!test_bit(MT76_STATE_MCU_RUNNING, &dev->mphy.state))
-		return 0;
-
-	size = DIV_ROUND_UP(len + sdio->sched.deficit, MT_PSE_PAGE_SZ);
-	for (i = 0; i < 100; i++) {
-		if (sdio->sched.pse_mcu_quota > size)
-			break;
-
-		usleep_range(10000, 20000);
-	}
-
-	if (i == 100) {
-		dev_err(dev->mt76.dev, "cannot get free pse mcu pages");
-		return -ETIMEDOUT;
-	}
-
-	mutex_lock(&sdio->sched.lock);
-	sdio->sched.pse_mcu_quota -= size;
-	mutex_unlock(&sdio->sched.lock);
-
-	return 0;
-}
-
 static int
 mt7663s_mcu_send_message(struct mt76_dev *mdev, struct sk_buff *skb,
 			 int cmd, bool wait_resp)
 {
 	struct mt7615_dev *dev = container_of(mdev, struct mt7615_dev, mt76);
-	struct sdio_func *func = mdev->sdio.func;
-	struct mt76_sdio *sdio = &mdev->sdio;
-	int ret, seq, len;
+	int ret, seq;
 
 	mt7615_mutex_acquire(dev, &mdev->mcu.mutex);
 
 	mt7615_mcu_fill_msg(dev, skb, cmd, &seq);
-	ret = mt76_skb_adjust_pad(skb);
-	if (ret < 0)
-		goto out;
-
-	ret = mt7663s_mcu_update_sched(dev, skb->len);
+	ret = mt76_tx_queue_skb_raw(dev, MT_TXQ_MCU, skb, 0);
 	if (ret)
 		goto out;
 
-	len = skb->len;
-
-	if (len > sdio->func->cur_blksize)
-		len = roundup(len, sdio->func->cur_blksize);
-
-	sdio_claim_host(func);
-
-	ret = sdio_writesb(sdio->func, MCR_WTDR1, skb->data, len);
-	if (ret < 0)
-		dev_err(mdev->dev, "sdio write failed:%d\n", ret);
-
-	sdio_release_host(func);
-
+	mt76_queue_kick(dev, mdev->q_tx[MT_TXQ_MCU].q);
 	if (wait_resp)
 		ret = mt7615_mcu_wait_response(dev, cmd, seq);
 
-	dev_kfree_skb(skb);
 out:
 	mt7615_mutex_release(dev, &mdev->mcu.mutex);
 

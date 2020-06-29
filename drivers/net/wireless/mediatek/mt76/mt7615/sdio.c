@@ -83,10 +83,6 @@ static int mt7663s_probe(struct sdio_func *func,
 		    (mt76_rr(dev, MT_HW_REV) & 0xff);
 	dev_dbg(mdev->dev, "ASIC revision: %04x\n", mdev->rev);
 
-	ret = mt76s_alloc_mcu_queue(&dev->mt76);
-	if (ret)
-		goto err_deinit;
-
 	ret = mt76s_alloc_queues(&dev->mt76);
 	if (ret)
 		goto err_deinit;
