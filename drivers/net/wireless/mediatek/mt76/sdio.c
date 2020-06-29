@@ -258,24 +258,13 @@ mt76s_alloc_rx_queue(struct mt76_dev *dev, enum mt76_rxq_id qid)
 	return 0;
 }
 
-int mt76s_alloc_mcu_queue(struct mt76_dev *dev)
-{
-	return mt76s_alloc_rx_queue(dev, MT_RXQ_MCU);
-}
-EXPORT_SYMBOL_GPL(mt76s_alloc_mcu_queue);
-
 static int mt76s_alloc_tx(struct mt76_dev *dev)
 {
 	struct mt76_queue *q;
 	int i;
 
-	for (i = 0; i <= MT_TXQ_PSD; i++) {
+	for (i = 0; i < MT_TXQ_MCU_WA; i++) {
 		INIT_LIST_HEAD(&dev->q_tx[i].swq);
-
-		if (i >= IEEE80211_NUM_ACS) {
-			dev->q_tx[i].q = dev->q_tx[0].q;
-			continue;
-		}
 
 		q = devm_kzalloc(dev->dev, sizeof(*q), GFP_KERNEL);
 		if (!q)
@@ -293,6 +282,7 @@ static int mt76s_alloc_tx(struct mt76_dev *dev)
 
 		q->ndesc = MT_NUM_TX_ENTRIES;
 	}
+
 	return 0;
 }
 
@@ -332,11 +322,15 @@ EXPORT_SYMBOL_GPL(mt76s_stop_txrx);
 
 int mt76s_alloc_queues(struct mt76_dev *dev)
 {
-	int err;
+	int i;
 
-	err = mt76s_alloc_rx_queue(dev, MT_RXQ_MAIN);
-	if (err < 0)
-		return err;
+	for (i = 0; i < MT_RXQ_MCU_WA; i++) {
+		int err;
+
+		err = mt76s_alloc_rx_queue(dev, i);
+		if (err < 0)
+			return err;
+	}
 
 	return mt76s_alloc_tx(dev);
 }
@@ -347,13 +341,13 @@ mt76s_get_next_rx_entry(struct mt76_queue *q)
 {
 	struct mt76_queue_entry *e = NULL;
 
-	spin_lock(&q->lock);
+	spin_lock_bh(&q->lock);
 	if (q->queued > 0) {
 		e = &q->entry[q->head];
 		q->head = (q->head + 1) % q->ndesc;
 		q->queued--;
 	}
-	spin_unlock(&q->lock);
+	spin_unlock_bh(&q->lock);
 
 	return e;
 }
@@ -590,20 +584,26 @@ static int mt76s_tx_add_buff(struct mt76_sdio *sdio, struct sk_buff *skb)
 	return err;
 }
 
-static int mt76s_tx_update_sched(struct mt76_dev *dev, int len)
+static int mt76s_tx_update_sched(struct mt76_dev *dev, int len, bool mcu)
 {
+	int txwi_size = !mcu ? dev->drv->txwi_size : 0;
 	struct mt76_sdio *sdio = &dev->sdio;
 	int size, ret = -EBUSY;
 
-	if (!test_bit(MT76_STATE_RUNNING, &dev->phy.state))
+	if (!test_bit(MT76_STATE_MCU_RUNNING, &dev->phy.state))
 		return 0;
 
-	size = DIV_ROUND_UP(len + sdio->sched.deficit - dev->drv->txwi_size,
+	size = DIV_ROUND_UP(len + sdio->sched.deficit - txwi_size,
 			    MT_PSE_PAGE_SZ);
 
 	mutex_lock(&sdio->sched.lock);
-	if (sdio->sched.pse_data_quota > size &&
-	    sdio->sched.ple_data_quota > 0) {
+	if (mcu) {
+		if (sdio->sched.pse_mcu_quota > size) {
+			sdio->sched.pse_mcu_quota -= size;
+			ret = 0;
+		}
+	} else if (sdio->sched.pse_data_quota > size &&
+		   sdio->sched.ple_data_quota > 0) {
 		sdio->sched.pse_data_quota -= size;
 		sdio->sched.ple_data_quota--;
 		ret = 0;
@@ -615,14 +615,15 @@ static int mt76s_tx_update_sched(struct mt76_dev *dev, int len)
 
 static int mt76s_tx_run_queue(struct mt76_dev *dev, struct mt76_queue *q)
 {
-	int nframes = 0;
+	bool mcu = q == dev->q_tx[MT_TXQ_MCU].q;
+	int nframes = 0, queued = 0;
 
 	while (q->first != q->tail) {
 		struct sk_buff *skb = q->entry[q->first].skb;
 		int err;
 
 		/* check available space in hw queues */
-		err = mt76s_tx_update_sched(dev, skb->len);
+		err = mt76s_tx_update_sched(dev, skb->len, mcu);
 		if (err < 0)
 			return err;
 
@@ -633,11 +634,17 @@ static int mt76s_tx_run_queue(struct mt76_dev *dev, struct mt76_queue *q)
 		}
 
 		q->first = (q->first + 1) % q->ndesc;
+		if (mcu) {
+			dev_kfree_skb(skb);
+			queued--;
+		} else {
+			queued++;
+		}
 		nframes++;
 	}
 
 	spin_lock_bh(&q->lock);
-	q->queued += nframes;
+	q->queued += queued;
 	spin_unlock_bh(&q->lock);
 
 	return nframes;
@@ -653,7 +660,7 @@ static int mt76s_kthread_run(void *data)
 
 		cond_resched();
 
-		for (i = 0; i < IEEE80211_NUM_ACS; i++) {
+		for (i = 0; i < MT_TXQ_MCU_WA; i++) {
 			int ret;
 
 			ret = mt76s_tx_run_queue(dev, dev->q_tx[i].q);
@@ -697,6 +704,30 @@ mt76s_tx_queue_skb(struct mt76_dev *dev, enum mt76_txq_id qid,
 	q->tail = (q->tail + 1) % q->ndesc;
 
 	return idx;
+}
+
+static int
+mt76s_tx_queue_skb_raw(struct mt76_dev *dev, enum mt76_txq_id qid,
+		       struct sk_buff *skb, u32 tx_info)
+{
+	struct mt76_queue *q = dev->q_tx[qid].q;
+	int ret = -ENOSPC;
+
+	spin_lock_bh(&q->lock);
+	if (q->queued == q->ndesc)
+		goto out;
+
+	ret = mt76_skb_adjust_pad(skb);
+	if (ret)
+		goto out;
+
+	q->entry[q->tail].skb = skb;
+	q->tail = (q->tail + 1) % q->ndesc;
+	q->queued++;
+out:
+	spin_unlock_bh(&q->lock);
+
+	return ret;
 }
 
 static void mt76s_tx_kick(struct mt76_dev *dev, struct mt76_queue *q)
@@ -830,6 +861,7 @@ release:
 static const struct mt76_queue_ops sdio_queue_ops = {
 	.tx_queue_skb = mt76s_tx_queue_skb,
 	.kick = mt76s_tx_kick,
+	.tx_queue_skb_raw = mt76s_tx_queue_skb_raw,
 };
 
 void mt76s_deinit(struct mt76_dev *dev)
