@@ -294,7 +294,7 @@ void mt76s_stop_txrx(struct mt76_dev *dev)
 	tasklet_kill(&dev->tx_tasklet);
 	tasklet_kill(&sdio->rx_tasklet);
 
-	for (i = 0; i < IEEE80211_NUM_ACS; i++) {
+	for (i = 0; i < MT_TXQ_MCU_WA; i++) {
 		struct mt76_queue_entry entry;
 		struct mt76_queue *q;
 
@@ -308,7 +308,10 @@ void mt76s_stop_txrx(struct mt76_dev *dev)
 			q->head = (q->head + 1) % q->ndesc;
 			q->queued--;
 
-			dev->drv->tx_complete_skb(dev, i, &entry);
+			if (i != MT_TXQ_MCU)
+				dev->drv->tx_complete_skb(dev, i, &entry);
+			else
+				dev_kfree_skb(entry.skb);
 		}
 		spin_unlock_bh(&q->lock);
 	}
@@ -496,12 +499,12 @@ static void mt76s_tx_tasklet(unsigned long data)
 	struct mt76_dev *dev = (struct mt76_dev *)data;
 	int i;
 
-	for (i = 0; i < IEEE80211_NUM_ACS; i++) {
+	for (i = 0; i < MT_TXQ_MCU_WA; i++) {
 		struct mt76_sw_queue *sq = &dev->q_tx[i];
 		u32 n_dequeued = 0, n_sw_dequeued = 0;
+		bool wake, mcu = i == MT_TXQ_MCU;
 		struct mt76_queue_entry entry;
 		struct mt76_queue *q = sq->q;
-		bool wake;
 
 		while (q->queued > n_dequeued) {
 			if (q->entry[q->head].schedule) {
@@ -514,7 +517,10 @@ static void mt76s_tx_tasklet(unsigned long data)
 			q->head = (q->head + 1) % q->ndesc;
 			n_dequeued++;
 
-			dev->drv->tx_complete_skb(dev, i, &entry);
+			if (mcu)
+				dev_kfree_skb(entry.skb);
+			else
+				dev->drv->tx_complete_skb(dev, i, &entry);
 		}
 
 		spin_lock_bh(&q->lock);
@@ -530,6 +536,9 @@ static void mt76s_tx_tasklet(unsigned long data)
 			wake_up(&dev->tx_wait);
 
 		spin_unlock_bh(&q->lock);
+
+		if (mcu)
+			continue;
 
 		mt76_txq_schedule(&dev->phy, i);
 
@@ -616,16 +625,15 @@ static int mt76s_tx_update_sched(struct mt76_dev *dev, int len, bool mcu)
 static int mt76s_tx_run_queue(struct mt76_dev *dev, struct mt76_queue *q)
 {
 	bool mcu = q == dev->q_tx[MT_TXQ_MCU].q;
-	int nframes = 0, queued = 0;
+	int nframes = 0;
 
 	while (q->first != q->tail) {
 		struct sk_buff *skb = q->entry[q->first].skb;
 		int err;
 
 		/* check available space in hw queues */
-		err = mt76s_tx_update_sched(dev, skb->len, mcu);
-		if (err < 0)
-			return err;
+		if (mt76s_tx_update_sched(dev, skb->len, mcu) < 0)
+			break;
 
 		err = mt76s_tx_add_buff(&dev->sdio, skb);
 		if (err) {
@@ -634,17 +642,11 @@ static int mt76s_tx_run_queue(struct mt76_dev *dev, struct mt76_queue *q)
 		}
 
 		q->first = (q->first + 1) % q->ndesc;
-		if (mcu) {
-			dev_kfree_skb(skb);
-			queued--;
-		} else {
-			queued++;
-		}
 		nframes++;
 	}
 
 	spin_lock_bh(&q->lock);
-	q->queued += queued;
+	q->queued += nframes;
 	spin_unlock_bh(&q->lock);
 
 	return nframes;
@@ -723,7 +725,7 @@ mt76s_tx_queue_skb_raw(struct mt76_dev *dev, enum mt76_txq_id qid,
 
 	q->entry[q->tail].skb = skb;
 	q->tail = (q->tail + 1) % q->ndesc;
-	q->queued++;
+
 out:
 	spin_unlock_bh(&q->lock);
 
