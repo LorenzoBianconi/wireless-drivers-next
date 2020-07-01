@@ -40,7 +40,7 @@ static void mt7663s_init_work(struct work_struct *work)
 }
 
 static int mt7663s_probe(struct sdio_func *func,
-			      const struct sdio_device_id *id)
+			 const struct sdio_device_id *id)
 {
 	static const struct mt76_driver_ops drv_ops = {
 		.txwi_size = MT_USB_TXD_SIZE,
