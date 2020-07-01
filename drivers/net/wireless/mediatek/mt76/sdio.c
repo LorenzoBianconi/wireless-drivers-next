@@ -444,9 +444,11 @@ static void mt76s_rx_tasklet(unsigned long data)
 	rcu_read_unlock();
 }
 
-static int mt76s_rx_work(struct mt76_dev *dev, struct mt76_queue *q)
+static int mt76s_rx_run_queue(struct mt76_dev *dev, struct mt76_queue *q)
 {
-	int i, ret = 0;
+	int i;
+
+	sdio_claim_host(dev->sdio.func);
 
 	for (i = 0; i < MT76_SDIO_RX_QUOTA; i++) {
 		struct mt76_queue_entry *e = &q->entry[q->tail];
@@ -468,7 +470,6 @@ static int mt76s_rx_work(struct mt76_dev *dev, struct mt76_queue *q)
 		 * port.
 		 */
 		e->buf_sz = len;
-		ret += len;
 
 		len = roundup(len + 4, 4);
 		if (len > sdio->func->cur_blksize)
@@ -491,7 +492,9 @@ static int mt76s_rx_work(struct mt76_dev *dev, struct mt76_queue *q)
 		spin_unlock_bh(&q->lock);
 	}
 
-	return ret;
+	sdio_release_host(dev->sdio.func);
+
+	return i;
 }
 
 static void mt76s_tx_tasklet(unsigned long data)
@@ -658,13 +661,22 @@ static int mt76s_kthread_run(void *data)
 	struct mt76_phy *mphy = &dev->phy;
 
 	while (!kthread_should_stop()) {
-		int i, nframes = 0;
+		int i, ret, nframes = 0;
 
 		cond_resched();
 
-		for (i = 0; i < MT_TXQ_MCU_WA; i++) {
-			int ret;
+		mt76_for_each_q_rx(dev, i) {
+			ret = mt76s_rx_run_queue(dev, &dev->q_rx[i]);
+			if (ret < 0) {
+				nframes = 0;
+				goto out;
+			}
+			if (ret)
+				tasklet_schedule(&dev->sdio.rx_tasklet);
+			nframes += ret;
+		}
 
+		for (i = 0; i < MT_TXQ_MCU_WA; i++) {
 			ret = mt76s_tx_run_queue(dev, dev->q_tx[i].q);
 			if (ret < 0) {
 				nframes = 0;
@@ -673,6 +685,7 @@ static int mt76s_kthread_run(void *data)
 			nframes += ret;
 		}
 
+out:
 		if (!nframes || !test_bit(MT76_STATE_RUNNING, &mphy->state)) {
 			set_current_state(TASK_INTERRUPTIBLE);
 			schedule();
@@ -789,28 +802,19 @@ static void mt76s_sdio_irq(struct sdio_func *func)
 	/* disable interrupt */
 	sdio_writel(func, WHLPCR_INT_EN_CLR, MCR_WHLPCR, 0);
 
-	do {
-		intr = sdio_readl(func, MCR_WHISR, 0);
-		trace_dev_irq(dev, intr, 0);
+	intr = sdio_readl(func, MCR_WHISR, 0);
+	trace_dev_irq(dev, intr, 0);
 
-		if (!test_bit(MT76_STATE_INITIALIZED, &dev->phy.state))
-			goto out;
+	if (!test_bit(MT76_STATE_INITIALIZED, &dev->phy.state))
+		goto out;
 
-		if (intr & WHIER_RX0_DONE_INT_EN) {
-			mt76s_rx_work(dev, &dev->q_rx[MT_RXQ_MAIN]);
-			tasklet_schedule(&sdio->rx_tasklet);
-		}
+	if (intr & (WHIER_RX0_DONE_INT_EN | WHIER_RX1_DONE_INT_EN))
+		wake_up_process(sdio->kthread);
 
-		if (intr & WHIER_RX1_DONE_INT_EN) {
-			mt76s_rx_work(dev, &dev->q_rx[MT_RXQ_MCU]);
-			tasklet_schedule(&sdio->rx_tasklet);
-		}
-
-		if (intr & WHIER_TX_DONE_INT_EN) {
-			mt76s_refill_sched_quota(dev);
-			tasklet_schedule(&dev->tx_tasklet);
-		}
-	} while (intr);
+	if (intr & WHIER_TX_DONE_INT_EN) {
+		mt76s_refill_sched_quota(dev);
+		tasklet_schedule(&dev->tx_tasklet);
+	}
 out:
 	/* enable interrupt */
 	sdio_writel(func, WHLPCR_INT_EN_SET, MCR_WHLPCR, 0);
