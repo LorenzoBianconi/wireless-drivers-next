@@ -761,7 +761,23 @@ static void mt76s_refill_sched_quota(struct mt76_dev *dev)
 				      FIELD_GET(TXQ_CNT_L, data[3]) + /* BE */
 				      FIELD_GET(TXQ_CNT_H, data[3]) + /* VI */
 				      FIELD_GET(TXQ_CNT_L, data[4]);  /* VO */
+
+	if (sdio->sched.pse_data_quota > sdio->sched.pse_data_init_quota)
+		sdio->sched.pse_data_quota = sdio->sched.pse_data_init_quota;
+
+	if (sdio->sched.pse_mcu_quota > sdio->sched.pse_mcu_init_quota)
+		sdio->sched.pse_mcu_quota = sdio->sched.pse_mcu_init_quota;
+
+	if (sdio->sched.ple_data_quota > sdio->sched.ple_data_init_quota)
+		sdio->sched.ple_data_quota = sdio->sched.ple_data_init_quota;
+
+	if (sdio->sched.pse_data_quota >= sdio->sched.pse_data_init_quota)
+		sdio->sched.last_refill = jiffies;
+
 	mutex_unlock(&sdio->sched.lock);
+
+	if (time_after(jiffies, sdio->sched.last_refill + 5 * HZ))
+		queue_work(dev->wq, &sdio->quota_work);
 }
 
 static void mt76s_sdio_irq(struct sdio_func *func)

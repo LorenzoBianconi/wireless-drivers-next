@@ -452,6 +452,7 @@ struct mt76_sdio {
 
 	struct task_struct *kthread;
 	struct work_struct stat_work;
+	struct work_struct quota_work;
 
 	unsigned long state;
 
@@ -462,6 +463,12 @@ struct mt76_sdio {
 		int pse_data_quota;
 		int ple_data_quota;
 		int pse_mcu_quota;
+
+		int pse_data_init_quota;
+		int ple_data_init_quota;
+		int pse_mcu_init_quota;
+
+		unsigned long last_refill;
 		int deficit;
 	} sched;
 };

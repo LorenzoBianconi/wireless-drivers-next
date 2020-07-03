@@ -15,6 +15,30 @@
 #include "regs.h"
 #include "../sdio.h"
 
+static void mt7663s_quota_bias(struct work_struct *work)
+{
+	struct mt7615_dev *dev;
+	struct mt76_sdio *sdio;
+	struct mt76_dev *mdev;
+	u32 pse0, ple, pse1;
+
+	sdio = container_of(work, struct mt76_sdio, quota_work);
+	mdev = container_of(sdio, struct mt76_dev, sdio);
+	dev = container_of(mdev, struct mt7615_dev, mt76);
+
+	pse0 = mt76_get_field(dev, MT_PSE_PG_HIF0_INFO, MT_PSE_PG_HIF0_RSV_CNT);
+	pse1 = mt76_get_field(dev, MT_PSE_PG_HIF1_INFO, MT_PSE_PG_HIF1_RSV_CNT);
+	ple = mt76_get_field(dev, MT_PLE_PG_HIF0_INFO, MT_PLE_PG_HIF0_RSV_CNT);
+
+	mutex_lock(&sdio->sched.lock);
+
+	sdio->sched.pse_data_quota = pse0;
+	sdio->sched.ple_data_quota = ple;
+	sdio->sched.pse_mcu_quota = pse1;
+
+	mutex_unlock(&sdio->sched.lock);
+}
+
 static int mt7663s_mcu_init_sched(struct mt7615_dev *dev)
 {
 	struct mt76_sdio *sdio = &dev->mt76.sdio;
@@ -28,12 +52,18 @@ static int mt7663s_mcu_init_sched(struct mt7615_dev *dev)
 
 	mutex_lock(&sdio->sched.lock);
 
+	sdio->sched.pse_data_init_quota = pse0;
+	sdio->sched.ple_data_init_quota = ple;
+	sdio->sched.pse_mcu_init_quota = pse1;
+
 	sdio->sched.pse_data_quota = pse0;
 	sdio->sched.ple_data_quota = ple;
 	sdio->sched.pse_mcu_quota = pse1;
 	sdio->sched.deficit = txdwcnt << 2;
 
 	mutex_unlock(&sdio->sched.lock);
+
+	INIT_WORK(&sdio->quota_work, mt7663s_quota_bias);
 
 	return 0;
 }
