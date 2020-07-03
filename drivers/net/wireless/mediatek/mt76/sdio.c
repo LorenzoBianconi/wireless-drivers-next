@@ -873,9 +873,13 @@ void mt76s_deinit(struct mt76_dev *dev)
 
 	kthread_stop(sdio->kthread);
 	mt76s_stop_txrx(dev);
+
 	mt76_for_each_q_rx(dev, i)
 		mt76s_free_rx_queue(dev, &dev->q_rx[i]);
+
+	sdio_claim_host(sdio->func);
 	sdio_release_irq(sdio->func);
+	sdio_release_host(sdio->func);
 }
 EXPORT_SYMBOL_GPL(mt76s_deinit);
 
