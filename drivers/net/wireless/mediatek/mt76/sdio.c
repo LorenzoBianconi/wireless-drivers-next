@@ -459,6 +459,7 @@ static int mt76s_rx_run_queue(struct mt76_dev *dev, struct mt76_queue *q)
 		val = sdio_readl(sdio->func, MCR_WRPLR, &err);
 		if (err < 0) {
 			dev_err(dev->dev, "sdio read len failed:%d\n", err);
+			sdio_release_host(dev->sdio.func);
 			return err;
 		}
 
@@ -483,6 +484,7 @@ static int mt76s_rx_run_queue(struct mt76_dev *dev, struct mt76_queue *q)
 		err = sdio_readsb(sdio->func, e->buf, MCR_WRDR(0), len);
 		if (err < 0) {
 			dev_err(dev->dev, "sdio read data failed:%d\n", err);
+			sdio_release_host(dev->sdio.func);
 			return err;
 		}
 
