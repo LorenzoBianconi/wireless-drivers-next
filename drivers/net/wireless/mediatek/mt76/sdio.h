@@ -102,4 +102,12 @@
 
 #define MCR_SWPCDBGR			0x0154
 
+struct mtk_sdio_intr {
+	u32 whisr;
+	u32 wtqcr[8];
+	u16 pkt_num[2];
+	u16 pkt_len[2][16];
+	u32 rec_mb[2];
+} __packed;
+
 #endif
