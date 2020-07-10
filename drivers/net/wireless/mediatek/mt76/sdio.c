@@ -455,8 +455,9 @@ static void mt76s_rx_tasklet(unsigned long data)
 	rcu_read_unlock();
 }
 
-static int mt76s_rx_run_queue(struct mt76_dev *dev, struct mt76_queue *q)
+static int mt76s_rx_run_queue(struct mt76_dev *dev, enum mt76_rxq_id qid)
 {
+	struct mt76_queue *q = &dev->q_rx[qid];
 	int i;
 
 	sdio_claim_host(dev->sdio.func);
@@ -492,7 +493,7 @@ static int mt76s_rx_run_queue(struct mt76_dev *dev, struct mt76_queue *q)
 			e->buf_sz = len;
 		}
 
-		err = sdio_readsb(sdio->func, e->buf, MCR_WRDR(0), len);
+		err = sdio_readsb(sdio->func, e->buf, MCR_WRDR(qid), len);
 		if (err < 0) {
 			dev_err(dev->dev, "sdio read data failed:%d\n", err);
 			i = err;
@@ -713,7 +714,7 @@ static int mt76s_kthread_run(void *data)
 		cond_resched();
 
 		mt76_for_each_q_rx(dev, i) {
-			ret = mt76s_rx_run_queue(dev, &dev->q_rx[i]);
+			ret = mt76s_rx_run_queue(dev, i);
 			if (ret < 0) {
 				nframes = 0;
 				goto out;
