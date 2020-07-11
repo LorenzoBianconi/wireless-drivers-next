@@ -23,12 +23,6 @@ static u32 mt76s_read_whisr(struct mt76_dev *dev)
 	return sdio_readl(dev->sdio.func, MCR_WHISR, NULL);
 }
 
-u32 mt76s_read_pcr(struct mt76_dev *dev)
-{
-	return sdio_readl(dev->sdio.func, MCR_WHLPCR, NULL);
-}
-EXPORT_SYMBOL_GPL(mt76s_read_pcr);
-
 static u32 mt76s_rr_mailbox(struct mt76_dev *dev, u32 offset)
 {
 	struct sdio_func *func = dev->sdio.func;

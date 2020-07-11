@@ -1069,7 +1069,6 @@ int mt76s_init(struct mt76_dev *dev, struct sdio_func *func);
 int mt76s_alloc_queues(struct mt76_dev *dev);
 void mt76s_stop_txrx(struct mt76_dev *dev);
 void mt76s_deinit(struct mt76_dev *dev);
-u32 mt76s_read_pcr(struct mt76_dev *dev);
 
 struct sk_buff *
 mt76_mcu_msg_alloc(struct mt76_dev *dev, const void *data,
