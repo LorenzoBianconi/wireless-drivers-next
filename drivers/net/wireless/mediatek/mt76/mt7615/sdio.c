@@ -21,6 +21,16 @@
 #include "mcu.h"
 #include "regs.h"
 
+static const struct sdio_device_id mt7663s_table[] = {
+	{ SDIO_DEVICE(SDIO_VENDOR_ID_MEDIATEK, 0x7603) },
+	{ }	/* Terminating entry */
+};
+
+static u32 mt7663s_read_whisr(struct mt76_dev *dev)
+{
+	return sdio_readl(dev->sdio.func, MCR_WHISR, NULL);
+}
+
 u32 mt7663s_read_pcr(struct mt7615_dev *dev)
 {
 	struct mt76_sdio *sdio = &dev->mt76.sdio;
@@ -28,10 +38,189 @@ u32 mt7663s_read_pcr(struct mt7615_dev *dev)
 	return sdio_readl(sdio->func, MCR_WHLPCR, NULL);
 }
 
-static const struct sdio_device_id mt7663s_table[] = {
-	{ SDIO_DEVICE(SDIO_VENDOR_ID_MEDIATEK, 0x7603) },
-	{ }	/* Terminating entry */
-};
+static u32 mt7663s_read_mailbox(struct mt76_dev *dev, u32 offset)
+{
+	struct sdio_func *func = dev->sdio.func;
+	u32 val = ~0, status;
+	int err;
+
+	sdio_claim_host(func);
+
+	sdio_writel(func, offset, MCR_H2DSM0R, &err);
+	if (err < 0) {
+		dev_err(dev->dev, "failed setting address [err=%d]\n", err);
+		goto out;
+	}
+
+	sdio_writel(func, H2D_SW_INT_READ, MCR_WSICR, &err);
+	if (err < 0) {
+		dev_err(dev->dev, "failed setting read mode [err=%d]\n", err);
+		goto out;
+	}
+
+	err = readx_poll_timeout(mt7663s_read_whisr, dev, status,
+				 status & H2D_SW_INT_READ, 0, 1000000);
+	if (err < 0) {
+		dev_err(dev->dev, "query whisr timeout\n");
+		goto out;
+	}
+
+	sdio_writel(func, H2D_SW_INT_READ, MCR_WHISR, &err);
+	if (err < 0) {
+		dev_err(dev->dev, "failed setting read mode [err=%d]\n", err);
+		goto out;
+	}
+
+	val = sdio_readl(func, MCR_H2DSM0R, &err);
+	if (err < 0) {
+		dev_err(dev->dev, "failed reading h2dsm0r [err=%d]\n", err);
+		goto out;
+	}
+
+	if (val != offset) {
+		dev_err(dev->dev, "register mismatch\n");
+		val = ~0;
+		goto out;
+	}
+
+	val = sdio_readl(func, MCR_D2HRM1R, &err);
+	if (err < 0)
+		dev_err(dev->dev, "failed reading d2hrm1r [err=%d]\n", err);
+
+out:
+	sdio_release_host(func);
+
+	return val;
+}
+
+static void mt7663s_write_mailbox(struct mt76_dev *dev, u32 offset, u32 val)
+{
+	struct sdio_func *func = dev->sdio.func;
+	u32 status;
+	int err;
+
+	sdio_claim_host(func);
+
+	sdio_writel(func, offset, MCR_H2DSM0R, &err);
+	if (err < 0) {
+		dev_err(dev->dev, "failed setting address [err=%d]\n", err);
+		goto out;
+	}
+
+	sdio_writel(func, val, MCR_H2DSM1R, &err);
+	if (err < 0) {
+		dev_err(dev->dev,
+			"failed setting write value [err=%d]\n", err);
+		goto out;
+	}
+
+	sdio_writel(func, H2D_SW_INT_WRITE, MCR_WSICR, &err);
+	if (err < 0) {
+		dev_err(dev->dev, "failed setting write mode [err=%d]\n", err);
+		goto out;
+	}
+
+	err = readx_poll_timeout(mt7663s_read_whisr, dev, status,
+				 status & H2D_SW_INT_WRITE, 0, 1000000);
+	if (err < 0) {
+		dev_err(dev->dev, "query whisr timeout\n");
+		goto out;
+	}
+
+	sdio_writel(func, H2D_SW_INT_WRITE, MCR_WHISR, &err);
+	if (err < 0) {
+		dev_err(dev->dev, "failed setting write mode [err=%d]\n", err);
+		goto out;
+	}
+
+	val = sdio_readl(func, MCR_H2DSM0R, &err);
+	if (err < 0) {
+		dev_err(dev->dev, "failed reading h2dsm0r [err=%d]\n", err);
+		goto out;
+	}
+
+	if (val != offset)
+		dev_err(dev->dev, "register mismatch\n");
+
+out:
+	sdio_release_host(func);
+}
+
+static u32 mt7663s_rr(struct mt76_dev *dev, u32 offset)
+{
+	if (test_bit(MT76_STATE_MCU_RUNNING, &dev->phy.state))
+		return dev->mcu_ops->mcu_rr(dev, offset);
+	else
+		return mt7663s_read_mailbox(dev, offset);
+}
+
+static void mt7663s_wr(struct mt76_dev *dev, u32 offset, u32 val)
+{
+	if (test_bit(MT76_STATE_MCU_RUNNING, &dev->phy.state))
+		dev->mcu_ops->mcu_wr(dev, offset, val);
+	else
+		mt7663s_write_mailbox(dev, offset, val);
+}
+
+static u32 mt7663s_rmw(struct mt76_dev *dev, u32 offset, u32 mask, u32 val)
+{
+	val |= mt7663s_rr(dev, offset) & ~mask;
+	mt7663s_wr(dev, offset, val);
+
+	return val;
+}
+
+static void mt7663s_write_copy(struct mt76_dev *dev, u32 offset,
+			       const void *data, int len)
+{
+	const u32 *val = data;
+	int i;
+
+	for (i = 0; i < len / sizeof(u32); i++) {
+		mt7663s_wr(dev, offset, val[i]);
+		offset += sizeof(u32);
+	}
+}
+
+static void mt7663s_read_copy(struct mt76_dev *dev, u32 offset,
+			      void *data, int len)
+{
+	u32 *val = data;
+	int i;
+
+	for (i = 0; i < len / sizeof(u32); i++) {
+		val[i] = mt7663s_rr(dev, offset);
+		offset += sizeof(u32);
+	}
+}
+
+static int mt7663s_wr_rp(struct mt76_dev *dev, u32 base,
+			 const struct mt76_reg_pair *data,
+			 int len)
+{
+	int i;
+
+	for (i = 0; i < len; i++) {
+		mt7663s_wr(dev, data->reg, data->value);
+		data++;
+	}
+
+	return 0;
+}
+
+static int mt7663s_rd_rp(struct mt76_dev *dev, u32 base,
+			 struct mt76_reg_pair *data,
+			 int len)
+{
+	int i;
+
+	for (i = 0; i < len; i++) {
+		data->value = mt7663s_rr(dev, data->reg);
+		data++;
+	}
+
+	return 0;
+}
 
 static void mt7663s_init_work(struct work_struct *work)
 {
@@ -173,6 +362,16 @@ static int mt7663s_probe(struct sdio_func *func,
 		.sta_remove = mt7615_mac_sta_remove,
 		.update_survey = mt7615_update_channel,
 	};
+	static const struct mt76_bus_ops mt7663s_ops = {
+		.rr = mt7663s_rr,
+		.rmw = mt7663s_rmw,
+		.wr = mt7663s_wr,
+		.write_copy = mt7663s_write_copy,
+		.read_copy = mt7663s_read_copy,
+		.wr_rp = mt7663s_wr_rp,
+		.rd_rp = mt7663s_rd_rp,
+		.type = MT76_BUS_SDIO,
+	};
 	struct ieee80211_ops *ops;
 	struct mt7615_dev *dev;
 	struct mt76_dev *mdev;
@@ -194,7 +393,7 @@ static int mt7663s_probe(struct sdio_func *func,
 	dev->ops = ops;
 	sdio_set_drvdata(func, dev);
 
-	ret = mt76s_init(mdev, func);
+	ret = mt76s_init(mdev, func, &mt7663s_ops);
 	if (ret < 0)
 		goto err_free;
 
