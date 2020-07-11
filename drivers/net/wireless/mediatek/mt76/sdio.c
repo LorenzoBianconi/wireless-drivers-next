@@ -17,7 +17,6 @@
 
 #include "mt76.h"
 #include "sdio.h"
-#include "trace.h"
 
 static u32 mt76s_read_whisr(struct mt76_dev *dev)
 {
@@ -803,92 +802,6 @@ static void mt76s_tx_kick(struct mt76_dev *dev, struct mt76_queue *q)
 	wake_up_process(sdio->kthread);
 }
 
-static void mt76s_sdio_irq(struct sdio_func *func)
-{
-	struct mt76_dev *dev = sdio_get_drvdata(func);
-	struct mt76_sdio *sdio = &dev->sdio;
-	u32 intr;
-
-	/* disable interrupt */
-	sdio_writel(func, WHLPCR_INT_EN_CLR, MCR_WHLPCR, 0);
-
-	intr = sdio_readl(func, MCR_WHISR, 0);
-	trace_dev_irq(dev, intr, 0);
-
-	if (!test_bit(MT76_STATE_INITIALIZED, &dev->phy.state))
-		goto out;
-
-	if (intr & (WHIER_RX0_DONE_INT_EN | WHIER_RX1_DONE_INT_EN |
-		    WHIER_TX_DONE_INT_EN))
-		wake_up_process(sdio->kthread);
-
-	if (intr & WHIER_TX_DONE_INT_EN)
-		tasklet_schedule(&dev->tx_tasklet);
-out:
-	/* enable interrupt */
-	sdio_writel(func, WHLPCR_INT_EN_SET, MCR_WHLPCR, 0);
-}
-
-static int mt76s_hw_init(struct mt76_dev *dev, struct sdio_func *func)
-{
-	u32 status, ctrl;
-	int ret;
-
-	sdio_claim_host(func);
-
-	ret = sdio_enable_func(func);
-	if (ret < 0)
-		goto release;
-
-	/* Get ownership from the device */
-	sdio_writel(func, WHLPCR_INT_EN_CLR | WHLPCR_FW_OWN_REQ_CLR,
-		    MCR_WHLPCR, &ret);
-	if (ret < 0)
-		goto disable_func;
-
-	ret = readx_poll_timeout(mt76s_read_pcr, dev, status,
-				 status & WHLPCR_IS_DRIVER_OWN, 2000, 1000000);
-	if (ret < 0) {
-		dev_err(dev->dev, "Cannot get ownership from device");
-		goto disable_func;
-	}
-
-	ret = sdio_set_block_size(func, 512);
-	if (ret < 0)
-		goto disable_func;
-
-	/* Enable interrupt */
-	sdio_writel(func, WHLPCR_INT_EN_SET, MCR_WHLPCR, &ret);
-	if (ret < 0)
-		goto disable_func;
-
-	ctrl = WHIER_RX0_DONE_INT_EN | WHIER_TX_DONE_INT_EN;
-	sdio_writel(func, ctrl, MCR_WHIER, &ret);
-	if (ret < 0)
-		goto disable_func;
-
-	/* set WHISR as read clear and Rx aggregation number as 1 */
-	ctrl = FIELD_PREP(MAX_HIF_RX_LEN_NUM, 1);
-	sdio_writel(func, ctrl, MCR_WHCR, &ret);
-	if (ret < 0)
-		goto disable_func;
-
-	ret = sdio_claim_irq(func, mt76s_sdio_irq);
-	if (ret < 0)
-		goto disable_func;
-
-	sdio_release_host(func);
-
-	return 0;
-
-disable_func:
-	sdio_disable_func(func);
-release:
-	sdio_release_host(func);
-
-	return ret;
-}
-
 static const struct mt76_queue_ops sdio_queue_ops = {
 	.tx_queue_skb = mt76s_tx_queue_skb,
 	.kick = mt76s_tx_kick,
@@ -940,7 +853,7 @@ int mt76s_init(struct mt76_dev *dev, struct sdio_func *func)
 	dev->bus = &mt76s_ops;
 	dev->sdio.func = func;
 
-	return mt76s_hw_init(dev, func);
+	return 0;
 }
 EXPORT_SYMBOL_GPL(mt76s_init);
 
