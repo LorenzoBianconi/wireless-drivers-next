@@ -18,195 +18,6 @@
 #include "mt76.h"
 #include "sdio.h"
 
-static u32 mt76s_read_whisr(struct mt76_dev *dev)
-{
-	return sdio_readl(dev->sdio.func, MCR_WHISR, NULL);
-}
-
-static u32 mt76s_rr_mailbox(struct mt76_dev *dev, u32 offset)
-{
-	struct sdio_func *func = dev->sdio.func;
-	u32 val = ~0, status;
-	int err;
-
-	sdio_claim_host(func);
-
-	sdio_writel(func, offset, MCR_H2DSM0R, &err);
-	if (err < 0) {
-		dev_err(dev->dev, "failed setting address [err=%d]\n", err);
-		goto out;
-	}
-
-	sdio_writel(func, H2D_SW_INT_READ, MCR_WSICR, &err);
-	if (err < 0) {
-		dev_err(dev->dev, "failed setting read mode [err=%d]\n", err);
-		goto out;
-	}
-
-	err = readx_poll_timeout(mt76s_read_whisr, dev, status,
-				 status & H2D_SW_INT_READ, 0, 1000000);
-	if (err < 0) {
-		dev_err(dev->dev, "query whisr timeout\n");
-		goto out;
-	}
-
-	sdio_writel(func, H2D_SW_INT_READ, MCR_WHISR, &err);
-	if (err < 0) {
-		dev_err(dev->dev, "failed setting read mode [err=%d]\n", err);
-		goto out;
-	}
-
-	val = sdio_readl(func, MCR_H2DSM0R, &err);
-	if (err < 0) {
-		dev_err(dev->dev, "failed reading h2dsm0r [err=%d]\n", err);
-		goto out;
-	}
-
-	if (val != offset) {
-		dev_err(dev->dev, "register mismatch\n");
-		val = ~0;
-		goto out;
-	}
-
-	val = sdio_readl(func, MCR_D2HRM1R, &err);
-	if (err < 0)
-		dev_err(dev->dev, "failed reading d2hrm1r [err=%d]\n", err);
-
-out:
-	sdio_release_host(func);
-
-	return val;
-}
-
-static void mt76s_wr_mailbox(struct mt76_dev *dev, u32 offset, u32 val)
-{
-	struct sdio_func *func = dev->sdio.func;
-	u32 status;
-	int err;
-
-	sdio_claim_host(func);
-
-	sdio_writel(func, offset, MCR_H2DSM0R, &err);
-	if (err < 0) {
-		dev_err(dev->dev, "failed setting address [err=%d]\n", err);
-		goto out;
-	}
-
-	sdio_writel(func, val, MCR_H2DSM1R, &err);
-	if (err < 0) {
-		dev_err(dev->dev,
-			"failed setting write value [err=%d]\n", err);
-		goto out;
-	}
-
-	sdio_writel(func, H2D_SW_INT_WRITE, MCR_WSICR, &err);
-	if (err < 0) {
-		dev_err(dev->dev, "failed setting write mode [err=%d]\n", err);
-		goto out;
-	}
-
-	err = readx_poll_timeout(mt76s_read_whisr, dev, status,
-				 status & H2D_SW_INT_WRITE, 0, 1000000);
-	if (err < 0) {
-		dev_err(dev->dev, "query whisr timeout\n");
-		goto out;
-	}
-
-	sdio_writel(func, H2D_SW_INT_WRITE, MCR_WHISR, &err);
-	if (err < 0) {
-		dev_err(dev->dev, "failed setting write mode [err=%d]\n", err);
-		goto out;
-	}
-
-	val = sdio_readl(func, MCR_H2DSM0R, &err);
-	if (err < 0) {
-		dev_err(dev->dev, "failed reading h2dsm0r [err=%d]\n", err);
-		goto out;
-	}
-
-	if (val != offset)
-		dev_err(dev->dev, "register mismatch\n");
-
-out:
-	sdio_release_host(func);
-}
-
-static u32 mt76s_rr(struct mt76_dev *dev, u32 offset)
-{
-	if (test_bit(MT76_STATE_MCU_RUNNING, &dev->phy.state))
-		return dev->mcu_ops->mcu_rr(dev, offset);
-	else
-		return mt76s_rr_mailbox(dev, offset);
-}
-
-static void mt76s_wr(struct mt76_dev *dev, u32 offset, u32 val)
-{
-	if (test_bit(MT76_STATE_MCU_RUNNING, &dev->phy.state))
-		dev->mcu_ops->mcu_wr(dev, offset, val);
-	else
-		mt76s_wr_mailbox(dev, offset, val);
-}
-
-static u32 mt76s_rmw(struct mt76_dev *dev, u32 offset, u32 mask, u32 val)
-{
-	val |= mt76s_rr(dev, offset) & ~mask;
-	mt76s_wr(dev, offset, val);
-
-	return val;
-}
-
-static void mt76s_write_copy(struct mt76_dev *dev, u32 offset,
-			     const void *data, int len)
-{
-	const u32 *val = data;
-	int i;
-
-	for (i = 0; i < len / sizeof(u32); i++) {
-		mt76s_wr(dev, offset, val[i]);
-		offset += sizeof(u32);
-	}
-}
-
-static void mt76s_read_copy(struct mt76_dev *dev, u32 offset,
-			    void *data, int len)
-{
-	u32 *val = data;
-	int i;
-
-	for (i = 0; i < len / sizeof(u32); i++) {
-		val[i] = mt76s_rr(dev, offset);
-		offset += sizeof(u32);
-	}
-}
-
-static int
-mt76s_wr_rp(struct mt76_dev *dev, u32 base,
-	    const struct mt76_reg_pair *data, int len)
-{
-	int i;
-
-	for (i = 0; i < len; i++) {
-		mt76s_wr(dev, data->reg, data->value);
-		data++;
-	}
-
-	return 0;
-}
-
-static int
-mt76s_rd_rp(struct mt76_dev *dev, u32 base,
-	    struct mt76_reg_pair *data, int len)
-{
-	int i;
-
-	for (i = 0; i < len; i++) {
-		data->value = mt76s_rr(dev, data->reg);
-		data++;
-	}
-
-	return 0;
-}
-
 static void
 mt76s_free_rx_queue(struct mt76_dev *dev, struct mt76_queue *q)
 {
@@ -819,18 +630,9 @@ void mt76s_deinit(struct mt76_dev *dev)
 }
 EXPORT_SYMBOL_GPL(mt76s_deinit);
 
-int mt76s_init(struct mt76_dev *dev, struct sdio_func *func)
+int mt76s_init(struct mt76_dev *dev, struct sdio_func *func,
+	       const struct mt76_bus_ops *bus_ops)
 {
-	static const struct mt76_bus_ops mt76s_ops = {
-		.rr = mt76s_rr,
-		.rmw = mt76s_rmw,
-		.wr = mt76s_wr,
-		.write_copy = mt76s_write_copy,
-		.read_copy = mt76s_read_copy,
-		.wr_rp = mt76s_wr_rp,
-		.rd_rp = mt76s_rd_rp,
-		.type = MT76_BUS_SDIO,
-	};
 	struct mt76_sdio *sdio = &dev->sdio;
 
 	sdio->kthread = kthread_create(mt76s_kthread_run, dev, "mt76s");
@@ -844,7 +646,7 @@ int mt76s_init(struct mt76_dev *dev, struct sdio_func *func)
 
 	mutex_init(&sdio->sched.lock);
 	dev->queue_ops = &sdio_queue_ops;
-	dev->bus = &mt76s_ops;
+	dev->bus = bus_ops;
 	dev->sdio.func = func;
 
 	return 0;
