@@ -14,6 +14,8 @@
 #include <linux/mmc/sdio_ids.h>
 #include <linux/mmc/sdio_func.h>
 
+#include "../trace.h"
+#include "../sdio.h"
 #include "mt7615.h"
 #include "mac.h"
 #include "mcu.h"
@@ -37,6 +39,92 @@ static void mt7663s_init_work(struct work_struct *work)
 	mt7615_phy_init(dev);
 	mt7615_mcu_del_wtbl_all(dev);
 	mt7615_check_offload_capability(dev);
+}
+
+static void mt7663s_sdio_irq(struct sdio_func *func)
+{
+	struct mt76_dev *dev = sdio_get_drvdata(func);
+	struct mt76_sdio *sdio = &dev->sdio;
+	u32 intr;
+
+	/* disable interrupt */
+	sdio_writel(func, WHLPCR_INT_EN_CLR, MCR_WHLPCR, 0);
+
+	intr = sdio_readl(func, MCR_WHISR, 0);
+	trace_dev_irq(dev, intr, 0);
+
+	if (!test_bit(MT76_STATE_INITIALIZED, &dev->phy.state))
+		goto out;
+
+	if (intr & (WHIER_RX0_DONE_INT_EN | WHIER_RX1_DONE_INT_EN |
+		    WHIER_TX_DONE_INT_EN))
+		wake_up_process(sdio->kthread);
+
+	if (intr & WHIER_TX_DONE_INT_EN)
+		tasklet_schedule(&dev->tx_tasklet);
+out:
+	/* enable interrupt */
+	sdio_writel(func, WHLPCR_INT_EN_SET, MCR_WHLPCR, 0);
+}
+
+static int mt7663s_hw_init(struct mt76_dev *dev, struct sdio_func *func)
+{
+	u32 status, ctrl;
+	int ret;
+
+	sdio_claim_host(func);
+
+	ret = sdio_enable_func(func);
+	if (ret < 0)
+		goto release;
+
+	/* Get ownership from the device */
+	sdio_writel(func, WHLPCR_INT_EN_CLR | WHLPCR_FW_OWN_REQ_CLR,
+		    MCR_WHLPCR, &ret);
+	if (ret < 0)
+		goto disable_func;
+
+	ret = readx_poll_timeout(mt76s_read_pcr, dev, status,
+				 status & WHLPCR_IS_DRIVER_OWN, 2000, 1000000);
+	if (ret < 0) {
+		dev_err(dev->dev, "Cannot get ownership from device");
+		goto disable_func;
+	}
+
+	ret = sdio_set_block_size(func, 512);
+	if (ret < 0)
+		goto disable_func;
+
+	/* Enable interrupt */
+	sdio_writel(func, WHLPCR_INT_EN_SET, MCR_WHLPCR, &ret);
+	if (ret < 0)
+		goto disable_func;
+
+	ctrl = WHIER_RX0_DONE_INT_EN | WHIER_TX_DONE_INT_EN;
+	sdio_writel(func, ctrl, MCR_WHIER, &ret);
+	if (ret < 0)
+		goto disable_func;
+
+	/* set WHISR as read clear and Rx aggregation number as 1 */
+	ctrl = FIELD_PREP(MAX_HIF_RX_LEN_NUM, 1);
+	sdio_writel(func, ctrl, MCR_WHCR, &ret);
+	if (ret < 0)
+		goto disable_func;
+
+	ret = sdio_claim_irq(func, mt7663s_sdio_irq);
+	if (ret < 0)
+		goto disable_func;
+
+	sdio_release_host(func);
+
+	return 0;
+
+disable_func:
+	sdio_disable_func(func);
+release:
+	sdio_release_host(func);
+
+	return ret;
 }
 
 static int mt7663s_sta_add(struct mt76_dev *mdev, struct ieee80211_vif *vif,
@@ -101,6 +189,10 @@ static int mt7663s_probe(struct sdio_func *func,
 
 	ret = mt76s_init(mdev, func);
 	if (ret < 0)
+		goto err_free;
+
+	ret = mt7663s_hw_init(mdev, func);
+	if (ret)
 		goto err_free;
 
 	mdev->rev = (mt76_rr(dev, MT_HW_CHIPID) << 16) |
