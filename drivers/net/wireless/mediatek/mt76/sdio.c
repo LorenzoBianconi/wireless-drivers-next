@@ -140,15 +140,11 @@ EXPORT_SYMBOL_GPL(mt76s_stop_txrx);
 
 int mt76s_alloc_queues(struct mt76_dev *dev)
 {
-	int i;
+	int err;
 
-	for (i = 0; i < MT_RXQ_MCU_WA; i++) {
-		int err;
-
-		err = mt76s_alloc_rx_queue(dev, i);
-		if (err < 0)
-			return err;
-	}
+	err = mt76s_alloc_rx_queue(dev, MT_RXQ_MAIN);
+	if (err < 0)
+		return err;
 
 	return mt76s_alloc_tx(dev);
 }
