@@ -44,7 +44,6 @@ static int
 mt76s_alloc_rx_queue(struct mt76_dev *dev, enum mt76_rxq_id qid)
 {
 	struct mt76_queue *q = &dev->q_rx[qid];
-	int i;
 
 	spin_lock_init(&q->lock);
 	q->entry = devm_kcalloc(dev->dev,
@@ -55,18 +54,6 @@ mt76s_alloc_rx_queue(struct mt76_dev *dev, enum mt76_rxq_id qid)
 
 	q->ndesc = MT_NUM_RX_ENTRIES;
 	q->buf_size = PAGE_SIZE;
-
-	for (i = 0; i < q->ndesc; i++) {
-		struct mt76_queue_entry *e = &q->entry[i];
-
-		e->buf = page_frag_alloc(&q->rx_page, q->buf_size,
-					 GFP_KERNEL);
-		if (!e->buf) {
-			mt76s_free_rx_queue(dev, q);
-			return -ENOMEM;
-		}
-	}
-
 	q->head = q->tail = 0;
 	q->queued = 0;
 
@@ -212,11 +199,11 @@ mt76s_process_rx_entry(struct mt76_dev *dev, struct mt76_queue_entry *e,
 
 	skb = mt76s_build_rx_skb(dev, e->buf, e->buf_sz, buf_size);
 	if (!skb)
-		return 0;
+		return -ENOMEM;
 
 	dev->drv->rx_skb(dev, MT_RXQ_MAIN, skb);
 
-	return 1;
+	return 0;
 }
 
 static void
@@ -226,19 +213,12 @@ mt76s_process_rx_queue(struct mt76_dev *dev, struct mt76_queue *q)
 
 	while (true) {
 		struct mt76_queue_entry *e;
-		int count;
 
 		e = mt76s_get_next_rx_entry(q);
 		if (!e)
 			break;
 
-		count = mt76s_process_rx_entry(dev, e, q->buf_size);
-		if (count > 0) {
-			e->buf = page_frag_alloc(&q->rx_page, q->buf_size,
-						 GFP_ATOMIC);
-			if (!e->buf)
-				break;
-		}
+		mt76s_process_rx_entry(dev, e, q->buf_size);
 	}
 	if (qid == MT_RXQ_MAIN)
 		mt76_rx_poll_complete(dev, MT_RXQ_MAIN, NULL);
@@ -289,8 +269,14 @@ static int mt76s_rx_run_queue(struct mt76_dev *dev, enum mt76_rxq_id qid)
 			len = roundup(len, sdio->func->cur_blksize);
 
 		if (WARN_ON_ONCE(len > q->buf_size)) {
-			len = rounddown(q->buf_size, sdio->func->cur_blksize);
-			e->buf_sz = len;
+			i = -ENOMEM;
+			break;
+		}
+
+		e->buf = page_frag_alloc(&q->rx_page, q->buf_size, GFP_KERNEL);
+		if (!e->buf) {
+			i = -ENOMEM;
+			break;
 		}
 
 		err = sdio_readsb(sdio->func, e->buf, MCR_WRDR(qid), len);
