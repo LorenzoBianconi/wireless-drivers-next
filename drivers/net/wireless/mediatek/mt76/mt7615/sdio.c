@@ -21,6 +21,13 @@
 #include "mcu.h"
 #include "regs.h"
 
+u32 mt7663s_read_pcr(struct mt7615_dev *dev)
+{
+	struct mt76_sdio *sdio = &dev->mt76.sdio;
+
+	return sdio_readl(sdio->func, MCR_WHLPCR, NULL);
+}
+
 static const struct sdio_device_id mt7663s_table[] = {
 	{ SDIO_DEVICE(SDIO_VENDOR_ID_MEDIATEK, 0x7603) },
 	{ }	/* Terminating entry */
@@ -67,7 +74,7 @@ out:
 	sdio_writel(func, WHLPCR_INT_EN_SET, MCR_WHLPCR, 0);
 }
 
-static int mt7663s_hw_init(struct mt76_dev *dev, struct sdio_func *func)
+static int mt7663s_hw_init(struct mt7615_dev *dev, struct sdio_func *func)
 {
 	u32 status, ctrl;
 	int ret;
@@ -84,10 +91,10 @@ static int mt7663s_hw_init(struct mt76_dev *dev, struct sdio_func *func)
 	if (ret < 0)
 		goto disable_func;
 
-	ret = readx_poll_timeout(mt76s_read_pcr, dev, status,
+	ret = readx_poll_timeout(mt7663s_read_pcr, dev, status,
 				 status & WHLPCR_IS_DRIVER_OWN, 2000, 1000000);
 	if (ret < 0) {
-		dev_err(dev->dev, "Cannot get ownership from device");
+		dev_err(dev->mt76.dev, "Cannot get ownership from device");
 		goto disable_func;
 	}
 
@@ -191,7 +198,7 @@ static int mt7663s_probe(struct sdio_func *func,
 	if (ret < 0)
 		goto err_free;
 
-	ret = mt7663s_hw_init(mdev, func);
+	ret = mt7663s_hw_init(dev, func);
 	if (ret)
 		goto err_free;
 

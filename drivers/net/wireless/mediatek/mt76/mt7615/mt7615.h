@@ -673,6 +673,7 @@ int mt7663_usb_sdio_register_device(struct mt7615_dev *dev);
 int mt7663u_mcu_init(struct mt7615_dev *dev);
 
 /* sdio */
+u32 mt7663s_read_pcr(struct mt7615_dev *dev);
 int mt7663s_mcu_init(struct mt7615_dev *dev);
 int mt7663s_driver_own(struct mt7615_dev *dev);
 int mt7663s_firmware_own(struct mt7615_dev *dev);

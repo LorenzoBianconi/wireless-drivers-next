@@ -76,7 +76,7 @@ int mt7663s_driver_own(struct mt7615_dev *dev)
 
 	sdio_writel(func, WHLPCR_FW_OWN_REQ_CLR, MCR_WHLPCR, 0);
 
-	ret = readx_poll_timeout(mt76s_read_pcr, &dev->mt76, status,
+	ret = readx_poll_timeout(mt7663s_read_pcr, dev, status,
 				 status & WHLPCR_IS_DRIVER_OWN, 2000, 1000000);
 	if (ret < 0) {
 		dev_err(dev->mt76.dev, "Cannot get ownership from device");
@@ -108,7 +108,7 @@ int mt7663s_firmware_own(struct mt7615_dev *dev)
 
 	sdio_writel(func, WHLPCR_FW_OWN_REQ_SET, MCR_WHLPCR, 0);
 
-	ret = readx_poll_timeout(mt76s_read_pcr, &dev->mt76, status,
+	ret = readx_poll_timeout(mt7663s_read_pcr, dev, status,
 				 !(status & WHLPCR_IS_DRIVER_OWN), 2000, 1000000);
 	if (ret < 0) {
 		dev_err(dev->mt76.dev, "Cannot set ownership to device");
