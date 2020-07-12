@@ -16,7 +16,6 @@
 #include <linux/kthread.h>
 
 #include "mt76.h"
-#include "sdio.h"
 
 static void
 mt76s_free_rx_queue(struct mt76_dev *dev, struct mt76_queue *q)
@@ -235,68 +234,6 @@ static void mt76s_rx_tasklet(unsigned long data)
 	rcu_read_unlock();
 }
 
-static int mt76s_rx_run_queue(struct mt76_dev *dev, enum mt76_rxq_id qid)
-{
-	struct mt76_queue *q = &dev->q_rx[qid];
-	int i;
-
-	sdio_claim_host(dev->sdio.func);
-
-	for (i = 0; i < MT76_SDIO_RX_QUOTA; i++) {
-		struct mt76_queue_entry *e = &q->entry[q->tail];
-		struct mt76_sdio *sdio = &dev->sdio;
-		int len, err;
-		u32 val;
-
-		val = sdio_readl(sdio->func, MCR_WRPLR, &err);
-		if (err < 0) {
-			dev_err(dev->dev, "sdio read len failed:%d\n", err);
-			i = err;
-			break;
-		}
-
-		len = FIELD_GET(RX0_PACKET_LENGTH, val);
-		if (!len)
-			break;
-
-		/* Assume that an entry can hold a complete packet from SDIO
-		 * port.
-		 */
-		e->buf_sz = len;
-
-		len = roundup(len + 4, 4);
-		if (len > sdio->func->cur_blksize)
-			len = roundup(len, sdio->func->cur_blksize);
-
-		if (WARN_ON_ONCE(len > q->buf_size)) {
-			i = -ENOMEM;
-			break;
-		}
-
-		e->buf = page_frag_alloc(&q->rx_page, q->buf_size, GFP_KERNEL);
-		if (!e->buf) {
-			i = -ENOMEM;
-			break;
-		}
-
-		err = sdio_readsb(sdio->func, e->buf, MCR_WRDR(qid), len);
-		if (err < 0) {
-			dev_err(dev->dev, "sdio read data failed:%d\n", err);
-			i = err;
-			break;
-		}
-
-		spin_lock_bh(&q->lock);
-		q->tail = (q->tail + 1) % q->ndesc;
-		q->queued++;
-		spin_unlock_bh(&q->lock);
-	}
-
-	sdio_release_host(dev->sdio.func);
-
-	return i;
-}
-
 static void mt76s_tx_tasklet(unsigned long data)
 {
 	struct mt76_dev *dev = (struct mt76_dev *)data;
@@ -377,157 +314,6 @@ static void mt76s_tx_status_data(struct work_struct *work)
 		queue_work(dev->wq, &sdio->stat_work);
 	else
 		clear_bit(MT76_READING_STATS, &dev->phy.state);
-}
-
-static int mt76s_tx_add_buff(struct mt76_sdio *sdio, struct sk_buff *skb)
-{
-	int err, len = skb->len;
-
-	if (len > sdio->func->cur_blksize)
-		len = roundup(len, sdio->func->cur_blksize);
-
-	sdio_claim_host(sdio->func);
-
-	/* TODO: skb_walk_frags and then write to SDIO port */
-	err = sdio_writesb(sdio->func, MCR_WTDR1, skb->data, len);
-
-	sdio_release_host(sdio->func);
-
-	return err;
-}
-
-static int
-mt76s_tx_update_sched(struct mt76_dev *dev,
-		      struct mt76_queue_entry *e, bool mcu)
-{
-	struct mt76_sdio *sdio = &dev->sdio;
-	struct ieee80211_hdr *hdr;
-	int size, ret = -EBUSY;
-
-	size = DIV_ROUND_UP(e->buf_sz + sdio->sched.deficit, MT_PSE_PAGE_SZ);
-
-	if (mcu) {
-		if (!test_bit(MT76_STATE_MCU_RUNNING, &dev->phy.state))
-			return 0;
-
-		mutex_lock(&sdio->sched.lock);
-		if (sdio->sched.pse_mcu_quota > size) {
-			sdio->sched.pse_mcu_quota -= size;
-			ret = 0;
-		}
-		mutex_unlock(&sdio->sched.lock);
-
-		return ret;
-	}
-
-	hdr = (struct ieee80211_hdr *)(e->skb->data + dev->drv->txwi_size);
-	if (ieee80211_is_ctl(hdr->frame_control))
-		return 0;
-
-	mutex_lock(&sdio->sched.lock);
-	if (sdio->sched.pse_data_quota > size &&
-	    sdio->sched.ple_data_quota > 0) {
-		sdio->sched.pse_data_quota -= size;
-		sdio->sched.ple_data_quota--;
-		ret = 0;
-	}
-	mutex_unlock(&sdio->sched.lock);
-
-	return ret;
-}
-
-static int mt76s_tx_run_queue(struct mt76_dev *dev, struct mt76_queue *q)
-{
-	bool mcu = q == dev->q_tx[MT_TXQ_MCU].q;
-	int nframes = 0;
-
-	while (q->first != q->tail) {
-		struct mt76_queue_entry *e = &q->entry[q->first];
-		int err;
-
-		if (mt76s_tx_update_sched(dev, e, mcu))
-			break;
-
-		err = mt76s_tx_add_buff(&dev->sdio, e->skb);
-		if (err) {
-			dev_err(dev->dev, "sdio write failed: %d\n", err);
-			return -EIO;
-		}
-
-		q->first = (q->first + 1) % q->ndesc;
-		nframes++;
-	}
-
-	spin_lock_bh(&q->lock);
-	q->queued += nframes;
-	spin_unlock_bh(&q->lock);
-
-	return nframes;
-}
-
-static void mt76s_refill_sched_quota(struct mt76_dev *dev)
-{
-	struct mt76_sdio *sdio = &dev->sdio;
-	u32 data[8];
-	int i;
-
-	sdio_claim_host(sdio->func);
-	for (i = 0 ; i < ARRAY_SIZE(data); i++)
-		data[i] = sdio_readl(sdio->func, MCR_WTQCR(i), 0);
-	sdio_release_host(sdio->func);
-
-	mutex_lock(&sdio->sched.lock);
-	sdio->sched.pse_data_quota += FIELD_GET(TXQ_CNT_L, data[0]) + /* BK */
-				      FIELD_GET(TXQ_CNT_H, data[0]) + /* BE */
-				      FIELD_GET(TXQ_CNT_L, data[1]) + /* VI */
-				      FIELD_GET(TXQ_CNT_H, data[1]);  /* VO */
-	sdio->sched.ple_data_quota += FIELD_GET(TXQ_CNT_H, data[2]) + /* BK */
-				      FIELD_GET(TXQ_CNT_L, data[3]) + /* BE */
-				      FIELD_GET(TXQ_CNT_H, data[3]) + /* VI */
-				      FIELD_GET(TXQ_CNT_L, data[4]);  /* VO */
-	sdio->sched.pse_mcu_quota += FIELD_GET(TXQ_CNT_L, data[2]);
-	mutex_unlock(&sdio->sched.lock);
-}
-
-static int mt76s_kthread_run(void *data)
-{
-	struct mt76_dev *dev = data;
-	struct mt76_phy *mphy = &dev->phy;
-
-	while (!kthread_should_stop()) {
-		int i, ret, nframes = 0;
-
-		cond_resched();
-
-		mt76_for_each_q_rx(dev, i) {
-			ret = mt76s_rx_run_queue(dev, i);
-			if (ret < 0) {
-				nframes = 0;
-				goto out;
-			}
-			if (ret)
-				tasklet_schedule(&dev->sdio.rx_tasklet);
-			nframes += ret;
-		}
-
-		mt76s_refill_sched_quota(dev);
-		for (i = 0; i < MT_TXQ_MCU_WA; i++) {
-			ret = mt76s_tx_run_queue(dev, dev->q_tx[i].q);
-			if (ret < 0) {
-				nframes = 0;
-				break;
-			}
-			nframes += ret;
-		}
-
-out:
-		if (!nframes || !test_bit(MT76_STATE_RUNNING, &mphy->state)) {
-			set_current_state(TASK_INTERRUPTIBLE);
-			schedule();
-		}
-	}
-
-	return 0;
 }
 
 static int
@@ -616,10 +402,6 @@ int mt76s_init(struct mt76_dev *dev, struct sdio_func *func,
 	       const struct mt76_bus_ops *bus_ops)
 {
 	struct mt76_sdio *sdio = &dev->sdio;
-
-	sdio->kthread = kthread_create(mt76s_kthread_run, dev, "mt76s");
-	if (IS_ERR(sdio->kthread))
-		return PTR_ERR(sdio->kthread);
 
 	tasklet_init(&sdio->rx_tasklet, mt76s_rx_tasklet, (unsigned long)dev);
 	tasklet_init(&dev->tx_tasklet, mt76s_tx_tasklet, (unsigned long)dev);
