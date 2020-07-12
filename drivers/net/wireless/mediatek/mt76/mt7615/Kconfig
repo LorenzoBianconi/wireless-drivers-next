@@ -46,7 +46,7 @@ config MT7663U
 config MT7663S
 	tristate "MediaTek MT7663S (SDIO) support"
 	select MT76_SDIO
-	select MT7663_COMMON
+	select MT7663_USB_SDIO_COMMON
 	depends on MAC80211
 	depends on MMC
 	help
