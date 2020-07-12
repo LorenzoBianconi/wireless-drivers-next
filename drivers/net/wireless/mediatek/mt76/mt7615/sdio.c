@@ -15,11 +15,11 @@
 #include <linux/mmc/sdio_func.h>
 
 #include "../trace.h"
-#include "../sdio.h"
 #include "mt7615.h"
+#include "sdio.h"
+#include "regs.h"
 #include "mac.h"
 #include "mcu.h"
-#include "regs.h"
 
 static const struct sdio_device_id mt7663s_table[] = {
 	{ SDIO_DEVICE(SDIO_VENDOR_ID_MEDIATEK, 0x7603) },

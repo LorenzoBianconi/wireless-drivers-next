@@ -13,7 +13,7 @@
 #include "mac.h"
 #include "mcu.h"
 #include "regs.h"
-#include "../sdio.h"
+#include "sdio.h"
 
 static int mt7663s_mcu_init_sched(struct mt7615_dev *dev)
 {
