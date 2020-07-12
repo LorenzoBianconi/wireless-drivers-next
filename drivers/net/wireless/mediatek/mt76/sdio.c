@@ -90,32 +90,6 @@ static int mt76s_alloc_tx(struct mt76_dev *dev)
 void mt76s_stop_txrx(struct mt76_dev *dev)
 {
 	struct mt76_sdio *sdio = &dev->sdio;
-	int i;
-
-	tasklet_kill(&dev->tx_tasklet);
-	tasklet_kill(&sdio->rx_tasklet);
-
-	for (i = 0; i < MT_TXQ_MCU_WA; i++) {
-		struct mt76_queue_entry entry;
-		struct mt76_queue *q;
-
-		q = dev->q_tx[i].q;
-		if (!q)
-			continue;
-
-		spin_lock_bh(&q->lock);
-		while (q->queued) {
-			entry = q->entry[q->head];
-			q->head = (q->head + 1) % q->ndesc;
-			q->queued--;
-
-			if (i != MT_TXQ_MCU)
-				dev->drv->tx_complete_skb(dev, i, &entry);
-			else
-				dev_kfree_skb(entry.skb);
-		}
-		spin_unlock_bh(&q->lock);
-	}
 
 	cancel_work_sync(&sdio->stat_work);
 	clear_bit(MT76_READING_STATS, &dev->phy.state);
@@ -193,9 +167,6 @@ mt76s_process_rx_entry(struct mt76_dev *dev, struct mt76_queue_entry *e,
 {
 	struct sk_buff *skb;
 
-	if (!test_bit(MT76_STATE_INITIALIZED, &dev->phy.state))
-		return 0;
-
 	skb = mt76s_build_rx_skb(dev, e->buf, e->b_info.data_len,
 				 e->b_info.len);
 	if (!skb)
@@ -206,90 +177,85 @@ mt76s_process_rx_entry(struct mt76_dev *dev, struct mt76_queue_entry *e,
 	return 0;
 }
 
-static void
+static int
 mt76s_process_rx_queue(struct mt76_dev *dev, struct mt76_queue *q)
 {
 	int qid = q - &dev->q_rx[MT_RXQ_MAIN];
+	int nframes = 0;
 
 	while (true) {
 		struct mt76_queue_entry *e;
+		int err;
+
+		if (!test_bit(MT76_STATE_INITIALIZED, &dev->phy.state))
+			break;
 
 		e = mt76s_get_next_rx_entry(q);
 		if (!e)
 			break;
 
-		mt76s_process_rx_entry(dev, e, q->buf_size);
+		err = mt76s_process_rx_entry(dev, e, q->buf_size);
+		if (err < 0)
+			break;
+
+		nframes++;
 	}
 	if (qid == MT_RXQ_MAIN)
 		mt76_rx_poll_complete(dev, MT_RXQ_MAIN, NULL);
+
+	return nframes;
 }
 
-static void mt76s_rx_tasklet(unsigned long data)
+static int mt76s_process_tx_queue(struct mt76_dev *dev, enum mt76_txq_id qid)
 {
-	struct mt76_dev *dev = (struct mt76_dev *)data;
-	int i;
+	struct mt76_sw_queue *sq = &dev->q_tx[qid];
+	u32 n_dequeued = 0, n_sw_dequeued = 0;
+	struct mt76_queue_entry entry;
+	struct mt76_queue *q = sq->q;
+	bool wake;
 
-	rcu_read_lock();
-	mt76_for_each_q_rx(dev, i)
-		mt76s_process_rx_queue(dev, &dev->q_rx[i]);
-	rcu_read_unlock();
-}
-
-static void mt76s_tx_tasklet(unsigned long data)
-{
-	struct mt76_dev *dev = (struct mt76_dev *)data;
-	int i;
-
-	for (i = 0; i < MT_TXQ_MCU_WA; i++) {
-		struct mt76_sw_queue *sq = &dev->q_tx[i];
-		u32 n_dequeued = 0, n_sw_dequeued = 0;
-		bool wake, mcu = i == MT_TXQ_MCU;
-		struct mt76_queue_entry entry;
-		struct mt76_queue *q = sq->q;
-
-		while (q->queued > n_dequeued) {
-			if (q->entry[q->head].schedule) {
-				q->entry[q->head].schedule = false;
-				n_sw_dequeued++;
-			}
-
-			entry = q->entry[q->head];
-			q->entry[q->head].done = false;
-			q->head = (q->head + 1) % q->ndesc;
-			n_dequeued++;
-
-			if (mcu)
-				dev_kfree_skb(entry.skb);
-			else
-				dev->drv->tx_complete_skb(dev, i, &entry);
+	while (q->queued > n_dequeued) {
+		if (q->entry[q->head].schedule) {
+			q->entry[q->head].schedule = false;
+			n_sw_dequeued++;
 		}
 
-		spin_lock_bh(&q->lock);
+		entry = q->entry[q->head];
+		q->entry[q->head].done = false;
+		q->head = (q->head + 1) % q->ndesc;
+		n_dequeued++;
 
-		sq->swq_queued -= n_sw_dequeued;
-		q->queued -= n_dequeued;
-
-		wake = q->stopped && q->queued < q->ndesc - 8;
-		if (wake)
-			q->stopped = false;
-
-		if (!q->queued)
-			wake_up(&dev->tx_wait);
-
-		spin_unlock_bh(&q->lock);
-
-		if (mcu)
-			continue;
-
-		mt76_txq_schedule(&dev->phy, i);
-
-		if (dev->drv->tx_status_data &&
-		    !test_and_set_bit(MT76_READING_STATS, &dev->phy.state))
-			queue_work(dev->wq, &dev->sdio.stat_work);
-		if (wake)
-			ieee80211_wake_queue(dev->hw, i);
+		if (qid == MT_TXQ_MCU)
+			dev_kfree_skb(entry.skb);
+		else
+			dev->drv->tx_complete_skb(dev, qid, &entry);
 	}
-	wake_up_process(dev->sdio.kthread);
+
+	spin_lock_bh(&q->lock);
+
+	sq->swq_queued -= n_sw_dequeued;
+	q->queued -= n_dequeued;
+
+	wake = q->stopped && q->queued < q->ndesc - 8;
+	if (wake)
+		q->stopped = false;
+
+	if (!q->queued)
+		wake_up(&dev->tx_wait);
+
+	spin_unlock_bh(&q->lock);
+
+	if (qid == MT_TXQ_MCU)
+		goto out;
+
+	mt76_txq_schedule(&dev->phy, qid);
+
+	if (wake)
+		ieee80211_wake_queue(dev->hw, qid);
+
+	wake_up_process(dev->sdio.txrx_kthread);
+out:
+	return n_dequeued;
 }
 
 static void mt76s_tx_status_data(struct work_struct *work)
@@ -373,7 +339,7 @@ static void mt76s_tx_kick(struct mt76_dev *dev, struct mt76_queue *q)
 {
 	struct mt76_sdio *sdio = &dev->sdio;
 
-	wake_up_process(sdio->kthread);
+	wake_up_process(sdio->txrx_kthread);
 }
 
 static const struct mt76_queue_ops sdio_queue_ops = {
@@ -382,12 +348,50 @@ static const struct mt76_queue_ops sdio_queue_ops = {
 	.tx_queue_skb_raw = mt76s_tx_queue_skb_raw,
 };
 
+static int mt76s_kthread_run(void *data)
+{
+	struct mt76_dev *dev = data;
+	struct mt76_phy *mphy = &dev->phy;
+
+	while (!kthread_should_stop()) {
+		int i, nframes = 0;
+
+		cond_resched();
+
+		/* rx processing */
+		local_bh_disable();
+		rcu_read_lock();
+
+		mt76_for_each_q_rx(dev, i)
+			nframes += mt76s_process_rx_queue(dev, &dev->q_rx[i]);
+
+		rcu_read_unlock();
+		local_bh_enable();
+
+		/* tx processing */
+		for (i = 0; i < MT_TXQ_MCU_WA; i++)
+			nframes += mt76s_process_tx_queue(dev, i);
+
+		if (dev->drv->tx_status_data &&
+		    !test_and_set_bit(MT76_READING_STATS, &mphy->state))
+			queue_work(dev->wq, &dev->sdio.stat_work);
+
+		if (!nframes || !test_bit(MT76_STATE_RUNNING, &mphy->state)) {
+			set_current_state(TASK_INTERRUPTIBLE);
+			schedule();
+		}
+	}
+
+	return 0;
+}
+
 void mt76s_deinit(struct mt76_dev *dev)
 {
 	struct mt76_sdio *sdio = &dev->sdio;
 	int i;
 
 	kthread_stop(sdio->kthread);
+	kthread_stop(sdio->txrx_kthread);
 	mt76s_stop_txrx(dev);
 
 	mt76_for_each_q_rx(dev, i)
@@ -404,8 +408,9 @@ int mt76s_init(struct mt76_dev *dev, struct sdio_func *func,
 {
 	struct mt76_sdio *sdio = &dev->sdio;
 
-	tasklet_init(&sdio->rx_tasklet, mt76s_rx_tasklet, (unsigned long)dev);
-	tasklet_init(&dev->tx_tasklet, mt76s_tx_tasklet, (unsigned long)dev);
+	sdio->kthread = kthread_create(mt76s_kthread_run, dev, "mt76s");
+	if (IS_ERR(sdio->kthread))
+		return PTR_ERR(sdio->kthread);
 
 	INIT_WORK(&sdio->stat_work, mt76s_tx_status_data);
 

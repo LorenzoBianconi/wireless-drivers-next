@@ -451,8 +451,7 @@ struct mt76_usb {
 
 #define MT76_SDIO_RX_QUOTA	32
 struct mt76_sdio {
-	struct tasklet_struct rx_tasklet;
-
+	struct task_struct *txrx_kthread;
 	struct task_struct *kthread;
 	struct work_struct stat_work;
 
