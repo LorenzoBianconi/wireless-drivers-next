@@ -196,7 +196,8 @@ mt76s_process_rx_entry(struct mt76_dev *dev, struct mt76_queue_entry *e,
 	if (!test_bit(MT76_STATE_INITIALIZED, &dev->phy.state))
 		return 0;
 
-	skb = mt76s_build_rx_skb(dev, e->buf, e->buf_sz, buf_size);
+	skb = mt76s_build_rx_skb(dev, e->buf, e->b_info.data_len,
+				 e->b_info.len);
 	if (!skb)
 		return -ENOMEM;
 
@@ -337,7 +338,7 @@ mt76s_tx_queue_skb(struct mt76_dev *dev, enum mt76_txq_id qid,
 		return err;
 
 	q->entry[q->tail].skb = tx_info.skb;
-	q->entry[q->tail].buf_sz = len;
+	q->entry[q->tail].b_info.len = len;
 	q->tail = (q->tail + 1) % q->ndesc;
 
 	return idx;
@@ -358,8 +359,8 @@ mt76s_tx_queue_skb_raw(struct mt76_dev *dev, enum mt76_txq_id qid,
 	if (ret)
 		goto out;
 
+	q->entry[q->tail].b_info.len = len;
 	q->entry[q->tail].skb = skb;
-	q->entry[q->tail].buf_sz = len;
 	q->tail = (q->tail + 1) % q->ndesc;
 
 out:

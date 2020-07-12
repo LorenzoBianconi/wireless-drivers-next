@@ -97,7 +97,10 @@ struct mt76_queue_entry {
 	union {
 		struct mt76_txwi_cache *txwi;
 		struct urb *urb;
-		size_t buf_sz;
+		struct {
+			int data_len;
+			int len;
+		} b_info;
 	};
 	enum mt76_txq_id qid;
 	bool skip_buf0:1;
