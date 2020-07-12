@@ -36,10 +36,10 @@ void mt7663s_sdio_irq(struct sdio_func *func)
 
 	if (intr & (WHIER_RX0_DONE_INT_EN | WHIER_RX1_DONE_INT_EN |
 		    WHIER_TX_DONE_INT_EN))
-		wake_up_process(sdio->kthread);
+		wake_up_process(sdio->txrx_kthread);
 
 	if (intr & WHIER_TX_DONE_INT_EN)
-		tasklet_schedule(&dev->tx_tasklet);
+		wake_up_process(sdio->kthread);
 out:
 	/* enable interrupt */
 	sdio_writel(func, WHLPCR_INT_EN_SET, MCR_WHLPCR, 0);
@@ -241,7 +241,7 @@ int mt7663s_kthread_run(void *data)
 				goto out;
 			}
 			if (ret)
-				tasklet_schedule(&dev->mt76.sdio.rx_tasklet);
+				wake_up_process(dev->mt76.sdio.kthread);
 			nframes += ret;
 		}
 

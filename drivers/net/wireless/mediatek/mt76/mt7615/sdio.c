@@ -364,10 +364,10 @@ static int mt7663s_probe(struct sdio_func *func,
 	dev->ops = ops;
 	sdio_set_drvdata(func, dev);
 
-	mdev->sdio.kthread = kthread_create(mt7663s_kthread_run, dev,
-					    "mt7663s");
-	if (IS_ERR(mdev->sdio.kthread))
-		return PTR_ERR(mdev->sdio.kthread);
+	mdev->sdio.txrx_kthread = kthread_create(mt7663s_kthread_run, dev,
+						 "mt7663s_txr");
+	if (IS_ERR(mdev->sdio.txrx_kthread))
+		return PTR_ERR(mdev->sdio.txrx_kthread);
 
 	ret = mt76s_init(mdev, func, &mt7663s_ops);
 	if (ret < 0)
