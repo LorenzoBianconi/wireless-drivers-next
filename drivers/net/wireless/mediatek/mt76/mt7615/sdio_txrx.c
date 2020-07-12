@@ -79,7 +79,7 @@ static int mt7663s_rx_run_queue(struct mt7615_dev *dev, enum mt76_rxq_id qid)
 	for (i = 0; i < MT76_SDIO_RX_QUOTA; i++) {
 		struct mt76_queue_entry *e = &q->entry[q->tail];
 		struct mt76_sdio *sdio = &dev->mt76.sdio;
-		int len, err;
+		int len, err, size;
 		u32 val;
 
 		val = sdio_readl(sdio->func, MCR_WRPLR, &err);
@@ -96,7 +96,7 @@ static int mt7663s_rx_run_queue(struct mt7615_dev *dev, enum mt76_rxq_id qid)
 		/* Assume that an entry can hold a complete packet from SDIO
 		 * port.
 		 */
-		e->buf_sz = len;
+		e->b_info.data_len = len;
 
 		len = roundup(len + 4, 4);
 		if (len > sdio->func->cur_blksize)
@@ -107,11 +107,15 @@ static int mt7663s_rx_run_queue(struct mt7615_dev *dev, enum mt76_rxq_id qid)
 			break;
 		}
 
-		e->buf = page_frag_alloc(&q->rx_page, q->buf_size, GFP_KERNEL);
+		size = len + SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
+		size = min_t(int, size, q->buf_size);
+
+		e->buf = page_frag_alloc(&q->rx_page, size, GFP_KERNEL);
 		if (!e->buf) {
 			i = -ENOMEM;
 			break;
 		}
+		e->b_info.len = size;
 
 		err = sdio_readsb(sdio->func, e->buf, MCR_WRDR(qid), len);
 		if (err < 0) {
@@ -158,7 +162,8 @@ static int mt7663s_tx_update_sched(struct mt7615_dev *dev,
 	struct ieee80211_hdr *hdr;
 	int size, ret = -EBUSY;
 
-	size = DIV_ROUND_UP(e->buf_sz + sdio->sched.deficit, MT_PSE_PAGE_SZ);
+	size = DIV_ROUND_UP(e->b_info.len + sdio->sched.deficit,
+			    MT_PSE_PAGE_SZ);
 
 	if (mcu) {
 		if (!test_bit(MT76_STATE_MCU_RUNNING, &mphy->state))
