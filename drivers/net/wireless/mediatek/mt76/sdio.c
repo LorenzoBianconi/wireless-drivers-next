@@ -106,6 +106,8 @@ int mt76s_alloc_queues(struct mt76_dev *dev)
 	if (err < 0)
 		return err;
 
+	dev->sdio.abuf = devm_kmalloc(dev->dev, PAGE_SIZE * 16, GFP_KERNEL);
+
 	return mt76s_alloc_tx(dev);
 }
 EXPORT_SYMBOL_GPL(mt76s_alloc_queues);
