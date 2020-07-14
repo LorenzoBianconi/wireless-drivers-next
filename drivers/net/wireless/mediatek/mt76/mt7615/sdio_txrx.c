@@ -86,7 +86,10 @@ static int mt7663s_rx_run_queue(struct mt7615_dev *dev, enum mt76_rxq_id qid,
 
 	buf = page_address(page);
 
+	sdio_claim_host(sdio->func);
 	err = sdio_readsb(sdio->func, buf, MCR_WRDR(qid), len);
+	sdio_release_host(sdio->func);
+
 	if (err < 0) {
 		dev_err(dev->mt76.dev, "sdio read data failed:%d\n", err);
 		__free_pages(page, order);
@@ -113,38 +116,22 @@ static int mt7663s_rx_run_queue(struct mt7615_dev *dev, enum mt76_rxq_id qid,
 	q->queued += i;
 	spin_unlock_bh(&q->lock);
 
-	return err;
+	return i;
 }
 
 void mt7663s_sdio_irq(struct sdio_func *func)
 {
 	struct mt7615_dev *dev = sdio_get_drvdata(func);
 	struct mt76_dev *mdev = &dev->mt76;
-	struct mt76s_intr intr;
 
 	/* disable interrupt */
 	sdio_writel(func, WHLPCR_INT_EN_CLR, MCR_WHLPCR, 0);
 
-	sdio_readsb(func, &intr, MCR_WHISR, sizeof(struct mt76s_intr));
-	trace_dev_irq(mdev, intr.isr, 0);
-
 	if (!test_bit(MT76_STATE_INITIALIZED, &mdev->phy.state))
 		goto out;
 
-	if (intr.isr & WHIER_RX0_DONE_INT_EN) {
-		mt7663s_rx_run_queue(dev, 0, &intr);
-		wake_up_process(mdev->sdio.kthread);
-	}
+	wake_up_process(mdev->sdio.txrx_kthread);
 
-	if (intr.isr & WHIER_RX1_DONE_INT_EN) {
-		mt7663s_rx_run_queue(dev, 1, &intr);
-		wake_up_process(mdev->sdio.kthread);
-	}
-
-	if (intr.isr & WHIER_TX_DONE_INT_EN) {
-		mt7663s_refill_sched_quota(dev, intr.tx.wtqcr);
-		wake_up_process(mdev->sdio.kthread);
-	}
 out:
 	/* enable interrupt */
 	sdio_writel(func, WHLPCR_INT_EN_SET, MCR_WHLPCR, 0);
@@ -241,12 +228,33 @@ static int mt7663s_tx_run_queue(struct mt7615_dev *dev, struct mt76_queue *q)
 int mt7663s_kthread_run(void *data)
 {
 	struct mt7615_dev *dev = data;
+	struct mt76_sdio *sdio = &dev->mt76.sdio;
 	struct mt76_phy *mphy = &dev->mt76.phy;
 
 	while (!kthread_should_stop()) {
 		int i, ret, nframes = 0;
+		struct mt76s_intr intr;
 
 		cond_resched();
+
+		sdio_claim_host(sdio->func);
+		sdio_readsb(sdio->func, &intr, MCR_WHISR,
+			    sizeof(struct mt76s_intr));
+		sdio_release_host(sdio->func);
+
+		trace_dev_irq(&dev->mt76, intr.isr, 0);
+
+		mt76_for_each_q_rx(&dev->mt76, i) {
+			ret = mt7663s_rx_run_queue(dev, i, &intr);
+			if (ret < 0) {
+				nframes = 0;
+				break;
+			}
+			if (ret)
+				wake_up_process(sdio->kthread);
+		}
+
+		mt7663s_refill_sched_quota(dev, intr.tx.wtqcr);
 
 		for (i = 0; i < MT_TXQ_MCU_WA; i++) {
 			ret = mt7663s_tx_run_queue(dev, dev->mt76.q_tx[i].q);
@@ -254,6 +262,8 @@ int mt7663s_kthread_run(void *data)
 				nframes = 0;
 				break;
 			}
+			if (ret)
+				wake_up_process(sdio->kthread);
 			nframes += ret;
 		}
 
