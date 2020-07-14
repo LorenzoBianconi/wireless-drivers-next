@@ -36,8 +36,8 @@ static void mt7663s_refill_sched_quota(struct mt7615_dev *dev, u32 *data)
 	mutex_unlock(&sdio->sched.lock);
 }
 
-static struct sk_buff *mt7663s_build_rx_skb(void *data, int data_len,
-					    int buf_len)
+static struct sk_buff *
+mt7663s_build_rx_skb(void *data, int data_len, int buf_len)
 {
 	int len = min_t(int, data_len, MT_SKB_HEAD_LEN);
 	struct sk_buff *skb;
@@ -86,10 +86,7 @@ static int mt7663s_rx_run_queue(struct mt7615_dev *dev, enum mt76_rxq_id qid,
 
 	buf = page_address(page);
 
-	sdio_claim_host(sdio->func);
 	err = sdio_readsb(sdio->func, buf, MCR_WRDR(qid), len);
-	sdio_release_host(sdio->func);
-
 	if (err < 0) {
 		dev_err(dev->mt76.dev, "sdio read data failed:%d\n", err);
 		__free_pages(page, order);
@@ -131,6 +128,7 @@ void mt7663s_sdio_irq(struct sdio_func *func)
 		goto out;
 
 	wake_up_process(mdev->sdio.txrx_kthread);
+	return;
 
 out:
 	/* enable interrupt */
@@ -140,19 +138,13 @@ out:
 static int mt7663s_tx_add_buff(struct mt7615_dev *dev, struct sk_buff *skb)
 {
 	struct mt76_sdio *sdio = &dev->mt76.sdio;
-	int err, len = skb->len;
+	int len = skb->len;
 
 	if (len > sdio->func->cur_blksize)
 		len = roundup(len, sdio->func->cur_blksize);
 
-	sdio_claim_host(sdio->func);
-
 	/* TODO: skb_walk_frags and then write to SDIO port */
-	err = sdio_writesb(sdio->func, MCR_WTDR1, skb->data, len);
-
-	sdio_release_host(sdio->func);
-
-	return err;
+	return sdio_writesb(sdio->func, MCR_WTDR1, skb->data, len);
 }
 
 static int mt7663s_tx_update_sched(struct mt7615_dev *dev,
@@ -238,9 +230,9 @@ int mt7663s_kthread_run(void *data)
 		cond_resched();
 
 		sdio_claim_host(sdio->func);
+		sdio_writel(sdio->func, WHLPCR_INT_EN_CLR, MCR_WHLPCR, 0);
 		sdio_readsb(sdio->func, &intr, MCR_WHISR,
 			    sizeof(struct mt76s_intr));
-		sdio_release_host(sdio->func);
 
 		trace_dev_irq(&dev->mt76, intr.isr, 0);
 
@@ -267,7 +259,11 @@ int mt7663s_kthread_run(void *data)
 			nframes += ret;
 		}
 
-		if (!nframes || !test_bit(MT76_STATE_RUNNING, &mphy->state)) {
+		if ((!nframes && !intr.isr) ||
+		    !test_bit(MT76_STATE_RUNNING, &mphy->state)) {
+			sdio_writel(sdio->func, WHLPCR_INT_EN_SET, MCR_WHLPCR, 0);
+			sdio_release_host(sdio->func);
+
 			set_current_state(TASK_INTERRUPTIBLE);
 			schedule();
 		}
