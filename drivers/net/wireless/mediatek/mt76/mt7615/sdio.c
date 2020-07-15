@@ -364,10 +364,10 @@ static int mt7663s_probe(struct sdio_func *func,
 	dev->ops = ops;
 	sdio_set_drvdata(func, dev);
 
-	mdev->sdio.tx_kthread = kthread_create(mt7663s_kthread_run, dev,
-					       "mt7663s_tx");
-	if (IS_ERR(mdev->sdio.tx_kthread))
-		return PTR_ERR(mdev->sdio.tx_kthread);
+	mdev->sdio.txrx_kthread = kthread_create(mt7663s_kthread_run, dev,
+						 "mt7663s_txrx");
+	if (IS_ERR(mdev->sdio.txrx_kthread))
+		return PTR_ERR(mdev->sdio.txrx_kthread);
 
 	ret = mt76s_init(mdev, func, &mt7663s_ops);
 	if (ret < 0)
@@ -384,6 +384,9 @@ static int mt7663s_probe(struct sdio_func *func,
 	ret = mt76s_alloc_queues(&dev->mt76);
 	if (ret)
 		goto err_deinit;
+
+	wake_up_process(mdev->sdio.txrx_kthread);
+	wake_up_process(mdev->sdio.kthread);
 
 	ret = mt7663_usb_sdio_register_device(dev);
 	if (ret)

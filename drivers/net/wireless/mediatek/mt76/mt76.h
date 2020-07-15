@@ -446,9 +446,18 @@ struct mt76_usb {
 	} mcu;
 };
 
+enum {
+	MT76S_STATE_STATUS_PENDING,
+	MT76S_STATE_TXRX_PENDING,
+};
+
 struct mt76_sdio {
-	struct task_struct *tx_kthread;
+	struct task_struct *txrx_kthread;
+	wait_queue_head_t txrx_wait;
+
 	struct task_struct *kthread;
+	wait_queue_head_t status_wait;
+
 	struct work_struct stat_work;
 
 	unsigned long state;
