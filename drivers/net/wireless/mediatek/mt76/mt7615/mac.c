@@ -1882,7 +1882,7 @@ int mt7615_pm_wake(struct mt7615_dev *dev)
 	if (!mt7615_firmware_offload(dev))
 		return 0;
 
-	if (!mt76_is_mmio(mphy->dev))
+	if (mt76_is_usb(mphy->dev))
 		return 0;
 
 	if (!test_bit(MT76_STATE_PM, &mphy->state))
@@ -1911,7 +1911,7 @@ void mt7615_pm_power_save_sched(struct mt7615_dev *dev)
 	if (!mt7615_firmware_offload(dev))
 		return;
 
-	if (!mt76_is_mmio(mphy->dev))
+	if (mt76_is_usb(mphy->dev))
 		return;
 
 	if (!dev->pm.enable || !test_bit(MT76_STATE_RUNNING, &mphy->state))
@@ -1974,7 +1974,7 @@ int mt7615_pm_set_enable(struct mt7615_dev *dev, bool enable)
 {
 	struct mt76_phy *mphy = dev->phy.mt76;
 
-	if (!mt7615_firmware_offload(dev) || !mt76_is_mmio(&dev->mt76))
+	if (!mt7615_firmware_offload(dev) || mt76_is_usb(&dev->mt76))
 		return -EOPNOTSUPP;
 
 	mt7615_mutex_acquire(dev);
