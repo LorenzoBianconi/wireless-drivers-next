@@ -122,6 +122,10 @@ int mt76x02_mac_wcid_set_key(struct mt76x02_dev *dev, u8 idx,
 	if (key) {
 		mt76_rmw_field(dev, MT_WCID_ATTR(idx), MT_WCID_ATTR_PAIRWISE,
 			       !!(key->flags & IEEE80211_KEY_FLAG_PAIRWISE));
+		mt76_rmw_field(dev, MT_WCID_ATTR(idx),
+			       MT_WCID_ATTR_BSS_IDX, idx & 0x7);
+		mt76_rmw_field(dev, MT_WCID_ATTR(idx),
+			       MT_WCID_ATTR_BSS_IDX_EXT, !!(idx & 0x8));
 
 		pn = atomic64_read(&key->tx_pn);
 
