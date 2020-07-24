@@ -3,6 +3,7 @@
  * Copyright (C) 2016 Felix Fietkau <nbd@nbd.name>
  */
 
+#include <uapi/linux/sched/types.h>
 #include "mt76.h"
 #include "trace.h"
 
@@ -91,10 +92,12 @@ void mt76_mmio_init(struct mt76_dev *dev, void __iomem *regs)
 		.rd_rp = mt76_mmio_rd_rp,
 		.type = MT76_BUS_MMIO,
 	};
+	struct sched_param sparam = {.sched_priority = 1};
 
 	dev->bus = &mt76_mmio_ops;
 	dev->mmio.regs = regs;
 
+	sched_setscheduler(dev->tx_worker.task, SCHED_FIFO, &sparam);
 	spin_lock_init(&dev->mmio.irq_lock);
 }
 EXPORT_SYMBOL_GPL(mt76_mmio_init);
