@@ -205,29 +205,16 @@ static int mt7663s_tx_run_queues(struct mt7615_dev *dev)
 	return nframes;
 }
 
-int mt7663s_kthread_run(void *data)
+void mt7663s_worker(struct mt76_worker *w)
 {
-	struct mt7615_dev *dev = data;
-	struct mt76_phy *mphy = &dev->mt76.phy;
+	struct mt76_sdio *sdio = container_of(w, struct mt76_sdio, tx_worker);
+	struct mt76_dev *mdev = container_of(sdio, struct mt76_dev, sdio);
+	struct mt7615_dev *dev = container_of(mdev, struct mt7615_dev, mt76);
 
-	while (!kthread_should_stop()) {
-		int ret;
-
-		cond_resched();
-
-		sdio_claim_host(dev->mt76.sdio.func);
-		ret = mt7663s_tx_run_queues(dev);
-		sdio_release_host(dev->mt76.sdio.func);
-
-		if (ret <= 0 || !test_bit(MT76_STATE_RUNNING, &mphy->state)) {
-			set_current_state(TASK_INTERRUPTIBLE);
-			schedule();
-		} else {
-			wake_up_process(dev->mt76.sdio.kthread);
-		}
-	}
-
-	return 0;
+	sdio_claim_host(sdio->func);
+	mt7663s_tx_run_queues(dev);
+	sdio_release_host(sdio->func);
+	mt76_worker_schedule(&mdev->sdio.worker);
 }
 
 void mt7663s_sdio_irq(struct sdio_func *func)
@@ -248,18 +235,18 @@ void mt7663s_sdio_irq(struct sdio_func *func)
 
 		if (intr.isr & WHIER_RX0_DONE_INT_EN) {
 			mt7663s_rx_run_queue(dev, 0, &intr);
-			wake_up_process(sdio->kthread);
+			mt76_worker_schedule(&sdio->worker);
 		}
 
 		if (intr.isr & WHIER_RX1_DONE_INT_EN) {
 			mt7663s_rx_run_queue(dev, 1, &intr);
-			wake_up_process(sdio->kthread);
+			mt76_worker_schedule(&sdio->worker);
 		}
 
 		if (intr.isr & WHIER_TX_DONE_INT_EN) {
 			mt7663s_refill_sched_quota(dev, intr.tx.wtqcr);
 			mt7663s_tx_run_queues(dev);
-			wake_up_process(sdio->kthread);
+			mt76_worker_schedule(&sdio->worker);
 		}
 	} while (intr.isr);
 out:

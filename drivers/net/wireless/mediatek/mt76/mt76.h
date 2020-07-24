@@ -447,9 +447,10 @@ struct mt76_usb {
 };
 
 struct mt76_sdio {
-	struct task_struct *tx_kthread;
-	struct task_struct *kthread;
 	struct work_struct stat_work;
+
+	struct mt76_worker tx_worker;
+	struct mt76_worker worker;
 
 	struct sdio_func *func;
 

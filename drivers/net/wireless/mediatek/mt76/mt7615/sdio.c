@@ -364,33 +364,37 @@ static int mt7663s_probe(struct sdio_func *func,
 	dev->ops = ops;
 	sdio_set_drvdata(func, dev);
 
-	mdev->sdio.tx_kthread = kthread_create(mt7663s_kthread_run, dev,
-					       "mt7663s_tx");
-	if (IS_ERR(mdev->sdio.tx_kthread))
-		return PTR_ERR(mdev->sdio.tx_kthread);
+	ret = mt76s_alloc_queues(&dev->mt76);
+	if (ret)
+		goto err_free;
+
+	ret = mt76_worker_setup(mdev, &mdev->sdio.tx_worker, mt7663s_worker,
+				"sdio-tx");
+	if (ret)
+		goto err_deinit;
 
 	ret = mt76s_init(mdev, func, &mt7663s_ops);
 	if (ret < 0)
-		goto err_free;
+		goto err_tx_worker;
 
 	ret = mt7663s_hw_init(dev, func);
 	if (ret)
-		goto err_free;
+		goto err_worker;
 
 	mdev->rev = (mt76_rr(dev, MT_HW_CHIPID) << 16) |
 		    (mt76_rr(dev, MT_HW_REV) & 0xff);
 	dev_dbg(mdev->dev, "ASIC revision: %04x\n", mdev->rev);
 
-	ret = mt76s_alloc_queues(&dev->mt76);
-	if (ret)
-		goto err_deinit;
-
 	ret = mt7663_usb_sdio_register_device(dev);
 	if (ret)
-		goto err_deinit;
+		goto err_worker;
 
 	return 0;
 
+err_worker:
+	mt76_worker_teardown(&mdev->sdio.worker);
+err_tx_worker:
+	mt76_worker_teardown(&mdev->sdio.tx_worker);
 err_deinit:
 	mt76s_deinit(&dev->mt76);
 err_free:
