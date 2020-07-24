@@ -459,8 +459,6 @@ struct mt76_sdio {
 
 	struct work_struct stat_work;
 
-	unsigned long state;
-
 	struct sdio_func *func;
 
 	struct {
