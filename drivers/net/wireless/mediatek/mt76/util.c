@@ -122,14 +122,16 @@ int __mt76_worker_fn(void *ptr)
 			continue;
 		}
 
-		if (!test_and_clear_bit(0, &w->state)) {
+		if (!test_and_clear_bit(MT76_WORKER_SCHEDULED, &w->state)) {
 			schedule();
 			continue;
 		}
 
+		set_bit(MT76_WORKER_RUNNING, &w->state);
 		set_current_state(TASK_RUNNING);
 		w->fn(w);
 		cond_resched();
+		clear_bit(MT76_WORKER_RUNNING, &w->state);
 	}
 
 	return 0;

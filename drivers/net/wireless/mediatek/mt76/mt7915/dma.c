@@ -103,7 +103,7 @@ static int mt7915_poll_tx(struct napi_struct *napi, int budget)
 
 	mt7915_mac_sta_poll(dev);
 
-	tasklet_schedule(&dev->mt76.tx_tasklet);
+	mt76_worker_schedule(&dev->mt76.tx_worker);
 
 	return 0;
 }
@@ -281,6 +281,5 @@ void mt7915_dma_cleanup(struct mt7915_dev *dev)
 		 MT_WFDMA0_RST_DMASHDL_ALL_RST |
 		 MT_WFDMA0_RST_LOGIC_RST);
 
-	tasklet_kill(&dev->mt76.tx_tasklet);
 	mt76_dma_cleanup(&dev->mt76);
 }

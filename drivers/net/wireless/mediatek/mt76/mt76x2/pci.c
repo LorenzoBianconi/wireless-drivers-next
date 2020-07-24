@@ -111,7 +111,7 @@ mt76x2e_suspend(struct pci_dev *pdev, pm_message_t state)
 
 	napi_disable(&mdev->tx_napi);
 	tasklet_kill(&mdev->pre_tbtt_tasklet);
-	tasklet_kill(&mdev->tx_tasklet);
+	mt76_worker_disable(&mdev->tx_worker);
 
 	mt76_for_each_q_rx(mdev, i)
 		napi_disable(&mdev->napi[i]);
@@ -145,6 +145,7 @@ mt76x2e_resume(struct pci_dev *pdev)
 
 	pci_restore_state(pdev);
 
+	mt76_worker_enable(&mdev->tx_worker);
 	mt76_for_each_q_rx(mdev, i) {
 		napi_enable(&mdev->napi[i]);
 		napi_schedule(&mdev->napi[i]);

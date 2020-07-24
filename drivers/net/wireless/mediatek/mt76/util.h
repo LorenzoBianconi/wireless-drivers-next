@@ -18,6 +18,11 @@ struct mt76_worker
 	unsigned long state;
 };
 
+enum {
+	MT76_WORKER_SCHEDULED,
+	MT76_WORKER_RUNNING,
+};
+
 #define MT76_INCR(_var, _size) \
 	(_var = (((_var) + 1) % (_size)))
 
@@ -65,7 +70,9 @@ int __mt76_worker_fn(void *ptr);
 
 static inline void mt76_worker_schedule(struct mt76_worker *w)
 {
-	if (!test_and_set_bit(0, &w->state))
+	set_bit(MT76_WORKER_SCHEDULED, &w->state);
+
+	if (!test_bit(MT76_WORKER_RUNNING, &w->state))
 		wake_up_process(w->task);
 }
 
