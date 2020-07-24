@@ -11,6 +11,13 @@
 #include <linux/bitops.h>
 #include <linux/bitfield.h>
 
+struct mt76_worker
+{
+	struct task_struct *task;
+	void (*fn)(struct mt76_worker *);
+	unsigned long state;
+};
+
 #define MT76_INCR(_var, _size) \
 	(_var = (((_var) + 1) % (_size)))
 
@@ -43,6 +50,39 @@ mt76_skb_set_moredata(struct sk_buff *skb, bool enable)
 		hdr->frame_control |= cpu_to_le16(IEEE80211_FCTL_MOREDATA);
 	else
 		hdr->frame_control &= ~cpu_to_le16(IEEE80211_FCTL_MOREDATA);
+}
+
+int __mt76_worker_fn(void *ptr);
+
+#define mt76_worker_setup(_dev, _worker, _fn, _name)			\
+({									\
+	(_worker)->fn = _fn;						\
+	(_worker)->task = kthread_create(__mt76_worker_fn, _worker,	\
+					 "mt76-%s %s", _name,		\
+					 dev_name((_dev)->dev));	\
+	PTR_ERR_OR_ZERO((_worker)->task);				\
+})
+
+static inline void mt76_worker_schedule(struct mt76_worker *w)
+{
+	if (!test_and_set_bit(0, &w->state))
+		wake_up_process(w->task);
+}
+
+static inline void mt76_worker_disable(struct mt76_worker *w)
+{
+	kthread_park(w->task);
+	WRITE_ONCE(w->state, 0);
+}
+
+static inline void mt76_worker_enable(struct mt76_worker *w)
+{
+	kthread_unpark(w->task);
+}
+
+static inline void mt76_worker_teardown(struct mt76_worker *w)
+{
+	kthread_stop(w->task);
 }
 
 #endif
