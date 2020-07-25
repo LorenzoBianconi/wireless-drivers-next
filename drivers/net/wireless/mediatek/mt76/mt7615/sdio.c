@@ -368,10 +368,15 @@ static int mt7663s_probe(struct sdio_func *func,
 	if (ret)
 		goto err_free;
 
-	ret = mt76_worker_setup(mdev, &mdev->sdio.tx_worker, mt7663s_worker,
-				"sdio-tx");
+	ret = mt76_worker_setup(mdev, &mdev->sdio.rx_worker,
+				mt7663s_rx_worker, "sdio-rx");
 	if (ret)
 		goto err_deinit;
+
+	ret = mt76_worker_setup(mdev, &mdev->sdio.tx_worker,
+				mt7663s_tx_worker, "sdio-tx");
+	if (ret)
+		goto err_rx_worker;
 
 	ret = mt76s_init(mdev, func, &mt7663s_ops);
 	if (ret < 0)
@@ -395,6 +400,8 @@ err_worker:
 	mt76_worker_teardown(&mdev->sdio.worker);
 err_tx_worker:
 	mt76_worker_teardown(&mdev->sdio.tx_worker);
+err_rx_worker:
+	mt76_worker_teardown(&mdev->sdio.rx_worker);
 err_deinit:
 	mt76s_deinit(&dev->mt76);
 err_free:

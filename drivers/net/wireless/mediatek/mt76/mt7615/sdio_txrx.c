@@ -19,9 +19,9 @@
 #include "sdio.h"
 #include "mac.h"
 
-static void mt7663s_refill_sched_quota(struct mt7615_dev *dev, u32 *data)
+static void mt7663s_refill_sched_quota(struct mt76_dev *dev, u32 *data)
 {
-	struct mt76_sdio *sdio = &dev->mt76.sdio;
+	struct mt76_sdio *sdio = &dev->sdio;
 
 	mutex_lock(&sdio->sched.lock);
 	sdio->sched.pse_data_quota += FIELD_GET(TXQ_CNT_L, data[0]) + /* BK */
@@ -61,11 +61,11 @@ static struct sk_buff *mt7663s_build_rx_skb(void *data, int data_len,
 	return skb;
 }
 
-static int mt7663s_rx_run_queue(struct mt7615_dev *dev, enum mt76_rxq_id qid,
+static int mt7663s_rx_run_queue(struct mt76_dev *dev, enum mt76_rxq_id qid,
 				struct mt76s_intr *intr)
 {
-	struct mt76_queue *q = &dev->mt76.q_rx[qid];
-	struct mt76_sdio *sdio = &dev->mt76.sdio;
+	struct mt76_queue *q = &dev->q_rx[qid];
+	struct mt76_sdio *sdio = &dev->sdio;
 	int len = 0, err, i, order;
 	struct page *page;
 	u8 *buf;
@@ -86,9 +86,12 @@ static int mt7663s_rx_run_queue(struct mt7615_dev *dev, enum mt76_rxq_id qid,
 
 	buf = page_address(page);
 
+	sdio_claim_host(sdio->func);
 	err = sdio_readsb(sdio->func, buf, MCR_WRDR(qid), len);
+	sdio_release_host(sdio->func);
+
 	if (err < 0) {
-		dev_err(dev->mt76.dev, "sdio read data failed:%d\n", err);
+		dev_err(dev->dev, "sdio read data failed:%d\n", err);
 		__free_pages(page, order);
 		return err;
 	}
@@ -116,12 +119,12 @@ static int mt7663s_rx_run_queue(struct mt7615_dev *dev, enum mt76_rxq_id qid,
 	return err;
 }
 
-static int mt7663s_tx_update_sched(struct mt7615_dev *dev,
+static int mt7663s_tx_update_sched(struct mt76_dev *dev,
 				   struct mt76_queue_entry *e,
 				   bool mcu)
 {
-	struct mt76_sdio *sdio = &dev->mt76.sdio;
-	struct mt76_phy *mphy = &dev->mt76.phy;
+	struct mt76_sdio *sdio = &dev->sdio;
+	struct mt76_phy *mphy = &dev->phy;
 	struct ieee80211_hdr *hdr;
 	int size, ret = -EBUSY;
 
@@ -157,10 +160,10 @@ static int mt7663s_tx_update_sched(struct mt7615_dev *dev,
 	return ret;
 }
 
-static int mt7663s_tx_run_queue(struct mt7615_dev *dev, struct mt76_queue *q)
+static int mt7663s_tx_run_queue(struct mt76_dev *dev, struct mt76_queue *q)
 {
-	bool mcu = q == dev->mt76.q_tx[MT_TXQ_MCU].q;
-	struct mt76_sdio *sdio = &dev->mt76.sdio;
+	bool mcu = q == dev->q_tx[MT_TXQ_MCU].q;
+	struct mt76_sdio *sdio = &dev->sdio;
 	int nframes = 0;
 
 	while (q->first != q->tail) {
@@ -179,7 +182,7 @@ static int mt7663s_tx_run_queue(struct mt7615_dev *dev, struct mt76_queue *q)
 		sdio_release_host(sdio->func);
 
 		if (err) {
-			dev_err(dev->mt76.dev, "sdio write failed: %d\n", err);
+			dev_err(dev->dev, "sdio write failed: %d\n", err);
 			return -EIO;
 		}
 
@@ -191,55 +194,58 @@ static int mt7663s_tx_run_queue(struct mt7615_dev *dev, struct mt76_queue *q)
 	return nframes;
 }
 
-void mt7663s_worker(struct mt76_worker *w)
+void mt7663s_tx_worker(struct mt76_worker *w)
 {
 	struct mt76_sdio *sdio = container_of(w, struct mt76_sdio, tx_worker);
-	struct mt76_dev *mdev = container_of(sdio, struct mt76_dev, sdio);
-	struct mt7615_dev *dev = container_of(mdev, struct mt7615_dev, mt76);
+	struct mt76_dev *dev = container_of(sdio, struct mt76_dev, sdio);
 	int i;
 
-	for (i = 0; i < MT_TXQ_MCU_WA; i++) {
-		int ret;
+	for (i = 0; i < MT_TXQ_MCU_WA; i++)
+		mt7663s_tx_run_queue(dev, dev->q_tx[i].q);
+}
 
-		ret = mt7663s_tx_run_queue(dev, mdev->q_tx[i].q);
-		if (ret < 0)
+void mt7663s_rx_worker(struct mt76_worker *w)
+{
+	struct mt76_sdio *sdio = container_of(w, struct mt76_sdio, rx_worker);
+	struct mt76_dev *dev = container_of(sdio, struct mt76_dev, sdio);
+	struct mt76s_intr intr;
+
+	/* disable interrupt */
+	sdio_claim_host(sdio->func);
+	sdio_writel(sdio->func, WHLPCR_INT_EN_CLR, MCR_WHLPCR, 0);
+	sdio_release_host(sdio->func);
+
+	while (true) {
+		sdio_claim_host(sdio->func);
+		sdio_readsb(sdio->func, &intr, MCR_WHISR,
+			    sizeof(struct mt76s_intr));
+		sdio_release_host(sdio->func);
+
+		if (!intr.isr)
 			break;
+
+		trace_dev_irq(dev, intr.isr, 0);
+
+		if (intr.isr & WHIER_TX_DONE_INT_EN)
+			mt7663s_refill_sched_quota(dev, intr.tx.wtqcr);
+
+		if (intr.isr & WHIER_RX0_DONE_INT_EN)
+			mt7663s_rx_run_queue(dev, 0, &intr);
+
+		if (intr.isr & WHIER_RX1_DONE_INT_EN)
+			mt7663s_rx_run_queue(dev, 1, &intr);
 	}
-	mt76_worker_schedule(&mdev->sdio.worker);
+	mt76_worker_schedule(&dev->sdio.worker);
+
+	/* enable interrupt */
+	sdio_claim_host(sdio->func);
+	sdio_writel(sdio->func, WHLPCR_INT_EN_SET, MCR_WHLPCR, 0);
+	sdio_release_host(sdio->func);
 }
 
 void mt7663s_sdio_irq(struct sdio_func *func)
 {
 	struct mt7615_dev *dev = sdio_get_drvdata(func);
-	struct mt76_sdio *sdio = &dev->mt76.sdio;
-	struct mt76s_intr intr;
 
-	/* disable interrupt */
-	sdio_writel(func, WHLPCR_INT_EN_CLR, MCR_WHLPCR, 0);
-
-	do {
-		sdio_readsb(func, &intr, MCR_WHISR, sizeof(struct mt76s_intr));
-		trace_dev_irq(&dev->mt76, intr.isr, 0);
-
-		if (!test_bit(MT76_STATE_INITIALIZED, &dev->mt76.phy.state))
-			goto out;
-
-		if (intr.isr & WHIER_RX0_DONE_INT_EN) {
-			mt7663s_rx_run_queue(dev, 0, &intr);
-			mt76_worker_schedule(&sdio->worker);
-		}
-
-		if (intr.isr & WHIER_RX1_DONE_INT_EN) {
-			mt7663s_rx_run_queue(dev, 1, &intr);
-			mt76_worker_schedule(&sdio->worker);
-		}
-
-		if (intr.isr & WHIER_TX_DONE_INT_EN) {
-			mt7663s_refill_sched_quota(dev, intr.tx.wtqcr);
-			mt76_worker_schedule(&sdio->worker);
-		}
-	} while (intr.isr);
-out:
-	/* enable interrupt */
-	sdio_writel(func, WHLPCR_INT_EN_SET, MCR_WHLPCR, 0);
+	mt76_worker_schedule(&dev->mt76.sdio.rx_worker);
 }

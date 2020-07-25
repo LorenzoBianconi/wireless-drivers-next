@@ -12,8 +12,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/mmc/sdio_func.h>
-#include <linux/sched.h>
-#include <linux/kthread.h>
+#include <uapi/linux/sched/types.h>
 
 #include "mt76.h"
 
@@ -303,6 +302,7 @@ void mt76s_deinit(struct mt76_dev *dev)
 	int i;
 
 	mt76_worker_teardown(&sdio->tx_worker);
+	mt76_worker_teardown(&sdio->rx_worker);
 	mt76_worker_teardown(&sdio->worker);
 	mt76s_stop_txrx(dev);
 
@@ -330,6 +330,7 @@ EXPORT_SYMBOL_GPL(mt76s_deinit);
 int mt76s_init(struct mt76_dev *dev, struct sdio_func *func,
 	       const struct mt76_bus_ops *bus_ops)
 {
+	struct sched_param sparam = { .sched_priority = 1 };
 	struct mt76_sdio *sdio = &dev->sdio;
 	int err;
 
@@ -343,6 +344,11 @@ int mt76s_init(struct mt76_dev *dev, struct sdio_func *func,
 	dev->queue_ops = &sdio_queue_ops;
 	dev->bus = bus_ops;
 	dev->sdio.func = func;
+
+	sched_setscheduler(sdio->tx_worker.task, SCHED_FIFO, &sparam);
+	sched_setscheduler(sdio->rx_worker.task, SCHED_FIFO, &sparam);
+	sched_setscheduler(sdio->worker.task, SCHED_FIFO, &sparam);
+	sched_setscheduler(dev->tx_worker.task, SCHED_FIFO, &sparam);
 
 	return 0;
 }
