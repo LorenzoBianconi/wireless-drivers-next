@@ -174,7 +174,10 @@ static int mt7663s_tx_run_queue(struct mt7615_dev *dev, struct mt76_queue *q)
 			len = roundup(len, sdio->func->cur_blksize);
 
 		/* TODO: skb_walk_frags and then write to SDIO port */
+		sdio_claim_host(sdio->func);
 		err = sdio_writesb(sdio->func, MCR_WTDR1, e->skb->data, len);
+		sdio_release_host(sdio->func);
+
 		if (err) {
 			dev_err(dev->mt76.dev, "sdio write failed: %d\n", err);
 			return -EIO;
@@ -188,32 +191,20 @@ static int mt7663s_tx_run_queue(struct mt7615_dev *dev, struct mt76_queue *q)
 	return nframes;
 }
 
-static int mt7663s_tx_run_queues(struct mt7615_dev *dev)
-{
-	int i, nframes = 0;
-
-	for (i = 0; i < MT_TXQ_MCU_WA; i++) {
-		int ret;
-
-		ret = mt7663s_tx_run_queue(dev, dev->mt76.q_tx[i].q);
-		if (ret < 0)
-			return ret;
-
-		nframes += ret;
-	}
-
-	return nframes;
-}
-
 void mt7663s_worker(struct mt76_worker *w)
 {
 	struct mt76_sdio *sdio = container_of(w, struct mt76_sdio, tx_worker);
 	struct mt76_dev *mdev = container_of(sdio, struct mt76_dev, sdio);
 	struct mt7615_dev *dev = container_of(mdev, struct mt7615_dev, mt76);
+	int i;
 
-	sdio_claim_host(sdio->func);
-	mt7663s_tx_run_queues(dev);
-	sdio_release_host(sdio->func);
+	for (i = 0; i < MT_TXQ_MCU_WA; i++) {
+		int ret;
+
+		ret = mt7663s_tx_run_queue(dev, mdev->q_tx[i].q);
+		if (ret < 0)
+			break;
+	}
 	mt76_worker_schedule(&mdev->sdio.worker);
 }
 
@@ -245,7 +236,6 @@ void mt7663s_sdio_irq(struct sdio_func *func)
 
 		if (intr.isr & WHIER_TX_DONE_INT_EN) {
 			mt7663s_refill_sched_quota(dev, intr.tx.wtqcr);
-			mt7663s_tx_run_queues(dev);
 			mt76_worker_schedule(&sdio->worker);
 		}
 	} while (intr.isr);
