@@ -211,7 +211,7 @@ void mt7663s_tx_work(struct work_struct *work)
 	}
 	if (nframes) {
 		queue_work(sdio->txrx_wq, &sdio->tx_work);
-		wake_up_process(sdio->kthread);
+		queue_work(sdio->txrx_wq, &sdio->work);
 	}
 }
 
@@ -236,18 +236,18 @@ void mt7663s_rx_work(struct work_struct *work)
 
 		if (intr.isr & WHIER_RX0_DONE_INT_EN) {
 			mt7663s_rx_run_queue(dev, 0, &intr);
-			wake_up_process(sdio->kthread);
+			queue_work(sdio->txrx_wq, &sdio->work);
 		}
 
 		if (intr.isr & WHIER_RX1_DONE_INT_EN) {
 			mt7663s_rx_run_queue(dev, 1, &intr);
-			wake_up_process(sdio->kthread);
+			queue_work(sdio->txrx_wq, &sdio->work);
 		}
 
 		if (intr.isr & WHIER_TX_DONE_INT_EN) {
 			mt7663s_refill_sched_quota(dev, intr.tx.wtqcr);
 			queue_work(sdio->txrx_wq, &sdio->tx_work);
-			wake_up_process(sdio->kthread);
+			queue_work(sdio->txrx_wq, &sdio->work);
 		}
 	} while (intr.isr);
 
