@@ -4734,11 +4734,26 @@ static int ieee80211_beacon_protect(struct sk_buff *skb,
 	return 0;
 }
 
+static void
+ieee80211_beacon_add_multiple_bssid_config(struct ieee80211_vif *vif, struct sk_buff *skb,
+					   struct cfg80211_multiple_bssid_data *config)
+{
+	u8 *pos = skb_put(skb, 6);
+
+	*pos++ = WLAN_EID_EXTENSION;
+	*pos++ = 4;
+	*pos++ = WLAN_EID_EXT_MULTIPLE_BSSID_CONFIGURATION;
+	*pos++ = 2;
+	*pos++ = vif->bss_conf.multiple_bssid.count;
+	*pos++ = config->cnt;
+}
+
 static struct sk_buff *
 __ieee80211_beacon_get(struct ieee80211_hw *hw,
 		       struct ieee80211_vif *vif,
 		       struct ieee80211_mutable_offsets *offs,
-		       bool is_template)
+		       bool is_template,
+		       bool is_ema)
 {
 	struct ieee80211_local *local = hw_to_local(hw);
 	struct beacon_data *beacon = NULL;
@@ -4766,12 +4781,17 @@ __ieee80211_beacon_get(struct ieee80211_hw *hw,
 
 		beacon = rcu_dereference(ap->beacon);
 		if (beacon) {
+			int ema_len = 0;
+
 			if (beacon->cntdwn_counter_offsets[0]) {
 				if (!is_template)
 					ieee80211_beacon_update_cntdwn(vif);
 
 				ieee80211_set_beacon_cntdwn(sdata, beacon);
 			}
+
+			if (is_ema && beacon->multiple_bssid.cnt)
+				ema_len = beacon->multiple_bssid.len[beacon->ema_index];
 
 			/*
 			 * headroom, head length,
@@ -4780,7 +4800,8 @@ __ieee80211_beacon_get(struct ieee80211_hw *hw,
 			skb = dev_alloc_skb(local->tx_headroom +
 					    beacon->head_len +
 					    beacon->tail_len + 256 +
-					    local->hw.extra_beacon_tailroom);
+					    local->hw.extra_beacon_tailroom +
+					    ema_len);
 			if (!skb)
 				goto out;
 
@@ -4797,6 +4818,17 @@ __ieee80211_beacon_get(struct ieee80211_hw *hw,
 
 				/* for AP the csa offsets are from tail */
 				csa_off_base = skb->len;
+			}
+
+			if (ema_len) {
+				ieee80211_beacon_add_multiple_bssid_config(vif, skb,
+									   &beacon->multiple_bssid);
+				skb_put_data(skb, beacon->multiple_bssid.ies[beacon->ema_index],
+					     beacon->multiple_bssid.len[beacon->ema_index]);
+				if (offs)
+					offs->multiple_bssid_offset = skb->len - ema_len;
+				beacon->ema_index++;
+				beacon->ema_index %= beacon->multiple_bssid.cnt;
 			}
 
 			if (beacon->tail)
@@ -4927,16 +4959,25 @@ ieee80211_beacon_get_template(struct ieee80211_hw *hw,
 			      struct ieee80211_vif *vif,
 			      struct ieee80211_mutable_offsets *offs)
 {
-	return __ieee80211_beacon_get(hw, vif, offs, true);
+	return __ieee80211_beacon_get(hw, vif, offs, true, false);
 }
 EXPORT_SYMBOL(ieee80211_beacon_get_template);
+
+struct sk_buff *
+ieee80211_beacon_get_template_ema(struct ieee80211_hw *hw,
+				  struct ieee80211_vif *vif,
+				  struct ieee80211_mutable_offsets *offs)
+{
+	return __ieee80211_beacon_get(hw, vif, offs, true, true);
+}
+EXPORT_SYMBOL(ieee80211_beacon_get_template_ema);
 
 struct sk_buff *ieee80211_beacon_get_tim(struct ieee80211_hw *hw,
 					 struct ieee80211_vif *vif,
 					 u16 *tim_offset, u16 *tim_length)
 {
 	struct ieee80211_mutable_offsets offs = {};
-	struct sk_buff *bcn = __ieee80211_beacon_get(hw, vif, &offs, false);
+	struct sk_buff *bcn = __ieee80211_beacon_get(hw, vif, &offs, false, false);
 	struct sk_buff *copy;
 	struct ieee80211_supported_band *sband;
 	int shift;

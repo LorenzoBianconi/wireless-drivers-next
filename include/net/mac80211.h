@@ -4848,12 +4848,17 @@ void ieee80211_report_low_ack(struct ieee80211_sta *sta, u32 num_packets);
  * @cntdwn_counter_offs: array of IEEE80211_MAX_CNTDWN_COUNTERS_NUM offsets
  *	to countdown counters.  This array can contain zero values which
  *	should be ignored.
+ * @multiple_bssid_offset: position of the multiple bssid element
+ * @multiple_bssid_length: size of the multiple bssid element
  */
 struct ieee80211_mutable_offsets {
 	u16 tim_offset;
 	u16 tim_length;
 
 	u16 cntdwn_counter_offs[IEEE80211_MAX_CNTDWN_COUNTERS_NUM];
+
+	u16 multiple_bssid_offset;
+	u16 multiple_bssid_length;
 };
 
 /**
@@ -4879,6 +4884,28 @@ struct sk_buff *
 ieee80211_beacon_get_template(struct ieee80211_hw *hw,
 			      struct ieee80211_vif *vif,
 			      struct ieee80211_mutable_offsets *offs);
+
+/**
+ * ieee80211_beacon_get_template - beacon template generation function
+ * @hw: pointer obtained from ieee80211_alloc_hw().
+ * @vif: &struct ieee80211_vif pointer from the add_interface callback.
+ * @offs: &struct ieee80211_mutable_offsets pointer to struct that will
+ *	receive the offsets that may be updated by the driver.
+ *
+ * This function differs from ieee80211_beacon_get_template in the sense that
+ * it generates EMA VAP templates. When we use multiple_bssid, the beacons can
+ * get very large costing a lot of airtime. To work around this, we iterate
+ * over the multiple bssid elements and only send one inside the beacon for 1..n.
+ *
+ * This function needs to follow the same rules as ieee80211_beacon_get_template
+ *
+ * Return: The beacon template. %NULL on error.
+ */
+
+struct sk_buff *
+ieee80211_beacon_get_template_ema(struct ieee80211_hw *hw,
+				  struct ieee80211_vif *vif,
+				  struct ieee80211_mutable_offsets *offs);
 
 /**
  * ieee80211_beacon_get_tim - beacon generation function
