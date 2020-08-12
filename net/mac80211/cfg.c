@@ -111,6 +111,36 @@ static int ieee80211_set_mon_options(struct ieee80211_sub_if_data *sdata,
 	return 0;
 }
 
+static int ieee80211_set_multiple_bssid_options(struct ieee80211_sub_if_data *sdata,
+						struct vif_params *params)
+{
+	struct ieee80211_local *local = sdata->local;
+	struct wiphy *wiphy = local->hw.wiphy;
+	struct net_device *parent;
+	struct ieee80211_sub_if_data *psdata;
+
+	if (!ieee80211_hw_check(&local->hw, SUPPORTS_MULTI_BSSID_AP))
+		return 0;
+
+	if (params->multiple_bssid.non_transmitted) {
+		parent = __dev_get_by_index(wiphy_net(wiphy),
+					    params->multiple_bssid.parent);
+		if (!parent || !parent->ieee80211_ptr)
+			return -EINVAL;
+		psdata = IEEE80211_WDEV_TO_SUB_IF(parent->ieee80211_ptr);
+		if (psdata->vif.multiple_bssid.non_transmitted)
+			return -EINVAL;
+		sdata->vif.multiple_bssid.parent = &psdata->vif;
+		list_add(&sdata->vif.multiple_bssid.list,
+			 &psdata->vif.multiple_bssid.list);
+		sdata->vif.multiple_bssid.non_transmitted = true;
+	} else {
+		INIT_LIST_HEAD(&sdata->vif.multiple_bssid.list);
+	}
+
+	return 0;
+}
+
 static struct wireless_dev *ieee80211_add_iface(struct wiphy *wiphy,
 						const char *name,
 						unsigned char name_assign_type,
@@ -136,11 +166,35 @@ static struct wireless_dev *ieee80211_add_iface(struct wiphy *wiphy,
 		}
 	}
 
+	if (type == NL80211_IFTYPE_AP) {
+		err = ieee80211_set_multiple_bssid_options(sdata, params);
+		if (err) {
+			ieee80211_if_remove(sdata);
+			return NULL;
+		}
+	}
+
 	return wdev;
 }
 
 static int ieee80211_del_iface(struct wiphy *wiphy, struct wireless_dev *wdev)
 {
+	struct ieee80211_sub_if_data *sdata;
+	struct ieee80211_vif *child, *tmp;
+
+	sdata = IEEE80211_WDEV_TO_SUB_IF(wdev);
+	if (sdata->vif.type == NL80211_IFTYPE_AP) {
+		if (!sdata->vif.multiple_bssid.non_transmitted) {
+			if (!list_empty(&sdata->vif.multiple_bssid.list))
+				list_for_each_entry_safe(child, tmp,
+							 &sdata->vif.multiple_bssid.list,
+							 multiple_bssid.list)
+					dev_close(vif_to_sdata(child)->wdev.netdev);
+		} else {
+			list_del(&sdata->vif.multiple_bssid.list);
+		}
+	}
+
 	ieee80211_if_remove(IEEE80211_WDEV_TO_SUB_IF(wdev));
 
 	return 0;

@@ -377,6 +377,13 @@ static void ieee80211_do_stop(struct ieee80211_sub_if_data *sdata,
 	bool cancel_scan;
 	struct cfg80211_nan_func *func;
 
+	if (sdata->vif.type == NL80211_IFTYPE_AP &&
+	    sdata->vif.multiple_bssid.non_transmitted)
+		/* make sure the parent is already down */
+		if (sdata->vif.multiple_bssid.parent &&
+		    ieee80211_sdata_running(vif_to_sdata(sdata->vif.multiple_bssid.parent)))
+			dev_close(vif_to_sdata(sdata->vif.multiple_bssid.parent)->wdev.netdev);
+
 	clear_bit(SDATA_STATE_RUNNING, &sdata->state);
 
 	cancel_scan = rcu_access_pointer(local->scan_sdata) == sdata;
