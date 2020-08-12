@@ -708,6 +708,11 @@ static const struct nla_policy nl80211_policy[NUM_NL80211_ATTR] = {
 	[NL80211_ATTR_COLOR_CHANGE_ANNOUNCEMENT_COUNT] = { .type = NLA_U8 },
 	[NL80211_ATTR_COLOR_CHANGE_ANNOUNCEMENT_COLOR] = { .type = NLA_U8 },
 	[NL80211_ATTR_COLOR_CHANGE_ANNOUNCEMENT_IES] = NLA_POLICY_NESTED(nl80211_policy),
+	[NL80211_ATTR_MULTIPLE_BSSID_NON_TRANSMITTING] = { .type = NLA_FLAG },
+	[NL80211_ATTR_MULTIPLE_BSSID_PARENT] = { .type = NLA_U32 },
+	[NL80211_ATTR_MULTIPLE_BSSID_INDEX] = { .type = NLA_U8 },
+	[NL80211_ATTR_MULTIPLE_BSSID_COUNT] = { .type = NLA_U8 },
+	[NL80211_ATTR_MULTIPLE_BSSID_IES] = { .type = NLA_NESTED },
 };
 
 /* policy for the key attributes */
@@ -3820,6 +3825,14 @@ static int nl80211_new_interface(struct sk_buff *skb, struct genl_info *info)
 			return err;
 	}
 
+	if (info->attrs[NL80211_ATTR_MULTIPLE_BSSID_NON_TRANSMITTING])
+		params.multiple_bssid.non_transmitted =
+			nla_get_flag(info->attrs[NL80211_ATTR_MULTIPLE_BSSID_NON_TRANSMITTING]);
+
+	if (info->attrs[NL80211_ATTR_MULTIPLE_BSSID_PARENT])
+		params.multiple_bssid.parent =
+			nla_get_u8(info->attrs[NL80211_ATTR_MULTIPLE_BSSID_PARENT]);
+
 	if (!cfg80211_iftype_allowed(&rdev->wiphy, type, params.use_4addr, 0))
 		return -EOPNOTSUPP;
 
@@ -4843,6 +4856,21 @@ static int nl80211_parse_beacon(struct cfg80211_registered_device *rdev,
 		bcn->ftm_responder = -1;
 	}
 
+	if (attrs[NL80211_ATTR_MULTIPLE_BSSID_IES]) {
+		struct nlattr *nl_ie;
+		int rem_ie;
+
+		nla_for_each_nested(nl_ie, attrs[NL80211_ATTR_MULTIPLE_BSSID_IES], rem_ie) {
+			if (bcn->multiple_bssid.cnt > NL80211_MULTIPLE_BSSID_IES_MAX)
+				return -EINVAL;
+			if (nla_type(nl_ie) != bcn->multiple_bssid.cnt + 1)
+				return -EINVAL;
+			bcn->multiple_bssid.ies[bcn->multiple_bssid.cnt] = nla_data(nl_ie);
+			bcn->multiple_bssid.len[bcn->multiple_bssid.cnt] = nla_len(nl_ie);
+			bcn->multiple_bssid.cnt++;
+		}
+	}
+
 	return 0;
 }
 
@@ -5280,6 +5308,18 @@ static int nl80211_start_ap(struct sk_buff *skb, struct genl_info *info)
 		if (err)
 			return err;
 	}
+
+	if (info->attrs[NL80211_ATTR_MULTIPLE_BSSID_INDEX])
+		params.multiple_bssid.index = nla_get_u8(
+				info->attrs[NL80211_ATTR_MULTIPLE_BSSID_INDEX]);
+
+	if (info->attrs[NL80211_ATTR_MULTIPLE_BSSID_COUNT])
+		params.multiple_bssid.count = nla_get_u8(
+				info->attrs[NL80211_ATTR_MULTIPLE_BSSID_COUNT]);
+
+	if (params.multiple_bssid.non_transmitted &&
+	    !info->attrs[NL80211_ATTR_MULTIPLE_BSSID_PARENT])
+		return -EOPNOTSUPP;
 
 	nl80211_calculate_ap_params(&params);
 

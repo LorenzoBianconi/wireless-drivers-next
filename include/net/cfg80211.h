@@ -487,6 +487,21 @@ struct ieee80211_supported_band {
 };
 
 /**
+ * struct ieee80211_multiple_bssid - AP settings for multi bssid
+ *
+ * @index: the index of this AP in the multi bssid group.
+ * @count: the total number of multi bssid peer APs.
+ * @parent: a non-transmitted bssid has a transmitted parent
+ * @non_transmitted: Is this a non-transmitted bssid
+ */
+struct ieee80211_multiple_bssid {
+	u8 index;
+	u8 count;
+	u32 parent;
+	bool non_transmitted;
+};
+
+/**
  * ieee80211_get_sband_iftype_data - return sband data for a given iftype
  * @sband: the sband to search for the STA on
  * @iftype: enum nl80211_iftype
@@ -630,6 +645,7 @@ static inline void wiphy_read_of_freq_limits(struct wiphy *wiphy)
  *	belonging to that MU-MIMO groupID; %NULL if not changed
  * @vht_mumimo_follow_addr: MU-MIMO follow address, used for monitoring
  *	MU-MIMO packets going to the specified station; %NULL if not changed
+ * @multiple_bssid: AP settings for multiple bssid
  */
 struct vif_params {
 	u32 flags;
@@ -637,6 +653,7 @@ struct vif_params {
 	u8 macaddr[ETH_ALEN];
 	const u8 *vht_mumimo_groups;
 	const u8 *vht_mumimo_follow_addr;
+	struct ieee80211_multiple_bssid	multiple_bssid;
 };
 
 /**
@@ -1018,6 +1035,19 @@ struct cfg80211_crypto_settings {
 };
 
 /**
+ * struct cfg80211_multiple_bssid_data - multiple_bssid data
+ * @ies: array of extra information element(s) to add into Beacon frames for multiple
+ *	bssid or %NULL
+ * @len: array of lengths of multiple_bssid.ies in octets
+ * @cnt: number of entries in multiple_bssid.ies
+ */
+struct cfg80211_multiple_bssid_data {
+	u8 *ies[NL80211_MULTIPLE_BSSID_IES_MAX];
+	size_t len[NL80211_MULTIPLE_BSSID_IES_MAX];
+	int cnt;
+};
+
+/**
  * struct cfg80211_beacon_data - beacon data
  * @head: head portion of beacon (before TIM IE)
  *	or %NULL if not changed
@@ -1043,6 +1073,7 @@ struct cfg80211_crypto_settings {
  *	Token (measurement type 11)
  * @lci_len: LCI data length
  * @civicloc_len: Civic location data length
+ * @multiple_bssid: multiple_bssid data
  */
 struct cfg80211_beacon_data {
 	const u8 *head, *tail;
@@ -1061,6 +1092,8 @@ struct cfg80211_beacon_data {
 	size_t probe_resp_len;
 	size_t lci_len;
 	size_t civicloc_len;
+
+	struct cfg80211_multiple_bssid_data multiple_bssid;
 };
 
 struct mac_address {
@@ -1197,6 +1230,7 @@ struct cfg80211_ap_settings {
 	struct cfg80211_he_bss_color he_bss_color;
 	struct cfg80211_fils_discovery fils_discovery;
 	struct cfg80211_unsol_bcast_probe_resp unsol_bcast_probe_resp;
+	struct ieee80211_multiple_bssid multiple_bssid;
 };
 
 /**
