@@ -268,6 +268,7 @@ struct beacon_data {
 	struct ieee80211_meshconf_ie *meshconf;
 	u16 cntdwn_counter_offsets[IEEE80211_MAX_CNTDWN_COUNTERS_NUM];
 	u8 cntdwn_current_counter;
+	struct cfg80211_multiple_bssid_data multiple_bssid;
 	struct rcu_head rcu_head;
 };
 

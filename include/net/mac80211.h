@@ -696,6 +696,7 @@ struct ieee80211_bss_conf {
 	struct cfg80211_he_bss_color he_bss_color;
 	struct ieee80211_fils_discovery fils_discovery;
 	u32 unsol_bcast_probe_resp_interval;
+	struct ieee80211_multiple_bssid multiple_bssid;
 };
 
 /**
