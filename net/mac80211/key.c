@@ -177,13 +177,6 @@ static int ieee80211_key_enable_hw_accel(struct ieee80211_key *key)
 		}
 	}
 
-	/* TKIP countermeasures don't work in encap offload mode */
-	if (key->conf.cipher == WLAN_CIPHER_SUITE_TKIP &&
-	    sdata->hw_80211_encap) {
-		sdata_dbg(sdata, "TKIP is not allowed in hw 80211 encap mode\n");
-		return -EINVAL;
-	}
-
 	ret = drv_set_key(key->local, SET_KEY, sdata,
 			  sta ? &sta->sta : NULL, &key->conf);
 
@@ -219,14 +212,6 @@ static int ieee80211_key_enable_hw_accel(struct ieee80211_key *key)
 	case WLAN_CIPHER_SUITE_CCMP_256:
 	case WLAN_CIPHER_SUITE_GCMP:
 	case WLAN_CIPHER_SUITE_GCMP_256:
-		/* We cannot do software crypto of data frames with
-		 * encapsulation offload enabled. However for 802.11w to
-		 * function properly we need cmac/gmac keys.
-		 */
-		if (sdata->hw_80211_encap)
-			return -EINVAL;
-		fallthrough;
-
 	case WLAN_CIPHER_SUITE_AES_CMAC:
 	case WLAN_CIPHER_SUITE_BIP_CMAC_256:
 	case WLAN_CIPHER_SUITE_BIP_GMAC_128:
@@ -824,6 +809,7 @@ int ieee80211_key_link(struct ieee80211_key *key,
 	 */
 	bool delay_tailroom = sdata->vif.type == NL80211_IFTYPE_STATION;
 	int ret = -EOPNOTSUPP;
+	bool recalc_offload = false;
 
 	mutex_lock(&sdata->local->key_mtx);
 
@@ -864,10 +850,14 @@ int ieee80211_key_link(struct ieee80211_key *key,
 	key->local = sdata->local;
 	key->sdata = sdata;
 	key->sta = sta;
+	recalc_offload = !old_key && key->conf.cipher == WLAN_CIPHER_SUITE_TKIP;
 
 	increment_tailroom_need_count(sdata);
 
 	ret = ieee80211_key_replace(sdata, sta, pairwise, old_key, key);
+
+	if (!(key->flags & KEY_FLAG_UPLOADED_TO_HARDWARE))
+		recalc_offload = true;
 
 	if (!ret) {
 		ieee80211_debugfs_key_add(key);
@@ -878,6 +868,9 @@ int ieee80211_key_link(struct ieee80211_key *key,
 
  out:
 	mutex_unlock(&sdata->local->key_mtx);
+
+	if (recalc_offload)
+		ieee80211_recalc_offload(sdata->local);
 
 	return ret;
 }

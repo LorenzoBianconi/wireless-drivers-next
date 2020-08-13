@@ -504,6 +504,7 @@ static int ieee80211_del_key(struct wiphy *wiphy, struct net_device *dev,
 	struct ieee80211_local *local = sdata->local;
 	struct sta_info *sta;
 	struct ieee80211_key *key = NULL;
+	bool recalc_offload = false;
 	int ret;
 
 	mutex_lock(&local->sta_mtx);
@@ -528,12 +529,16 @@ static int ieee80211_del_key(struct wiphy *wiphy, struct net_device *dev,
 		goto out_unlock;
 	}
 
+	recalc_offload = key->conf.cipher == WLAN_CIPHER_SUITE_TKIP;
 	ieee80211_key_free(key, sdata->vif.type == NL80211_IFTYPE_STATION);
 
 	ret = 0;
  out_unlock:
 	mutex_unlock(&local->key_mtx);
 	mutex_unlock(&local->sta_mtx);
+
+	if (recalc_offload)
+		ieee80211_recalc_offload(local);
 
 	return ret;
 }

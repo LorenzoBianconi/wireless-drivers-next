@@ -4273,11 +4273,6 @@ netdev_tx_t ieee80211_subif_start_xmit_8023(struct sk_buff *skb,
 	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
 	struct sta_info *sta;
 
-	if (WARN_ON(!sdata->hw_80211_encap)) {
-		kfree_skb(skb);
-		return NETDEV_TX_OK;
-	}
-
 	if (unlikely(skb->len < ETH_HLEN)) {
 		kfree_skb(skb);
 		return NETDEV_TX_OK;
