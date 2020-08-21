@@ -3843,6 +3843,8 @@ enum ieee80211_reconfig_type {
  *	This callback may sleep.
  * @update_vif_config: Update virtual interface offload flags
  *	This callback may sleep.
+ * @sta_set_4addr: Called to notify the driver when a station starts/stops using
+ *	4-address mode
  */
 struct ieee80211_ops {
 	void (*tx)(struct ieee80211_hw *hw,
@@ -4156,6 +4158,8 @@ struct ieee80211_ops {
 				struct ieee80211_sta *sta, u8 tids);
 	void (*update_vif_offload)(struct ieee80211_hw *hw,
 				   struct ieee80211_vif *vif);
+	void (*sta_set_4addr)(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
+			      struct ieee80211_sta *sta, bool enabled);
 };
 
 /**
