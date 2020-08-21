@@ -378,7 +378,8 @@ static bool ieee80211_set_sdata_offload_flags(struct ieee80211_sub_if_data *sdat
 			if (key->conf.cipher == WLAN_CIPHER_SUITE_AES_CMAC ||
 			    key->conf.cipher == WLAN_CIPHER_SUITE_BIP_GMAC_128 ||
 			    key->conf.cipher == WLAN_CIPHER_SUITE_BIP_GMAC_256 ||
-			    key->conf.cipher == WLAN_CIPHER_SUITE_BIP_CMAC_256)
+			    key->conf.cipher == WLAN_CIPHER_SUITE_BIP_CMAC_256 ||
+			    !(key->conf.flags & IEEE80211_KEY_FLAG_PAIRWISE))
 				continue;
 			if (key->conf.cipher == WLAN_CIPHER_SUITE_TKIP ||
 			    !(key->flags & KEY_FLAG_UPLOADED_TO_HARDWARE))
@@ -1379,7 +1380,8 @@ static void ieee80211_set_vif_encap_ops(struct ieee80211_sub_if_data *sdata)
 			if (key->conf.cipher == WLAN_CIPHER_SUITE_AES_CMAC ||
 			    key->conf.cipher == WLAN_CIPHER_SUITE_BIP_GMAC_128 ||
 			    key->conf.cipher == WLAN_CIPHER_SUITE_BIP_GMAC_256 ||
-			    key->conf.cipher == WLAN_CIPHER_SUITE_BIP_CMAC_256)
+			    key->conf.cipher == WLAN_CIPHER_SUITE_BIP_CMAC_256 ||
+			    !(key->conf.flags & IEEE80211_KEY_FLAG_PAIRWISE))
 				continue;
 			if (!(key->flags & KEY_FLAG_UPLOADED_TO_HARDWARE))
 				enabled = false;
