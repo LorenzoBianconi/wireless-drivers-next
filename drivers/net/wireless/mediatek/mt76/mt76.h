@@ -124,6 +124,8 @@ struct mt76_queue {
 	u16 first;
 	u16 head;
 	u16 tail;
+	u16 last;
+
 	int ndesc;
 	int queued;
 	int buf_size;
