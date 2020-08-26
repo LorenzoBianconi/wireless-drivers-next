@@ -19,20 +19,58 @@
 #include "sdio.h"
 #include "mac.h"
 
-static void mt7663s_refill_sched_quota(struct mt76_dev *dev, u32 *data)
+static void
+mt7663s_update_queue(struct mt76_dev *dev, enum mt76_txq_id qid,
+		     int quota)
 {
+	struct mt76_queue *q = dev->q_tx[qid];
 	struct mt76_sdio *sdio = &dev->sdio;
 
+	while (q->last != q->head) {
+		struct mt76_queue_entry *e = &q->entry[q->last];
+		int size;
+
+		size = DIV_ROUND_UP(e->buf_sz + sdio->sched.deficit,
+				    MT_PSE_PAGE_SZ);
+		if (quota < size) {
+			e->buf_sz -= MT_PSE_PAGE_SZ * quota;
+			break;
+		}
+
+		q->last = (q->last + 1) % q->ndesc;
+		e->done = true;
+		quota -= size;
+	}
+}
+
+static void mt7663s_refill_sched_quota(struct mt76_dev *dev, u32 *data)
+{
+	u32 ple_data_quota[] = {
+		FIELD_GET(TXQ_CNT_L, data[4]), /* VO */
+		FIELD_GET(TXQ_CNT_H, data[3]), /* VI */
+		FIELD_GET(TXQ_CNT_L, data[3]), /* BE */
+		FIELD_GET(TXQ_CNT_H, data[2]), /* BK */
+	};
+	u32 pse_data_quota[] = {
+		FIELD_GET(TXQ_CNT_H, data[1]), /* VO */
+		FIELD_GET(TXQ_CNT_L, data[1]), /* VI */
+		FIELD_GET(TXQ_CNT_H, data[0]), /* BE */
+		FIELD_GET(TXQ_CNT_L, data[0]), /* BK */
+	};
+	u32 pse_mcu_quota = FIELD_GET(TXQ_CNT_L, data[2]);
+	struct mt76_sdio *sdio = &dev->sdio;
+	int i;
+
+	mt7663s_update_queue(dev, MT_TXQ_MCU, pse_mcu_quota);
+	for (i = 0; i < MT_TXQ_PSD; i++)
+		mt7663s_update_queue(dev, i, pse_data_quota[i]);
+
 	mutex_lock(&sdio->sched.lock);
-	sdio->sched.pse_data_quota += FIELD_GET(TXQ_CNT_L, data[0]) + /* BK */
-				      FIELD_GET(TXQ_CNT_H, data[0]) + /* BE */
-				      FIELD_GET(TXQ_CNT_L, data[1]) + /* VI */
-				      FIELD_GET(TXQ_CNT_H, data[1]);  /* VO */
-	sdio->sched.ple_data_quota += FIELD_GET(TXQ_CNT_H, data[2]) + /* BK */
-				      FIELD_GET(TXQ_CNT_L, data[3]) + /* BE */
-				      FIELD_GET(TXQ_CNT_H, data[3]) + /* VI */
-				      FIELD_GET(TXQ_CNT_L, data[4]);  /* VO */
-	sdio->sched.pse_mcu_quota += FIELD_GET(TXQ_CNT_L, data[2]);
+	sdio->sched.pse_mcu_quota += pse_mcu_quota;
+	for (i = 0; i < ARRAY_SIZE(pse_data_quota); i++) {
+		sdio->sched.pse_data_quota += pse_data_quota[i];
+		sdio->sched.ple_data_quota += ple_data_quota[i];
+	}
 	mutex_unlock(&sdio->sched.lock);
 }
 
@@ -135,7 +173,7 @@ static int mt7663s_tx_update_sched(struct mt76_dev *dev,
 			return 0;
 
 		mutex_lock(&sdio->sched.lock);
-		if (sdio->sched.pse_mcu_quota > size) {
+		if (sdio->sched.pse_mcu_quota >= size) {
 			sdio->sched.pse_mcu_quota -= size;
 			ret = 0;
 		}
@@ -149,7 +187,7 @@ static int mt7663s_tx_update_sched(struct mt76_dev *dev,
 		return 0;
 
 	mutex_lock(&sdio->sched.lock);
-	if (sdio->sched.pse_data_quota > size &&
+	if (sdio->sched.pse_data_quota >= size &&
 	    sdio->sched.ple_data_quota > 0) {
 		sdio->sched.pse_data_quota -= size;
 		sdio->sched.ple_data_quota--;
@@ -186,7 +224,10 @@ static int mt7663s_tx_run_queue(struct mt76_dev *dev, struct mt76_queue *q)
 			return -EIO;
 		}
 
-		e->done = true;
+		if (!test_bit(MT76_STATE_MCU_RUNNING, &dev->phy.state)) {
+			q->last = (q->last + 1) % q->ndesc;
+			e->done = true;
+		}
 		q->first = (q->first + 1) % q->ndesc;
 		nframes++;
 	}
