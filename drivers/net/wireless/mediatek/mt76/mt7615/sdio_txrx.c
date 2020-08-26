@@ -19,6 +19,30 @@
 #include "sdio.h"
 #include "mac.h"
 
+static void
+mt7663s_update_queue(struct mt76_dev *dev, enum mt76_txq_id qid,
+		     int quota)
+{
+	struct mt76_queue *q = dev->q_tx[qid];
+	struct mt76_sdio *sdio = &dev->sdio;
+
+	while (q->last != q->first) {
+		struct mt76_queue_entry *e = &q->entry[q->last];
+		int size;
+
+		size = DIV_ROUND_UP(e->buf_sz + sdio->sched.deficit,
+				    MT_PSE_PAGE_SZ);
+		if (quota < size) {
+			e->buf_sz -= MT_PSE_PAGE_SZ * quota;
+			break;
+		}
+
+		q->last = (q->last + 1) % q->ndesc;
+		e->done = true;
+		quota -= size;
+	}
+}
+
 static int mt7663s_refill_sched_quota(struct mt76_dev *dev, u32 *data)
 {
 	u32 ple_ac_data_quota[] = {
@@ -45,6 +69,10 @@ static int mt7663s_refill_sched_quota(struct mt76_dev *dev, u32 *data)
 
 	if (!pse_data_quota && !ple_data_quota && !pse_mcu_quota)
 		return 0;
+
+	mt7663s_update_queue(dev, MT_TXQ_MCU, pse_mcu_quota);
+	for (i = 0; i < MT_TXQ_PSD; i++)
+		mt7663s_update_queue(dev, i, pse_ac_data_quota[i]);
 
 	mutex_lock(&sdio->sched.lock);
 	sdio->sched.pse_mcu_quota += pse_mcu_quota;
@@ -207,6 +235,7 @@ static int mt7663s_tx_run_queue(struct mt76_dev *dev, enum mt76_txq_id qid)
 			if (err)
 				return err;
 
+			q->last = (q->last + 1) % q->ndesc;
 			goto next;
 		}
 
@@ -244,7 +273,12 @@ void mt7663s_tx_work(struct work_struct *work)
 	int i, nframes = 0;
 
 	for (i = 0; i < MT_TXQ_MCU_WA; i++) {
+		struct mt76_queue *q = dev->q_tx[i];
 		int ret;
+
+		/* hw busy */
+		if (q->first != q->last)
+			continue;
 
 		ret = mt7663s_tx_run_queue(dev, i);
 		if (ret < 0)
