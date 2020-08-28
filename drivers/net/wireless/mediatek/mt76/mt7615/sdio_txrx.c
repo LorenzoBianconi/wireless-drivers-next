@@ -32,8 +32,10 @@ mt7663s_update_queue(struct mt76_dev *dev, enum mt76_txq_id qid,
 
 		size = DIV_ROUND_UP(e->buf_sz + sdio->sched.deficit,
 				    MT_PSE_PAGE_SZ);
-		if (quota < size)
+		if (quota < size) {
+			e->buf_sz -= MT_PSE_PAGE_SZ * quota;
 			break;
+		}
 
 		q->last = (q->last + 1) % q->ndesc;
 		e->done = true;
