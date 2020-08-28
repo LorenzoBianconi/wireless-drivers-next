@@ -23,10 +23,10 @@ static void
 mt7663s_update_queue(struct mt76_dev *dev, enum mt76_txq_id qid,
 		     int quota)
 {
-	struct mt76_queue *q = dev->q_tx[qid];
+	struct mt76_queue *q = dev->q_tx[qid].q;
 	struct mt76_sdio *sdio = &dev->sdio;
 
-	while (q->last != q->head) {
+	while (q->last != q->tail) {
 		struct mt76_queue_entry *e = &q->entry[q->last];
 		int size;
 
