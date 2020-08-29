@@ -30,6 +30,9 @@ mt7663s_update_queue(struct mt76_dev *dev, enum mt76_txq_id qid,
 		struct mt76_queue_entry *e = &q->entry[q->last];
 		int size;
 
+		if (e->skb == NULL)
+			goto out;
+
 		size = DIV_ROUND_UP(e->buf_sz + sdio->sched.deficit,
 				    MT_PSE_PAGE_SZ);
 		if (quota < size) {
@@ -37,9 +40,10 @@ mt7663s_update_queue(struct mt76_dev *dev, enum mt76_txq_id qid,
 			break;
 		}
 
+		quota -= size;
+out:
 		q->last = (q->last + 1) % q->ndesc;
 		e->done = true;
-		quota -= size;
 	}
 }
 
@@ -223,6 +227,10 @@ mt7663s_tx_run_data_queue(struct mt76_dev *dev, struct mt76_queue *q)
 	while (q->first != q->tail) {
 		struct mt76_queue_entry *e = &q->entry[q->first];
 		int ret = -EBUSY, size;
+		struct sk_buff *iter;
+
+		if (e->skb == NULL)
+			goto out;
 
 		if (len + e->skb->len + 4 > MT76S_XMIT_BUF_SZ)
 			break;
@@ -242,11 +250,18 @@ mt7663s_tx_run_data_queue(struct mt76_dev *dev, struct mt76_queue *q)
 		if (ret)
 			break;
 
-		memcpy(sdio->xmit_buf + len, e->skb->data, e->skb->len);
-		len += e->skb->len;
-
-		q->first = (q->first + 1) % q->ndesc;
+		memcpy(sdio->xmit_buf + len, e->skb->data,
+		       skb_headlen(e->skb));
+		len += skb_headlen(e->skb);
 		nframes++;
+
+		skb_walk_frags(e->skb, iter) {
+			memcpy(sdio->xmit_buf + len, iter->data, iter->len);
+			len += iter->len;
+			nframes++;
+		}
+out:
+		q->first = (q->first + 1) % q->ndesc;
 	}
 
 	memset(sdio->xmit_buf + len, 0, 4);
