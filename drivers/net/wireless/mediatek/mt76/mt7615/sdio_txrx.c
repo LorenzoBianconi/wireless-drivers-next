@@ -222,6 +222,8 @@ static int mt7663s_tx_run_queue(struct mt76_dev *dev, struct mt76_queue *q)
 		if (mt7663s_tx_update_sched(dev, e, mcu))
 			break;
 
+		__skb_put_zero(e->skb, 4);
+
 		err = __mt7663s_xmit_queue(dev, e->skb->data, e->skb->len);
 		if (err)
 			return err;
