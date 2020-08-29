@@ -149,6 +149,9 @@ static void mt76s_process_tx_queue(struct mt76_dev *dev, enum mt76_txq_id qid)
 			entry.skb = NULL;
 		}
 
+		q->entry[q->tail].done = false;
+		q->entry[q->tail].skb = NULL;
+
 		mt76_queue_tx_complete(dev, q, &entry);
 	}
 
@@ -199,13 +202,17 @@ mt76s_tx_queue_skb(struct mt76_dev *dev, enum mt76_txq_id qid,
 		   struct ieee80211_sta *sta)
 {
 	struct mt76_queue *q = dev->q_tx[qid];
+	int err, len = skb->len, nframes = 1;
 	struct mt76_tx_info tx_info = {
 		.skb = skb,
 	};
-	int err, len = skb->len;
+	struct sk_buff *iter;
 	u16 idx = q->head;
 
-	if (q->queued == q->ndesc)
+	skb_walk_frags(skb, iter)
+		nframes++;
+
+	if (q->queued + nframes >= q->ndesc)
 		return -ENOSPC;
 
 	skb->prev = skb->next = NULL;
@@ -215,8 +222,8 @@ mt76s_tx_queue_skb(struct mt76_dev *dev, enum mt76_txq_id qid,
 
 	q->entry[q->head].skb = tx_info.skb;
 	q->entry[q->head].buf_sz = len;
-	q->head = (q->head + 1) % q->ndesc;
-	q->queued++;
+	q->head = (q->head + nframes) % q->ndesc;
+	q->queued += nframes;
 
 	return idx;
 }
