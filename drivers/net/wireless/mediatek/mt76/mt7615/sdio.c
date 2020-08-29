@@ -387,6 +387,13 @@ static int mt7663s_probe(struct sdio_func *func,
 		goto err_deinit;
 	}
 
+	mdev->sdio.xmit_buf = devm_kmalloc(mdev->dev, MT76S_XMIT_BUF_SZ,
+					   GFP_KERNEL);
+	if (!mdev->sdio.xmit_buf) {
+		ret = -ENOMEM;
+		goto err_deinit;
+	}
+
 	ret = mt76s_alloc_queues(&dev->mt76);
 	if (ret)
 		goto err_deinit;

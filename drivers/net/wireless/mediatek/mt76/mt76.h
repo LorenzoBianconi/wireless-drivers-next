@@ -451,6 +451,7 @@ struct mt76_usb {
 	} mcu;
 };
 
+#define MT76S_XMIT_BUF_SZ	(16 * PAGE_SIZE)
 struct mt76_sdio {
 	struct workqueue_struct *txrx_wq;
 	struct {
@@ -463,6 +464,8 @@ struct mt76_sdio {
 	} rx;
 
 	struct work_struct stat_work;
+
+	u8 *xmit_buf;
 
 	struct sdio_func *func;
 	void *intr_data;

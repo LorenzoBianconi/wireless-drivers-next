@@ -157,41 +157,6 @@ static int mt7663s_rx_run_queue(struct mt76_dev *dev, enum mt76_rxq_id qid,
 	return i;
 }
 
-static int mt7663s_tx_update_sched(struct mt76_dev *dev,
-				   struct mt76_queue_entry *e,
-				   bool mcu)
-{
-	struct mt76_sdio *sdio = &dev->sdio;
-	int size, ret = -EBUSY;
-
-	if (!test_bit(MT76_STATE_MCU_RUNNING, &dev->phy.state))
-		return 0;
-
-	size = DIV_ROUND_UP(e->buf_sz + sdio->sched.deficit, MT_PSE_PAGE_SZ);
-
-	if (mcu) {
-		mutex_lock(&sdio->sched.lock);
-		if (sdio->sched.pse_mcu_quota >= size) {
-			sdio->sched.pse_mcu_quota -= size;
-			ret = 0;
-		}
-		mutex_unlock(&sdio->sched.lock);
-
-		return ret;
-	}
-
-	mutex_lock(&sdio->sched.lock);
-	if (sdio->sched.pse_data_quota >= size &&
-	    sdio->sched.ple_data_quota > 0) {
-		sdio->sched.pse_data_quota -= size;
-		sdio->sched.ple_data_quota--;
-		ret = 0;
-	}
-	mutex_unlock(&sdio->sched.lock);
-
-	return ret;
-}
-
 static int __mt7663s_xmit_queue(struct mt76_dev *dev, u8 *data, int len)
 {
 	struct mt76_sdio *sdio = &dev->sdio;
@@ -210,31 +175,84 @@ static int __mt7663s_xmit_queue(struct mt76_dev *dev, u8 *data, int len)
 	return err;
 }
 
-static int mt7663s_tx_run_queue(struct mt76_dev *dev, struct mt76_queue *q)
+static int mt7663s_tx_run_mcu_queue(struct mt76_dev *dev, struct mt76_queue *q)
 {
-	bool mcu = q == dev->q_tx[MT_TXQ_MCU].q;
+	struct mt76_sdio *sdio = &dev->sdio;
 	int nframes = 0;
 
 	while (q->first != q->tail) {
 		struct mt76_queue_entry *e = &q->entry[q->first];
-		int err;
 
-		if (mt7663s_tx_update_sched(dev, e, mcu))
-			break;
+		if (test_bit(MT76_STATE_MCU_RUNNING, &dev->phy.state)) {
+			int size, err = -EBUSY;
 
-		__skb_put_zero(e->skb, 4);
+			size = DIV_ROUND_UP(e->buf_sz + sdio->sched.deficit,
+					    MT_PSE_PAGE_SZ);
 
-		err = __mt7663s_xmit_queue(dev, e->skb->data, e->skb->len);
-		if (err)
-			return err;
+			mutex_lock(&sdio->sched.lock);
+			if (sdio->sched.pse_mcu_quota >= size) {
+				sdio->sched.pse_mcu_quota -= size;
+				err = 0;
+			}
+			mutex_unlock(&sdio->sched.lock);
 
-		if (!test_bit(MT76_STATE_MCU_RUNNING, &dev->phy.state)) {
+			if (err)
+				return nframes;
+		} else {
 			q->last = (q->last + 1) % q->ndesc;
 			e->done = true;
 		}
+
+		__skb_put_zero(e->skb, 4);
+		if (__mt7663s_xmit_queue(dev, e->skb->data, e->skb->len))
+			break;
+
 		q->first = (q->first + 1) % q->ndesc;
 		nframes++;
 	}
+
+	return nframes;
+}
+
+static int
+mt7663s_tx_run_data_queue(struct mt76_dev *dev, struct mt76_queue *q)
+{
+	struct mt76_sdio *sdio = &dev->sdio;
+	int err, nframes = 0, len = 0;
+
+	while (q->first != q->tail) {
+		struct mt76_queue_entry *e = &q->entry[q->first];
+		int ret = -EBUSY, size;
+
+		if (len + e->skb->len + 4 > MT76S_XMIT_BUF_SZ)
+			break;
+
+		size = DIV_ROUND_UP(e->buf_sz + sdio->sched.deficit,
+				    MT_PSE_PAGE_SZ);
+
+		mutex_lock(&sdio->sched.lock);
+		if (sdio->sched.pse_data_quota >= size &&
+		    sdio->sched.ple_data_quota > 0) {
+			sdio->sched.pse_data_quota -= size;
+			sdio->sched.ple_data_quota--;
+			ret = 0;
+		}
+		mutex_unlock(&sdio->sched.lock);
+
+		if (ret)
+			break;
+
+		memcpy(sdio->xmit_buf + len, e->skb->data, e->skb->len);
+		len += e->skb->len;
+
+		q->first = (q->first + 1) % q->ndesc;
+		nframes++;
+	}
+
+	memset(sdio->xmit_buf + len, 0, 4);
+	err = __mt7663s_xmit_queue(dev, sdio->xmit_buf, len + 4);
+	if (err)
+		return err;
 
 	return nframes;
 }
@@ -244,12 +262,13 @@ void mt7663s_tx_work(struct work_struct *work)
 	struct mt76_sdio *sdio = container_of(work, struct mt76_sdio,
 					      tx.xmit_work);
 	struct mt76_dev *dev = container_of(sdio, struct mt76_dev, sdio);
-	int i, nframes = 0;
+	int i, nframes;
 
-	for (i = 0; i < MT_TXQ_MCU_WA; i++) {
+	nframes = mt7663s_tx_run_mcu_queue(dev, dev->q_tx[MT_TXQ_MCU].q);
+	for (i = 0; i < MT_TXQ_MCU; i++) {
 		int ret;
 
-		ret = mt7663s_tx_run_queue(dev, dev->q_tx[i].q);
+		ret = mt7663s_tx_run_data_queue(dev, dev->q_tx[i].q);
 		if (ret < 0)
 			break;
 
