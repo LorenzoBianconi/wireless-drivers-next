@@ -264,10 +264,12 @@ out:
 		q->first = (q->first + 1) % q->ndesc;
 	}
 
-	memset(sdio->xmit_buf + len, 0, 4);
-	err = __mt7663s_xmit_queue(dev, sdio->xmit_buf, len + 4);
-	if (err)
-		return err;
+	if (nframes) {
+		memset(sdio->xmit_buf + len, 0, 4);
+		err = __mt7663s_xmit_queue(dev, sdio->xmit_buf, len + 4);
+		if (err)
+			return err;
+	}
 
 	return nframes;
 }
