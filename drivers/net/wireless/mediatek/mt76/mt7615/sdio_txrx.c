@@ -154,31 +154,39 @@ static int mt7663s_tx_update_sched(struct mt76_dev *dev,
 	return ret;
 }
 
+static int __mt7663s_xmit_queue(struct mt76_dev *dev, u8 *data, int len)
+{
+	struct mt76_sdio *sdio = &dev->sdio;
+	int err;
+
+	if (len > sdio->func->cur_blksize)
+		len = roundup(len, sdio->func->cur_blksize);
+
+	sdio_claim_host(sdio->func);
+	err = sdio_writesb(sdio->func, MCR_WTDR1, data, len);
+	sdio_release_host(sdio->func);
+
+	if (err)
+		dev_err(dev->dev, "sdio write failed: %d\n", err);
+
+	return err;
+}
+
 static int mt7663s_tx_run_queue(struct mt76_dev *dev, struct mt76_queue *q)
 {
 	bool mcu = q == dev->q_tx[MT_TXQ_MCU].q;
-	struct mt76_sdio *sdio = &dev->sdio;
 	int nframes = 0;
 
 	while (q->first != q->tail) {
 		struct mt76_queue_entry *e = &q->entry[q->first];
-		int err, len = e->skb->len;
+		int err;
 
 		if (mt7663s_tx_update_sched(dev, e, mcu))
 			break;
 
-		if (len > sdio->func->cur_blksize)
-			len = roundup(len, sdio->func->cur_blksize);
-
-		/* TODO: skb_walk_frags and then write to SDIO port */
-		sdio_claim_host(sdio->func);
-		err = sdio_writesb(sdio->func, MCR_WTDR1, e->skb->data, len);
-		sdio_release_host(sdio->func);
-
-		if (err) {
-			dev_err(dev->dev, "sdio write failed: %d\n", err);
-			return -EIO;
-		}
+		err = __mt7663s_xmit_queue(dev, e->skb->data, e->skb->len);
+		if (err)
+			return err;
 
 		e->done = true;
 		q->first = (q->first + 1) % q->ndesc;
