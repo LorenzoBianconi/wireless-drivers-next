@@ -286,7 +286,12 @@ void mt7663s_tx_work(struct work_struct *work)
 	int i, nframes = 0;
 
 	for (i = 0; i < MT_TXQ_MCU_WA; i++) {
+		struct mt76_queue *q = dev->q_tx[i].q;
 		int ret;
+
+		/* hw busy */
+		if (q->first != q->last)
+			continue;
 
 		ret = mt7663s_tx_run_queue(dev, i);
 		if (ret < 0)
