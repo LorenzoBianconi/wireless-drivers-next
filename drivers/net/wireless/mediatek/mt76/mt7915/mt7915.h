@@ -195,6 +195,7 @@ struct mt7915_dev {
 	struct list_head sta_poll_list;
 	spinlock_t sta_poll_lock;
 
+	u32 color_collision;
 	u32 hw_pattern;
 
 	bool dbdc_support;
