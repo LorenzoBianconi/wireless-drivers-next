@@ -25,8 +25,13 @@ void mt7915_queue_rx_skb(struct mt76_dev *mdev, enum mt76_rxq_id q,
 	struct mt7915_dev *dev = container_of(mdev, struct mt7915_dev, mt76);
 	__le32 *rxd = (__le32 *)skb->data;
 	enum rx_pkt_type type;
+	u16 flag;
 
 	type = FIELD_GET(MT_RXD0_PKT_TYPE, le32_to_cpu(rxd[0]));
+	flag = FIELD_GET(MT_RXD0_PKT_FLAG, le32_to_cpu(rxd[0]));
+
+	if (type == PKT_TYPE_RX_EVENT && flag == 0x1)
+		type = PKT_TYPE_NORMAL_MCU;
 
 	switch (type) {
 	case PKT_TYPE_TXRX_NOTIFY:
@@ -40,6 +45,7 @@ void mt7915_queue_rx_skb(struct mt76_dev *mdev, enum mt76_rxq_id q,
 		mt7915_mac_fill_rx_vector(dev, skb);
 		break;
 #endif
+	case PKT_TYPE_NORMAL_MCU:
 	case PKT_TYPE_NORMAL:
 		if (!mt7915_mac_fill_rx(dev, skb)) {
 			mt76_rx(&dev->mt76, q, skb);
@@ -68,7 +74,7 @@ static int mt7915_poll_tx(struct napi_struct *napi, int budget)
 	mt7915_tx_cleanup(dev);
 
 	if (napi_complete_done(napi, 0))
-		mt7915_irq_enable(dev, MT_INT_TX_DONE_MCU);
+		mt7915_irq_enable(dev, MT_INT_TX_DONE_ALL);
 
 	return 0;
 }
@@ -78,29 +84,20 @@ void mt7915_dma_prefetch(struct mt7915_dev *dev)
 #define PREFETCH(base, depth)	((base) << 16 | (depth))
 
 	mt76_wr(dev, MT_WFDMA0_RX_RING0_EXT_CTRL, PREFETCH(0x0, 0x4));
-	mt76_wr(dev, MT_WFDMA0_RX_RING1_EXT_CTRL, PREFETCH(0x40, 0x4));
-	mt76_wr(dev, MT_WFDMA0_RX_RING2_EXT_CTRL, PREFETCH(0x80, 0x0));
+	mt76_wr(dev, MT_WFDMA0_RX_RING2_EXT_CTRL, PREFETCH(0x40, 0x4));
+	mt76_wr(dev, MT_WFDMA0_RX_RING3_EXT_CTRL, PREFETCH(0x80, 0x4));
+	mt76_wr(dev, MT_WFDMA0_RX_RING4_EXT_CTRL, PREFETCH(0xc0, 0x4));
+	mt76_wr(dev, MT_WFDMA0_RX_RING5_EXT_CTRL, PREFETCH(0x100, 0x4));
 
-	mt76_wr(dev, MT_WFDMA1_TX_RING0_EXT_CTRL, PREFETCH(0x80, 0x4));
-	mt76_wr(dev, MT_WFDMA1_TX_RING1_EXT_CTRL, PREFETCH(0xc0, 0x4));
-	mt76_wr(dev, MT_WFDMA1_TX_RING2_EXT_CTRL, PREFETCH(0x100, 0x4));
-	mt76_wr(dev, MT_WFDMA1_TX_RING3_EXT_CTRL, PREFETCH(0x140, 0x4));
-	mt76_wr(dev, MT_WFDMA1_TX_RING4_EXT_CTRL, PREFETCH(0x180, 0x4));
-	mt76_wr(dev, MT_WFDMA1_TX_RING5_EXT_CTRL, PREFETCH(0x1c0, 0x4));
-	mt76_wr(dev, MT_WFDMA1_TX_RING6_EXT_CTRL, PREFETCH(0x200, 0x4));
-	mt76_wr(dev, MT_WFDMA1_TX_RING7_EXT_CTRL, PREFETCH(0x240, 0x4));
-
-	mt76_wr(dev, MT_WFDMA1_TX_RING16_EXT_CTRL, PREFETCH(0x280, 0x4));
-	mt76_wr(dev, MT_WFDMA1_TX_RING17_EXT_CTRL, PREFETCH(0x2c0, 0x4));
-	mt76_wr(dev, MT_WFDMA1_TX_RING18_EXT_CTRL, PREFETCH(0x300, 0x4));
-	mt76_wr(dev, MT_WFDMA1_TX_RING19_EXT_CTRL, PREFETCH(0x340, 0x4));
-	mt76_wr(dev, MT_WFDMA1_TX_RING20_EXT_CTRL, PREFETCH(0x380, 0x4));
-	mt76_wr(dev, MT_WFDMA1_TX_RING21_EXT_CTRL, PREFETCH(0x3c0, 0x0));
-
-	mt76_wr(dev, MT_WFDMA1_RX_RING0_EXT_CTRL, PREFETCH(0x3c0, 0x4));
-	mt76_wr(dev, MT_WFDMA1_RX_RING1_EXT_CTRL, PREFETCH(0x400, 0x4));
-	mt76_wr(dev, MT_WFDMA1_RX_RING2_EXT_CTRL, PREFETCH(0x440, 0x4));
-	mt76_wr(dev, MT_WFDMA1_RX_RING3_EXT_CTRL, PREFETCH(0x480, 0x0));
+	mt76_wr(dev, MT_WFDMA0_TX_RING0_EXT_CTRL, PREFETCH(0x140, 0x4));
+	mt76_wr(dev, MT_WFDMA0_TX_RING1_EXT_CTRL, PREFETCH(0x180, 0x4));
+	mt76_wr(dev, MT_WFDMA0_TX_RING2_EXT_CTRL, PREFETCH(0x1c0, 0x4));
+	mt76_wr(dev, MT_WFDMA0_TX_RING3_EXT_CTRL, PREFETCH(0x200, 0x4));
+	mt76_wr(dev, MT_WFDMA0_TX_RING4_EXT_CTRL, PREFETCH(0x240, 0x4));
+	mt76_wr(dev, MT_WFDMA0_TX_RING5_EXT_CTRL, PREFETCH(0x280, 0x4));
+	mt76_wr(dev, MT_WFDMA0_TX_RING6_EXT_CTRL, PREFETCH(0x2c0, 0x4));
+	mt76_wr(dev, MT_WFDMA0_TX_RING16_EXT_CTRL, PREFETCH(0x340, 0x4));
+	mt76_wr(dev, MT_WFDMA0_TX_RING17_EXT_CTRL, PREFETCH(0x380, 0x4));
 }
 
 static u32 __mt7915_reg_addr(struct mt7915_dev *dev, u32 addr)
@@ -110,12 +107,16 @@ static u32 __mt7915_reg_addr(struct mt7915_dev *dev, u32 addr)
 		u32 mapped;
 		u32 size;
 	} fixed_map[] = {
+		{ 0x00400000, 0x80000, 0x10000}, /* WF_MCU_SYSRAM */
+		{ 0x00410000, 0x90000, 0x10000}, /* WF_MCU_SYSRAM (configure register) */
+		{ 0x40000000, 0x70000, 0x10000}, /* WF_UMAC_SYSRAM */
 		{ 0x54000000, 0x02000, 0x1000 }, /* WFDMA PCIE0 MCU DMA0 */
 		{ 0x55000000, 0x03000, 0x1000 }, /* WFDMA PCIE0 MCU DMA1 */
 		{ 0x58000000, 0x06000, 0x1000 }, /* WFDMA PCIE1 MCU DMA0 (MEM_DMA) */
 		{ 0x59000000, 0x07000, 0x1000 }, /* WFDMA PCIE1 MCU DMA1 */
 		{ 0x7c000000, 0xf0000, 0x10000 }, /* CONN_INFRA */
 		{ 0x7c020000, 0xd0000, 0x10000 }, /* CONN_INFRA, WFDMA */
+		{ 0x7c060000, 0xe0000, 0x10000}, /* CONN_INFRA, conn_host_csr_top */
 		{ 0x80020000, 0xb0000, 0x10000 }, /* WF_TOP_MISC_OFF */
 		{ 0x81020000, 0xc0000, 0x10000 }, /* WF_TOP_MISC_ON */
 		{ 0x820c0000, 0x08000, 0x4000 }, /* WF_UMAC_TOP (PLE) */
@@ -199,6 +200,43 @@ static u32 mt7915_rmw(struct mt76_dev *mdev, u32 offset, u32 mask, u32 val)
 	return dev->bus_ops->rmw(mdev, addr, mask, val);
 }
 
+static int mt7921_dmashdl_disabled(struct mt7915_dev *dev)
+{
+	mt76_clear(dev, MT_WFDMA0_GLO_CFG_EXT0, MT_WFDMA0_CSR_TX_DMASHDL_ENABLE);
+	mt76_set(dev, MT_DMASHDL_SW_CONTROL, MT_DMASHDL_DMASHDL_BYPASS);
+
+	return 0;
+}
+
+static int mt7921_dmashdl_init(struct mt7915_dev *dev)
+{
+	int i;
+
+	mt76_rmw(dev, MT_DMA_SHDL(MT_DMASHDL_PKT_MAX_SIZE),
+		 MT_DMASHDL_PKT_MAX_SIZE_PLE | MT_DMASHDL_PKT_MAX_SIZE_PSE,
+		 FIELD_PREP(MT_DMASHDL_PKT_MAX_SIZE_PLE, 1) |
+		 FIELD_PREP(MT_DMASHDL_PKT_MAX_SIZE_PSE, 0));
+
+	mt76_clear(dev, MT_DMA_SHDL(MT_DMASHDL_REFILL), 0xffff0000);
+
+	for (i = 0; i < 16; i++)
+		mt76_wr(dev, MT_DMA_SHDL(MT_DMASHDL_GROUP_QUOTA(i)),
+			FIELD_PREP(MT_DMASHDL_GROUP_QUOTA_MIN, 0x0) |
+			FIELD_PREP(MT_DMASHDL_GROUP_QUOTA_MAX, 0xfff));
+
+	mt76_wr(dev, MT_DMA_SHDL(MT_DMASHDL_Q_MAP(0)), 0x11110000);
+	mt76_wr(dev, MT_DMA_SHDL(MT_DMASHDL_Q_MAP(1)), 0x00000000);
+	mt76_wr(dev, MT_DMA_SHDL(MT_DMASHDL_Q_MAP(2)), 0x11111000);
+	mt76_wr(dev, MT_DMA_SHDL(MT_DMASHDL_Q_MAP(3)), 0x11111000);
+
+	mt76_wr(dev, MT_DMA_SHDL(MT_DMASHDL_SCHED_SET(0)), 0x76543210);
+	mt76_wr(dev, MT_DMA_SHDL(MT_DMASHDL_SCHED_SET(1)), 0xfedcba98);
+
+	mt76_set(dev, MT_DMA_SHDL(MT_DMASHDL_PAGE), BIT(16));
+
+	return 0;
+}
+
 int mt7915_dma_init(struct mt7915_dev *dev)
 {
 	/* Increase buffer size to receive large VHT/HE MPDUs */
@@ -219,36 +257,42 @@ int mt7915_dma_init(struct mt7915_dev *dev)
 
 	mt76_dma_attach(&dev->mt76);
 
-	/* configure global setting */
-	mt76_set(dev, MT_WFDMA1_GLO_CFG,
-		 MT_WFDMA1_GLO_CFG_OMIT_TX_INFO |
-		 MT_WFDMA1_GLO_CFG_OMIT_RX_INFO);
+	/* reset */
+	mt76_clear(dev, MT_WFDMA0_RST,
+		   MT_WFDMA0_RST_DMASHDL_ALL_RST |
+		   MT_WFDMA0_RST_LOGIC_RST);
 
-	/* configure perfetch settings */
-	mt7915_dma_prefetch(dev);
+	mt76_set(dev, MT_WFDMA0_RST,
+		 MT_WFDMA0_RST_DMASHDL_ALL_RST |
+		 MT_WFDMA0_RST_LOGIC_RST);
 
-	/* reset dma idx */
-	mt76_wr(dev, MT_WFDMA0_RST_DTX_PTR, ~0);
-	mt76_wr(dev, MT_WFDMA1_RST_DTX_PTR, ~0);
+	ret = mt7921_dmashdl_disabled(dev);
+	if (ret)
+		return ret;
 
-	/* configure delay interrupt */
-	mt76_wr(dev, MT_WFDMA0_PRI_DLY_INT_CFG0, 0);
-	mt76_wr(dev, MT_WFDMA1_PRI_DLY_INT_CFG0, 0);
+	/* disable WFDMA0 */
+	mt76_clear(dev, MT_WFDMA0_GLO_CFG,
+		   MT_WFDMA0_GLO_CFG_TX_DMA_EN |
+		   MT_WFDMA0_GLO_CFG_RX_DMA_EN |
+		   MT_WFDMA0_GLO_CFG_CSR_DISP_BASE_PTR_CHAIN_EN |
+		   MT_WFDMA0_GLO_CFG_OMIT_TX_INFO |
+		   MT_WFDMA0_GLO_CFG_OMIT_RX_INFO |
+		   MT_WFDMA0_GLO_CFG_OMIT_RX_INFO_PFET2);
+
+	mt76_poll(dev, MT_WFDMA0_GLO_CFG,
+		  MT_WFDMA0_GLO_CFG_TX_DMA_BUSY |
+		  MT_WFDMA0_GLO_CFG_RX_DMA_BUSY, 0, 1000);
 
 	/* init tx queue */
-	ret = mt7915_init_tx_queues(&dev->phy, MT7915_TXQ_BAND0,
+	ret = mt7915_init_tx_queues(&dev->phy, MT7921_TXQ_BAND0,
 				    MT7915_TX_RING_SIZE);
 	if (ret)
 		return ret;
 
+	mt76_wr(dev, MT_WFDMA0_TX_RING0_EXT_CTRL, 0x4);
+
 	/* command to WM */
 	ret = mt76_init_mcu_queue(&dev->mt76, MT_MCUQ_WM, MT7915_TXQ_MCU_WM,
-				  MT7915_TX_MCU_RING_SIZE, MT_TX_RING_BASE);
-	if (ret)
-		return ret;
-
-	/* command to WA */
-	ret = mt76_init_mcu_queue(&dev->mt76, MT_MCUQ_WA, MT7915_TXQ_MCU_WA,
 				  MT7915_TX_MCU_RING_SIZE, MT_TX_RING_BASE);
 	if (ret)
 		return ret;
@@ -259,21 +303,23 @@ int mt7915_dma_init(struct mt7915_dev *dev)
 	if (ret)
 		return ret;
 
-	/* event from WM */
+	/* event from WM before firmware download */
 	ret = mt76_queue_alloc(dev, &dev->mt76.q_rx[MT_RXQ_MCU],
-			       MT7915_RXQ_MCU_WM, MT7915_RX_MCU_RING_SIZE,
+			       MT7915_RXQ_MCU_WM,
+			       MT7915_RX_MCU_RING_SIZE,
 			       rx_buf_size, MT_RX_EVENT_RING_BASE);
 	if (ret)
 		return ret;
 
-	/* event from WA */
-	ret = mt76_queue_alloc(dev, &dev->mt76.q_rx[MT_RXQ_MCU_WA],
-			       MT7915_RXQ_MCU_WA, MT7915_RX_MCU_RING_SIZE,
-			       rx_buf_size, MT_RX_EVENT_RING_BASE);
+	/* Change mcu queue after fimrware download */
+	ret = mt76_queue_alloc(dev, &dev->mt76.q_rx[MT_RXQ_MCU_540],
+			       MT7915_RXQ_MCU_WM,
+			       MT7915_RX_MCU_RING_SIZE,
+			       rx_buf_size, MT_WFDMA0(0x540));
 	if (ret)
 		return ret;
 
-	/* rx data queue */
+	/* rx data */
 	ret = mt76_queue_alloc(dev, &dev->mt76.q_rx[MT_RXQ_MAIN],
 			       MT7915_RXQ_BAND0, MT7915_RX_RING_SIZE,
 			       rx_buf_size, MT_RX_DATA_RING_BASE);
@@ -296,38 +342,30 @@ int mt7915_dma_init(struct mt7915_dev *dev)
 			  mt7915_poll_tx, NAPI_POLL_WEIGHT);
 	napi_enable(&dev->mt76.tx_napi);
 
-	/* hif wait WFDMA idle */
-	mt76_set(dev, MT_WFDMA0_BUSY_ENA,
-		 MT_WFDMA0_BUSY_ENA_TX_FIFO0 |
-		 MT_WFDMA0_BUSY_ENA_TX_FIFO1 |
-		 MT_WFDMA0_BUSY_ENA_RX_FIFO);
+	/* configure perfetch settings */
+	mt7915_dma_prefetch(dev);
 
-	mt76_set(dev, MT_WFDMA1_BUSY_ENA,
-		 MT_WFDMA1_BUSY_ENA_TX_FIFO0 |
-		 MT_WFDMA1_BUSY_ENA_TX_FIFO1 |
-		 MT_WFDMA1_BUSY_ENA_RX_FIFO);
+	/* reset dma idx */
+	mt76_wr(dev, MT_WFDMA0_RST_DTX_PTR, ~0);
 
-	mt76_set(dev, MT_WFDMA0_PCIE1_BUSY_ENA,
-		 MT_WFDMA0_PCIE1_BUSY_ENA_TX_FIFO0 |
-		 MT_WFDMA0_PCIE1_BUSY_ENA_TX_FIFO1 |
-		 MT_WFDMA0_PCIE1_BUSY_ENA_RX_FIFO);
+	/* configure delay interrupt */
+	mt76_wr(dev, MT_WFDMA0_PRI_DLY_INT_CFG0, 0);
 
-	mt76_set(dev, MT_WFDMA1_PCIE1_BUSY_ENA,
-		 MT_WFDMA1_PCIE1_BUSY_ENA_TX_FIFO0 |
-		 MT_WFDMA1_PCIE1_BUSY_ENA_TX_FIFO1 |
-		 MT_WFDMA1_PCIE1_BUSY_ENA_RX_FIFO);
+	mt76_set(dev, MT_WFDMA0_GLO_CFG,
+		 MT_WFDMA0_GLO_CFG_TX_WB_DDONE |
+		 MT_WFDMA0_GLO_CFG_FIFO_LITTLE_ENDIAN |
+		 MT_WFDMA0_GLO_CFG_CLK_GAT_DIS |
+		 MT_WFDMA0_GLO_CFG_OMIT_TX_INFO |
+		 MT_WFDMA0_GLO_CFG_CSR_DISP_BASE_PTR_CHAIN_EN |
+		 MT_WFDMA0_GLO_CFG_OMIT_RX_INFO_PFET2);
 
-	mt76_poll(dev, MT_WFDMA_EXT_CSR_HIF_MISC,
-		  MT_WFDMA_EXT_CSR_HIF_MISC_BUSY, 0, 1000);
-
-	/* set WFDMA Tx/Rx */
 	mt76_set(dev, MT_WFDMA0_GLO_CFG,
 		 MT_WFDMA0_GLO_CFG_TX_DMA_EN | MT_WFDMA0_GLO_CFG_RX_DMA_EN);
-	mt76_set(dev, MT_WFDMA1_GLO_CFG,
-		 MT_WFDMA1_GLO_CFG_TX_DMA_EN | MT_WFDMA1_GLO_CFG_RX_DMA_EN);
+
+	mt76_set(dev, 0x54000120, BIT(1));
 
 	/* enable interrupts for TX/RX rings */
-	mt7915_irq_enable(dev, MT_INT_RX_DONE_ALL | MT_INT_TX_DONE_MCU |
+	mt7915_irq_enable(dev, MT_INT_RX_DONE_ALL | MT_INT_TX_DONE_ALL |
 			  MT_INT_MCU_CMD);
 
 	return 0;
@@ -338,20 +376,13 @@ void mt7915_dma_cleanup(struct mt7915_dev *dev)
 	/* disable */
 	mt76_clear(dev, MT_WFDMA0_GLO_CFG,
 		   MT_WFDMA0_GLO_CFG_TX_DMA_EN |
-		   MT_WFDMA0_GLO_CFG_RX_DMA_EN);
-	mt76_clear(dev, MT_WFDMA1_GLO_CFG,
-		   MT_WFDMA1_GLO_CFG_TX_DMA_EN |
-		   MT_WFDMA1_GLO_CFG_RX_DMA_EN);
+		   MT_WFDMA0_GLO_CFG_RX_DMA_EN |
+		   MT_WFDMA0_GLO_CFG_CSR_DISP_BASE_PTR_CHAIN_EN |
+		   MT_WFDMA0_GLO_CFG_OMIT_TX_INFO |
+		   MT_WFDMA0_GLO_CFG_OMIT_RX_INFO |
+		   MT_WFDMA0_GLO_CFG_OMIT_RX_INFO_PFET2);
 
 	/* reset */
-	mt76_clear(dev, MT_WFDMA1_RST,
-		   MT_WFDMA1_RST_DMASHDL_ALL_RST |
-		   MT_WFDMA1_RST_LOGIC_RST);
-
-	mt76_set(dev, MT_WFDMA1_RST,
-		 MT_WFDMA1_RST_DMASHDL_ALL_RST |
-		 MT_WFDMA1_RST_LOGIC_RST);
-
 	mt76_clear(dev, MT_WFDMA0_RST,
 		   MT_WFDMA0_RST_DMASHDL_ALL_RST |
 		   MT_WFDMA0_RST_LOGIC_RST);

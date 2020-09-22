@@ -11,11 +11,12 @@
 
 #define MT7915_MAX_INTERFACES		32
 #define MT7915_MAX_WMM_SETS		4
-#define MT7915_WTBL_SIZE		288
+#define MT7915_WTBL_SIZE		20
 #define MT7915_WTBL_RESERVED		(MT7915_WTBL_SIZE - 1)
 #define MT7915_WTBL_STA			(MT7915_WTBL_RESERVED - \
 					 MT7915_MAX_INTERFACES)
 
+#define MT7915_HW_SCAN_TIMEOUT		(HZ / 10)
 #define MT7915_WATCHDOG_TIME		(HZ / 10)
 #define MT7915_RESET_TIMEOUT		(30 * HZ)
 
@@ -26,9 +27,8 @@
 #define MT7915_RX_RING_SIZE		1536
 #define MT7915_RX_MCU_RING_SIZE		512
 
-#define MT7915_FIRMWARE_WA		"mediatek/mt7915_wa.bin"
-#define MT7915_FIRMWARE_WM		"mediatek/mt7915_wm.bin"
-#define MT7915_ROM_PATCH		"mediatek/mt7915_rom_patch.bin"
+#define MT7915_FIRMWARE_WM		"mediatek/WIFI_RAM_CODE_MT7961_1.bin"
+#define MT7915_ROM_PATCH		"mediatek/WIFI_MT7961_patch_mcu_1_2_hdr.bin"
 
 #define MT7915_EEPROM_SIZE		3584
 #define MT7915_TOKEN_SIZE		8192
@@ -42,12 +42,16 @@
 #define MT7915_SKU_MAX_DELTA_IDX	MT7915_SKU_RATE_NUM
 #define MT7915_SKU_TABLE_SIZE		(MT7915_SKU_RATE_NUM + 1)
 
+#define MT7915_SCAN_IE_LEN		600
+
 struct mt7915_vif;
 struct mt7915_sta;
 struct mt7915_dfs_pulse;
 struct mt7915_dfs_pattern;
 
 enum mt7915_txq_id {
+	MT7921_TXQ_BAND0,
+	MT7921_TXQ_BAND1,
 	MT7915_TXQ_FWDL = 16,
 	MT7915_TXQ_MCU_WM,
 	MT7915_TXQ_BAND0,
@@ -91,6 +95,7 @@ struct mt7915_vif {
 	u8 omac_idx;
 	u8 band_idx;
 	u8 wmm_idx;
+	u8 scan_seq_num;
 
 	struct mt7915_sta sta;
 	struct mt7915_phy *phy;
@@ -135,6 +140,9 @@ struct mt7915_phy {
 	struct delayed_work mac_work;
 	u8 mac_work_count;
 	u8 sta_work_count;
+
+	struct sk_buff_head scan_event_list;
+	struct delayed_work scan_work;
 };
 
 struct mt7915_dev {
@@ -145,6 +153,7 @@ struct mt7915_dev {
 
 	const struct mt76_bus_ops *bus_ops;
 	struct mt7915_phy phy;
+	struct tasklet_struct irq_tasklet;
 
 	u16 chainmask;
 
@@ -351,17 +360,14 @@ void mt7915_mcu_exit(struct mt7915_dev *dev);
 
 static inline bool is_mt7915(struct mt76_dev *dev)
 {
-	return mt76_chip(dev) == 0x7915;
+	return mt76_chip(dev) == 0x7961;
 }
 
 static inline void mt7915_irq_enable(struct mt7915_dev *dev, u32 mask)
 {
-	mt76_set_irq_mask(&dev->mt76, MT_INT_MASK_CSR, 0, mask);
-}
+	mt76_set_irq_mask(&dev->mt76, 0, 0, mask);
 
-static inline void mt7915_irq_disable(struct mt7915_dev *dev, u32 mask)
-{
-	mt76_set_irq_mask(&dev->mt76, MT_INT_MASK_CSR, mask, 0);
+	tasklet_schedule(&dev->irq_tasklet);
 }
 
 static inline u32
@@ -407,6 +413,9 @@ mt7915_reg_map_l2(struct mt7915_dev *dev, u32 addr)
 	u32 offset = FIELD_GET(MT_HIF_REMAP_L2_OFFSET, addr);
 	u32 base = FIELD_GET(MT_HIF_REMAP_L2_BASE, addr);
 
+	/* Needed to check */
+	return 0;
+
 	mt76_rmw_field(dev, MT_HIF_REMAP_L2, MT_HIF_REMAP_L2_MASK, base);
 	/* use read to push write */
 	mt76_rr(dev, MT_HIF_REMAP_L2);
@@ -441,7 +450,6 @@ mt7915_l2_rmw(struct mt7915_dev *dev, u32 addr, u32 mask, u32 val)
 bool mt7915_mac_wtbl_update(struct mt7915_dev *dev, int idx, u32 mask);
 void mt7915_mac_reset_counters(struct mt7915_phy *phy);
 void mt7915_mac_cca_stats_reset(struct mt7915_phy *phy);
-void mt7915_mac_enable_nf(struct mt7915_dev *dev, bool ext_phy);
 void mt7915_mac_write_txwi(struct mt7915_dev *dev, __le32 *txwi,
 			   struct sk_buff *skb, struct mt76_wcid *wcid,
 			   struct ieee80211_key_conf *key, bool beacon);
@@ -479,4 +487,25 @@ void mt7915_sta_add_debugfs(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 			    struct ieee80211_sta *sta, struct dentry *dir);
 #endif
 
+int
+mt7915_mcu_uni_add_dev(struct mt7915_dev *dev,
+		       struct ieee80211_vif *vif, bool enable);
+int
+mt7915_mcu_uni_add_bss(struct mt7915_phy *phy, struct ieee80211_vif *vif,
+		       bool enable);
+
+int
+mt7915_mcu_uni_add_sta(struct mt7915_dev *dev, struct ieee80211_vif *vif,
+		       struct ieee80211_sta *sta, bool enable);
+int mt7915_mcu_uni_tx_ba(struct mt7915_dev *dev,
+			 struct ieee80211_ampdu_params *params,
+			 bool enable);
+int mt7915_mcu_uni_rx_ba(struct mt7915_dev *dev,
+			 struct ieee80211_ampdu_params *params,
+			 bool enable);
+void mt7915_scan_work(struct work_struct *work);
+int mt7915_mcu_hw_scan(struct mt7915_phy *phy, struct ieee80211_vif *vif,
+		       struct ieee80211_scan_request *scan_req);
+int mt7915_mcu_cancel_hw_scan(struct mt7915_phy *phy,
+			      struct ieee80211_vif *vif);
 #endif

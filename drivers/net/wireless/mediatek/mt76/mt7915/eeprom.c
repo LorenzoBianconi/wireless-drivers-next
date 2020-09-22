@@ -37,6 +37,7 @@ static int mt7915_check_eeprom(struct mt7915_dev *dev)
 
 	switch (val) {
 	case 0x7915:
+	case 0x7961:
 		return 0;
 	default:
 		return -EINVAL;

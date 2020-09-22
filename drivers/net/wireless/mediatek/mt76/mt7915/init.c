@@ -102,10 +102,14 @@ mt7915_init_wiphy(struct ieee80211_hw *hw)
 	wiphy->iface_combinations = if_comb;
 	wiphy->n_iface_combinations = ARRAY_SIZE(if_comb);
 	wiphy->reg_notifier = mt7915_regd_notifier;
+	wiphy->max_scan_ie_len = MT7915_SCAN_IE_LEN;
+	wiphy->max_scan_ssids = 4;
 	wiphy->flags |= WIPHY_FLAG_HAS_CHANNEL_SWITCH;
 
+	wiphy_ext_feature_set(wiphy, NL80211_EXT_FEATURE_SET_SCAN_DWELL);
 	wiphy_ext_feature_set(wiphy, NL80211_EXT_FEATURE_VHT_IBSS);
 
+	ieee80211_hw_set(hw, SINGLE_SCAN_ON_ALL_BANDS);
 	ieee80211_hw_set(hw, HAS_RATE_CONTROL);
 	ieee80211_hw_set(hw, SUPPORTS_TX_ENCAP_OFFLOAD);
 	ieee80211_hw_set(hw, WANT_MONITOR_VIF);
@@ -285,8 +289,6 @@ static void mt7915_init_work(struct work_struct *work)
 static int mt7915_init_hardware(struct mt7915_dev *dev)
 {
 	int ret, idx;
-
-	mt76_wr(dev, MT_INT_SOURCE_CSR, ~0);
 
 	INIT_WORK(&dev->init_work, mt7915_init_work);
 	spin_lock_init(&dev->token_lock);
@@ -623,6 +625,8 @@ int mt7915_register_device(struct mt7915_dev *dev)
 	INIT_LIST_HEAD(&dev->phy.stats_list);
 	INIT_WORK(&dev->rc_work, mt7915_mac_sta_rc_work);
 	INIT_DELAYED_WORK(&dev->phy.mac_work, mt7915_mac_work);
+	INIT_DELAYED_WORK(&dev->phy.scan_work, mt7915_scan_work);
+	skb_queue_head_init(&dev->phy.scan_event_list);
 	INIT_LIST_HEAD(&dev->sta_rc_list);
 	INIT_LIST_HEAD(&dev->sta_poll_list);
 	spin_lock_init(&dev->sta_poll_lock);
@@ -694,5 +698,6 @@ void mt7915_unregister_device(struct mt7915_dev *dev)
 	spin_unlock_bh(&dev->token_lock);
 	idr_destroy(&dev->token);
 
+	tasklet_disable(&dev->irq_tasklet);
 	mt76_free_device(&dev->mt76);
 }

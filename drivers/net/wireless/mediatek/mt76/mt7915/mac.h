@@ -8,6 +8,7 @@
 #define MT_CT_DMA_BUF_NUM		2
 
 #define MT_RXD0_LENGTH			GENMASK(15, 0)
+#define MT_RXD0_PKT_FLAG                GENMASK(19, 16)
 #define MT_RXD0_PKT_TYPE		GENMASK(31, 27)
 
 #define MT_RXD0_NORMAL_ETH_TYPE_OFS	GENMASK(22, 16)
@@ -23,6 +24,7 @@ enum rx_pkt_type {
 	PKT_TYPE_RETRIEVE,
 	PKT_TYPE_TXRX_NOTIFY,
 	PKT_TYPE_RX_EVENT,
+	PKT_TYPE_NORMAL_MCU,
 };
 
 /* RXD DW1 */
@@ -333,5 +335,35 @@ mt7915_txwi_to_txp(struct mt76_dev *dev, struct mt76_txwi_cache *t)
 
 	return (struct mt7915_txp *)(txwi + MT_TXD_SIZE);
 }
+
+#define MT_HW_TXP_MAX_MSDU_NUM		4
+#define MT_HW_TXP_MAX_BUF_NUM		4
+
+#define MT_MSDU_ID_VALID		BIT(15)
+
+#define MT_TXD_LEN_MASK			GENMASK(11, 0)
+#define MT_TXD_LEN_MSDU_LAST		BIT(14)
+#define MT_TXD_LEN_AMSDU_LAST		BIT(15)
+/* mt7663 */
+#define MT_TXD_LEN_LAST			BIT(15)
+
+struct mt7915_txp_ptr {
+	__le32 buf0;
+	__le16 len0;
+	__le16 len1;
+	__le32 buf1;
+} __packed __aligned(4);
+
+struct mt7915_hw_txp {
+	__le16 msdu_id[MT_HW_TXP_MAX_MSDU_NUM];
+	struct mt7915_txp_ptr ptr[MT_HW_TXP_MAX_BUF_NUM / 2];
+} __packed __aligned(4);
+
+
+struct mt7915_txp_common {
+	union {
+		struct mt7915_hw_txp hw;
+	};
+};
 
 #endif
