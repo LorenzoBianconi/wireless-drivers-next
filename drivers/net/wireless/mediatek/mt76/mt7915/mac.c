@@ -1574,6 +1574,7 @@ mt7915_mac_update_mib_stats(struct mt7915_phy *phy)
 	}
 }
 
+#if 0
 static void
 mt7915_mac_sta_stats_work(struct mt7915_phy *phy)
 {
@@ -1597,6 +1598,7 @@ mt7915_mac_sta_stats_work(struct mt7915_phy *phy)
 
 	spin_unlock_bh(&dev->sta_poll_lock);
 }
+#endif
 
 void mt7915_mac_sta_rc_work(struct work_struct *work)
 {
