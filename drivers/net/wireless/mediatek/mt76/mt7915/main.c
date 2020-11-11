@@ -30,17 +30,11 @@ static int mt7915_start(struct ieee80211_hw *hw)
 
 	running = mt7915_dev_running(dev);
 
-	if (!running) {
-		mt7915_mcu_set_pm(dev, 0, 0);
+	if (!running)
 		mt7915_mcu_set_mac(dev, 0, true, false);
-		mt7915_mcu_set_scs(dev, 0, true);
-	}
 
-	if (phy != &dev->phy) {
-		mt7915_mcu_set_pm(dev, 1, 0);
+	if (phy != &dev->phy)
 		mt7915_mcu_set_mac(dev, 1, true, false);
-		mt7915_mcu_set_scs(dev, 1, true);
-	}
 
 	mt7915_mcu_set_chan_info(phy, MCU_EXT_CMD_SET_RX_PATH);
 
@@ -71,15 +65,11 @@ static void mt7915_stop(struct ieee80211_hw *hw)
 
 	clear_bit(MT76_STATE_RUNNING, &phy->mt76->state);
 
-	if (phy != &dev->phy) {
-		mt7915_mcu_set_pm(dev, 1, 1);
+	if (phy != &dev->phy)
 		mt7915_mcu_set_mac(dev, 1, false, false);
-	}
 
-	if (!mt7915_dev_running(dev)) {
-		mt7915_mcu_set_pm(dev, 0, 1);
+	if (!mt7915_dev_running(dev))
 		mt7915_mcu_set_mac(dev, 0, false, false);
-	}
 
 	mutex_unlock(&dev->mt76.mutex);
 }
@@ -283,7 +273,6 @@ int mt7915_set_channel(struct mt7915_phy *phy)
 		goto out;
 
 	mt7915_mac_set_timing(phy);
-	ret = mt7915_dfs_init_radar_detector(phy);
 	mt7915_mac_cca_stats_reset(phy);
 
 	mt7915_mac_reset_counters(phy);
@@ -492,25 +481,6 @@ static void mt7915_bss_info_changed(struct ieee80211_hw *hw,
 	if (changed & (BSS_CHANGED_QOS | BSS_CHANGED_BEACON_ENABLED))
 		mt7915_mcu_set_tx(dev, vif);
 
-	if (changed & BSS_CHANGED_HE_OBSS_PD)
-		mt7915_mcu_add_obss_spr(dev, vif, info->he_obss_pd.enable);
-
-	if (changed & (BSS_CHANGED_BEACON |
-		       BSS_CHANGED_BEACON_ENABLED))
-		mt7915_mcu_add_beacon(hw, vif, info->enable_beacon);
-
-	mutex_unlock(&dev->mt76.mutex);
-}
-
-static void
-mt7915_channel_switch_beacon(struct ieee80211_hw *hw,
-			     struct ieee80211_vif *vif,
-			     struct cfg80211_chan_def *chandef)
-{
-	struct mt7915_dev *dev = mt7915_hw_dev(hw);
-
-	mutex_lock(&dev->mt76.mutex);
-	mt7915_mcu_add_beacon(hw, vif, true);
 	mutex_unlock(&dev->mt76.mutex);
 }
 
@@ -856,7 +826,6 @@ mt7915_set_antenna(struct ieee80211_hw *hw, u32 tx_ant, u32 rx_ant)
 	phy->chainmask = tx_ant;
 
 	mt76_set_stream_caps(phy->mt76, true);
-	mt7915_set_stream_vht_txbf_caps(phy);
 	mt7915_set_stream_he_caps(phy);
 
 	mutex_unlock(&dev->mt76.mutex);
@@ -949,7 +918,6 @@ const struct ieee80211_ops mt7915_ops = {
 	.sw_scan_complete = mt76_sw_scan_complete,
 	.release_buffered_frames = mt76_release_buffered_frames,
 	.get_txpower = mt76_get_txpower,
-	.channel_switch_beacon = mt7915_channel_switch_beacon,
 	.get_stats = mt7915_get_stats,
 	.get_tsf = mt7915_get_tsf,
 	.set_tsf = mt7915_set_tsf,

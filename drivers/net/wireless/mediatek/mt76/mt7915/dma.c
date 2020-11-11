@@ -328,14 +328,6 @@ int mt7915_dma_init(struct mt7915_dev *dev)
 	if (ret)
 		return ret;
 
-	if (dev->dbdc_support) {
-		ret = mt76_queue_alloc(dev, &dev->mt76.q_rx[MT_RXQ_EXT],
-				       MT7915_RXQ_BAND1, MT7915_RX_RING_SIZE,
-				       rx_buf_size, MT_RX_DATA_RING_BASE);
-		if (ret)
-			return ret;
-	}
-
 	ret = mt76_init_queues(dev);
 	if (ret < 0)
 		return ret;

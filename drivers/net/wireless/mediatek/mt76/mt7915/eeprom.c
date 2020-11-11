@@ -68,25 +68,17 @@ void mt7915_eeprom_parse_band_config(struct mt7915_phy *phy)
 
 static void mt7915_eeprom_parse_hw_cap(struct mt7915_dev *dev)
 {
-	u8 nss, tx_mask[2] = {}, *eeprom = dev->mt76.eeprom.data;
+	u8 tx_mask, *eeprom = dev->mt76.eeprom.data;
 
 	mt7915_eeprom_parse_band_config(&dev->phy);
 
 	/* read tx mask from eeprom */
-	tx_mask[0] = FIELD_GET(MT_EE_WIFI_CONF_TX_MASK,
-			       eeprom[MT_EE_WIFI_CONF]);
-	if (dev->dbdc_support)
-		tx_mask[1] = FIELD_GET(MT_EE_WIFI_CONF_TX_MASK,
-				       eeprom[MT_EE_WIFI_CONF + 1]);
+	tx_mask = FIELD_GET(MT_EE_WIFI_CONF_TX_MASK, eeprom[MT_EE_WIFI_CONF]);
+	if (!tx_mask || tx_mask > 4)
+		tx_mask = 4;
 
-	nss = tx_mask[0] + tx_mask[1];
-	if (!nss || nss > 4) {
-		tx_mask[0] = 4;
-		nss = 4;
-	}
-
-	dev->chainmask = BIT(nss) - 1;
-	dev->mphy.antenna_mask = BIT(tx_mask[0]) - 1;
+	dev->chainmask = BIT(tx_mask) - 1;
+	dev->mphy.antenna_mask = dev->chainmask;
 	dev->phy.chainmask = dev->mphy.antenna_mask;
 }
 

@@ -1398,29 +1398,6 @@ mt7915_wait_reset_state(struct mt7915_dev *dev, u32 state)
 }
 
 static void
-mt7915_update_vif_beacon(void *priv, u8 *mac, struct ieee80211_vif *vif)
-{
-	struct ieee80211_hw *hw = priv;
-
-	mt7915_mcu_add_beacon(hw, vif, vif->bss_conf.enable_beacon);
-}
-
-static void
-mt7915_update_beacons(struct mt7915_dev *dev)
-{
-	ieee80211_iterate_active_interfaces(dev->mt76.hw,
-		IEEE80211_IFACE_ITER_RESUME_ALL,
-		mt7915_update_vif_beacon, dev->mt76.hw);
-
-	if (!dev->mt76.phy2)
-		return;
-
-	ieee80211_iterate_active_interfaces(dev->mt76.phy2->hw,
-		IEEE80211_IFACE_ITER_RESUME_ALL,
-		mt7915_update_vif_beacon, dev->mt76.phy2->hw);
-}
-
-static void
 mt7915_dma_reset(struct mt7915_phy *phy)
 {
 	struct mt7915_dev *dev = phy->dev;
@@ -1522,8 +1499,6 @@ void mt7915_mac_reset_work(struct work_struct *work)
 
 	mutex_unlock(&dev->mt76.mutex);
 
-	mt7915_update_beacons(dev);
-
 	ieee80211_queue_delayed_work(mt76_hw(dev), &dev->phy.mac_work,
 				     MT7915_WATCHDOG_TIME);
 	if (phy2)
@@ -1622,7 +1597,7 @@ void mt7915_mac_sta_rc_work(struct work_struct *work)
 
 		sta = container_of((void *)msta, struct ieee80211_sta, drv_priv);
 		vif = container_of((void *)msta->vif, struct ieee80211_vif, drv_priv);
-
+/*
 		if (changed & (IEEE80211_RC_SUPP_RATES_CHANGED |
 			       IEEE80211_RC_NSS_CHANGED |
 			       IEEE80211_RC_BW_CHANGED))
@@ -1630,7 +1605,7 @@ void mt7915_mac_sta_rc_work(struct work_struct *work)
 
 		if (changed & IEEE80211_RC_SMPS_CHANGED)
 			mt7915_mcu_add_smps(dev, vif, sta);
-
+*/
 		spin_lock_bh(&dev->sta_poll_lock);
 	}
 
@@ -1664,136 +1639,4 @@ void mt7915_mac_work(struct work_struct *work)
 
 	ieee80211_queue_delayed_work(phy->mt76->hw, &phy->mac_work,
 				     MT7915_WATCHDOG_TIME);
-}
-
-static void mt7915_dfs_stop_radar_detector(struct mt7915_phy *phy)
-{
-	struct mt7915_dev *dev = phy->dev;
-
-	if (phy->rdd_state & BIT(0))
-		mt7915_mcu_rdd_cmd(dev, RDD_STOP, 0, MT_RX_SEL0, 0);
-	if (phy->rdd_state & BIT(1))
-		mt7915_mcu_rdd_cmd(dev, RDD_STOP, 1, MT_RX_SEL0, 0);
-}
-
-static int mt7915_dfs_start_rdd(struct mt7915_dev *dev, int chain)
-{
-	int err;
-
-	err = mt7915_mcu_rdd_cmd(dev, RDD_START, chain, MT_RX_SEL0, 0);
-	if (err < 0)
-		return err;
-
-	return mt7915_mcu_rdd_cmd(dev, RDD_DET_MODE, chain, MT_RX_SEL0, 1);
-}
-
-static int mt7915_dfs_start_radar_detector(struct mt7915_phy *phy)
-{
-	struct cfg80211_chan_def *chandef = &phy->mt76->chandef;
-	struct mt7915_dev *dev = phy->dev;
-	bool ext_phy = phy != &dev->phy;
-	int err;
-
-	/* start CAC */
-	err = mt7915_mcu_rdd_cmd(dev, RDD_CAC_START, ext_phy, MT_RX_SEL0, 0);
-	if (err < 0)
-		return err;
-
-	err = mt7915_dfs_start_rdd(dev, ext_phy);
-	if (err < 0)
-		return err;
-
-	phy->rdd_state |= BIT(ext_phy);
-
-	if (chandef->width == NL80211_CHAN_WIDTH_160 ||
-	    chandef->width == NL80211_CHAN_WIDTH_80P80) {
-		err = mt7915_dfs_start_rdd(dev, 1);
-		if (err < 0)
-			return err;
-
-		phy->rdd_state |= BIT(1);
-	}
-
-	return 0;
-}
-
-static int
-mt7915_dfs_init_radar_specs(struct mt7915_phy *phy)
-{
-	const struct mt7915_dfs_radar_spec *radar_specs;
-	struct mt7915_dev *dev = phy->dev;
-	int err, i;
-
-	switch (dev->mt76.region) {
-	case NL80211_DFS_FCC:
-		radar_specs = &fcc_radar_specs;
-		err = mt7915_mcu_set_fcc5_lpn(dev, 8);
-		if (err < 0)
-			return err;
-		break;
-	case NL80211_DFS_ETSI:
-		radar_specs = &etsi_radar_specs;
-		break;
-	case NL80211_DFS_JP:
-		radar_specs = &jp_radar_specs;
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	for (i = 0; i < ARRAY_SIZE(radar_specs->radar_pattern); i++) {
-		err = mt7915_mcu_set_radar_th(dev, i,
-					      &radar_specs->radar_pattern[i]);
-		if (err < 0)
-			return err;
-	}
-
-	return mt7915_mcu_set_pulse_th(dev, &radar_specs->pulse_th);
-}
-
-int mt7915_dfs_init_radar_detector(struct mt7915_phy *phy)
-{
-	struct cfg80211_chan_def *chandef = &phy->mt76->chandef;
-	struct mt7915_dev *dev = phy->dev;
-	bool ext_phy = phy != &dev->phy;
-	int err;
-
-	if (dev->mt76.region == NL80211_DFS_UNSET) {
-		phy->dfs_state = -1;
-		if (phy->rdd_state)
-			goto stop;
-
-		return 0;
-	}
-
-	if (test_bit(MT76_SCANNING, &phy->mt76->state))
-		return 0;
-
-	if (phy->dfs_state == chandef->chan->dfs_state)
-		return 0;
-
-	err = mt7915_dfs_init_radar_specs(phy);
-	if (err < 0) {
-		phy->dfs_state = -1;
-		goto stop;
-	}
-
-	phy->dfs_state = chandef->chan->dfs_state;
-
-	if (chandef->chan->flags & IEEE80211_CHAN_RADAR) {
-		if (chandef->chan->dfs_state != NL80211_DFS_AVAILABLE)
-			return mt7915_dfs_start_radar_detector(phy);
-
-		return mt7915_mcu_rdd_cmd(dev, RDD_CAC_END, ext_phy,
-					  MT_RX_SEL0, 0);
-	}
-
-stop:
-	err = mt7915_mcu_rdd_cmd(dev, RDD_NORMAL_START, ext_phy,
-				 MT_RX_SEL0, 0);
-	if (err < 0)
-		return err;
-
-	mt7915_dfs_stop_radar_detector(phy);
-	return 0;
 }
