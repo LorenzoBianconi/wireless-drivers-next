@@ -915,7 +915,8 @@ void mt7915_mac_write_txwi(struct mt7915_dev *dev, __le32 *txwi,
 	else
 		mt7915_mac_write_txwi_80211(dev, txwi, skb, key);
 
-	if (txwi[2] & cpu_to_le32(MT_TXD2_FIX_RATE)) {
+	/* FIXME */
+	if ((txwi[2] & cpu_to_le32(MT_TXD2_FIX_RATE) || 1)) {
 		u16 rate;
 
 		/* hardware won't add HTC for mgmt/ctrl frame */
