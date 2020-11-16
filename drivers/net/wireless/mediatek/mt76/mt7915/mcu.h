@@ -1063,6 +1063,60 @@ struct sta_rec_bfee {
 	u8 rsv[2];
 } __packed;
 
+struct sta_rec_state {
+       __le16 tag;
+       __le16 len;
+       u8 state;
+       __le32 flags;
+       u8 vht_opmode;
+       u8 action;
+       u8 rsv[1];
+} __packed;
+
+#define HE_MAC_CAP_BYTE_NUM 6
+#define HE_PHY_CAP_BYTE_NUM 11
+
+struct ht_vht_ba_size {
+       u8 tx_ba;
+       u8 rx_ba;
+       u8 rsv[2];
+} __packed;
+
+struct he_ba_size {
+       __le16 tx_ba;
+       __le16 rx_ba;
+} __packed;
+
+union BA_SIZE {
+       struct ht_vht_ba_size ht_vht;
+       struct he_ba_size he;
+};
+
+struct sta_rec_phy {
+       __le16 tag;
+       __le16 len;
+       __le16 legacy;
+       u8 phy_type;
+       u8 rx_mcs_bitmask;
+       u8 ampdu;
+       u8 tx_ampdu;
+       u8 rx_ampdu;
+       u8 tx_amsdu_in_ampdu;
+       u8 rx_amsdu_in_ampdu;
+       u8 rts_policy;
+       u8 rcpi;
+       u8 uapsd_ac;
+       u8 uapsd_sp;
+       u8 he_mac_cap[HE_MAC_CAP_BYTE_NUM];
+       u8 he_phy_cap[HE_PHY_CAP_BYTE_NUM];
+       u8 rsv[2];
+       __le16 he_6g_cap;
+       __le16 basic_rate;
+       __le32 tx_max_amsdu_len;
+       union BA_SIZE ba_size;
+} __packed;
+
+
 enum {
 	STA_REC_BASIC,
 	STA_REC_RA,
@@ -1071,7 +1125,7 @@ enum {
 	STA_REC_BF,
 	STA_REC_AMSDU,
 	STA_REC_BA,
-	STA_REC_RED,		/* not used */
+        STA_REC_STATE,
 	STA_REC_TX_PROC,	/* for hdr trans and CSO in CR4 */
 	STA_REC_HT,
 	STA_REC_VHT,
@@ -1085,6 +1139,7 @@ enum {
 	STA_REC_MURU,
 	STA_REC_MUEDCA,
 	STA_REC_BFEE,
+	STA_REC_PHY = 0x15,
 	STA_REC_MAX_NUM
 };
 

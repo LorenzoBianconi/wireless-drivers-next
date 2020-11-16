@@ -1599,6 +1599,11 @@ mt7915_mcu_sta_tlv(struct mt7915_dev *dev, struct sk_buff *skb,
 		   struct ieee80211_sta *sta, struct ieee80211_vif *vif)
 {
 	struct tlv *tlv;
+	struct sta_rec_state *state;
+	struct sta_rec_phy *phy;
+	struct cfg80211_chan_def *chandef = &dev->mphy.chandef;
+	enum nl80211_band band = chandef->chan->band;
+	u32 supp_rate = sta->supp_rates[band];
 
 	/* starec ht */
 	if (sta->ht_cap.ht_supported) {
@@ -1629,6 +1634,16 @@ mt7915_mcu_sta_tlv(struct mt7915_dev *dev, struct sk_buff *skb,
 
 	/* starec uapsd */
 	mt7915_mcu_sta_uapsd_tlv(skb, sta, vif);
+
+	tlv = mt7915_mcu_add_tlv(skb, STA_REC_PHY, sizeof(*phy));
+	phy = (struct sta_rec_phy *)tlv;
+	phy->legacy = supp_rate;
+	phy->phy_type = mt7915_get_phy_mode(dev, vif, band, sta);
+	phy->basic_rate = vif->bss_conf.basic_rates;
+
+	tlv = mt7915_mcu_add_tlv(skb, STA_REC_STATE, sizeof(*state));
+	state = (struct sta_rec_state *)tlv;
+	state->state = 2;
 }
 
 static void
