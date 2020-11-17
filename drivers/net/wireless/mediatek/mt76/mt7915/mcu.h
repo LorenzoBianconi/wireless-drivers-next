@@ -345,6 +345,7 @@ enum {
 enum {
 	UNI_BSS_INFO_BASIC = 0,
 	UNI_BSS_INFO_RLM = 2,
+	UNI_BSS_INFO_HE_BASIC = 5,
 	UNI_BSS_INFO_BCN_CONTENT = 7,
 	UNI_BSS_INFO_QBSS = 15,
 	UNI_BSS_INFO_UAPSD = 19,
@@ -569,6 +570,16 @@ struct bss_info_he {
 	__le16 he_rts_thres;
 	__le16 max_nss_mcs[CMD_HE_MCS_BW_NUM];
 	u8 rsv[6];
+} __packed;
+
+struct bss_info_uni_he {
+	__le16 tag;
+	__le16 len;
+	__le16 he_rts_thres;
+	u8 he_pe_duration;
+	u8 su_disable;
+	__le16 max_nss_mcs[CMD_HE_MCS_BW_NUM];
+	u8 rsv[2];
 } __packed;
 
 struct bss_info_bcn {

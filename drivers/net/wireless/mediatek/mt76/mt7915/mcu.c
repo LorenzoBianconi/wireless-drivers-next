@@ -979,6 +979,32 @@ mt7915_mcu_bss_he_tlv(struct sk_buff *skb, struct ieee80211_vif *vif,
 }
 
 static void
+mt7915_mcu_uni_bss_he_tlv(struct tlv *tlv, struct ieee80211_vif *vif,
+		      struct mt7915_phy *phy)
+{
+#define DEFAULT_HE_PE_DURATION		4
+#define DEFAULT_HE_DURATION_RTS_THRES	1023
+	const struct ieee80211_sta_he_cap *cap;
+	struct bss_info_uni_he *he;
+
+	cap = mt7915_get_he_phy_cap(phy, vif);
+
+	he = (struct bss_info_uni_he *)tlv;
+	he->he_pe_duration = vif->bss_conf.htc_trig_based_pkt_ext;
+	if (!he->he_pe_duration)
+		he->he_pe_duration = DEFAULT_HE_PE_DURATION;
+
+	he->he_rts_thres = cpu_to_le16(vif->bss_conf.frame_time_rts_th);
+	if (!he->he_rts_thres)
+		he->he_rts_thres = cpu_to_le16(DEFAULT_HE_DURATION_RTS_THRES);
+
+	he->max_nss_mcs[CMD_HE_MCS_BW80] = cap->he_mcs_nss_supp.tx_mcs_80;
+	he->max_nss_mcs[CMD_HE_MCS_BW160] = cap->he_mcs_nss_supp.tx_mcs_160;
+	he->max_nss_mcs[CMD_HE_MCS_BW8080] = cap->he_mcs_nss_supp.tx_mcs_80p80;
+}
+
+
+static void
 mt7915_mcu_bss_hw_amsdu_tlv(struct sk_buff *skb)
 {
 #define TXD_CMP_MAP1		GENMASK(15, 0)
@@ -1604,6 +1630,8 @@ mt7915_mcu_sta_tlv(struct mt7915_dev *dev, struct sk_buff *skb,
 	struct cfg80211_chan_def *chandef = &dev->mphy.chandef;
 	enum nl80211_band band = chandef->chan->band;
 	u32 supp_rate = sta->supp_rates[band];
+	struct ieee80211_sta_he_cap *he_cap = &sta->he_cap;
+	struct ieee80211_he_cap_elem *elem = &he_cap->he_cap_elem;
 
 	/* starec ht */
 	if (sta->ht_cap.ht_supported) {
@@ -1640,6 +1668,11 @@ mt7915_mcu_sta_tlv(struct mt7915_dev *dev, struct sk_buff *skb,
 	phy->legacy = supp_rate;
 	phy->phy_type = mt7915_get_phy_mode(dev, vif, band, sta);
 	phy->basic_rate = vif->bss_conf.basic_rates;
+
+	if (sta->he_cap.has_he) {
+		memcpy(phy->he_mac_cap, elem->mac_cap_info, HE_MAC_CAP_BYTE_NUM);
+		memcpy(phy->he_phy_cap, elem->phy_cap_info, HE_PHY_CAP_BYTE_NUM);
+	}
 
 	tlv = mt7915_mcu_add_tlv(skb, STA_REC_STATE, sizeof(*state));
 	state = (struct sta_rec_state *)tlv;
@@ -2640,6 +2673,23 @@ mt7915_mcu_uni_add_bss(struct mt7915_phy *phy, struct ieee80211_vif *vif,
 			.qos = vif->bss_conf.qos,
 		},
 	};
+
+	struct {
+		struct {
+			u8 bss_idx;
+			u8 pad[3];
+		} __packed hdr;
+		struct bss_info_uni_he he;
+	} he_req = {
+		.hdr = {
+			.bss_idx = mvif->idx,
+		},
+		.he = {
+			.tag = cpu_to_le16(UNI_BSS_INFO_HE_BASIC),
+			.len = cpu_to_le16(sizeof(struct bss_info_uni_he)),
+		},
+	};
+
 	struct {
 		struct {
 			u8 bss_idx;
@@ -2713,6 +2763,15 @@ mt7915_mcu_uni_add_bss(struct mt7915_phy *phy, struct ieee80211_vif *vif,
 				&basic_req, sizeof(basic_req), true);
 	if (err < 0)
 		return err;
+
+	if (vif->bss_conf.he_support) {
+		mt7915_mcu_uni_bss_he_tlv((struct tlv *)&he_req.he, vif, phy);
+
+		err = mt76_mcu_send_msg(&dev->mt76, MCU_UNI_CMD_BSS_INFO_UPDATE,
+					  &he_req, sizeof(he_req), true);
+		if (err < 0)
+			return err;
+	}
 
 	switch (chandef->width) {
 	case NL80211_CHAN_WIDTH_40:
