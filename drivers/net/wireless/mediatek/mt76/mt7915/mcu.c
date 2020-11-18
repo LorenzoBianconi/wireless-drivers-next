@@ -2645,6 +2645,8 @@ mt7915_mcu_uni_add_bss(struct mt7915_phy *phy, struct ieee80211_vif *vif,
 	struct cfg80211_chan_def *chandef = &phy->mt76->chandef;
 	int freq1 = chandef->center_freq1, freq2 = chandef->center_freq2;
 	struct mt7915_dev *dev = phy->dev;
+	enum nl80211_band band = chandef->chan->band;
+
 	struct {
 		struct {
 			u8 bss_idx;
@@ -2665,7 +2667,7 @@ mt7915_mcu_uni_add_bss(struct mt7915_phy *phy, struct ieee80211_vif *vif,
 			.band_idx = mvif->band_idx,
 			.wmm_idx = mvif->wmm_idx,
 			.active = true, /* keep bss deactivated */
-			.phymode = 0x38,
+			.phymode = mt7915_get_phy_mode(phy->dev, vif, band, NULL),
 		},
 		.qos = {
 			.tag = cpu_to_le16(UNI_BSS_INFO_QBSS),
