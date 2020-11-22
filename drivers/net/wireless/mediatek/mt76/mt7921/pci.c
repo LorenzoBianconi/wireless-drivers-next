@@ -138,19 +138,21 @@ static int mt7921_pci_probe(struct pci_dev *pdev,
 
 	ret = pci_set_dma_mask(pdev, DMA_BIT_MASK(32));
 	if (ret)
-		return ret;
+		goto err_free_pci_vec;
 
 	mt76_pci_disable_aspm(pdev);
 
 	mdev = mt76_alloc_device(&pdev->dev, sizeof(*dev), &mt7921_ops,
 				 &drv_ops);
-	if (!mdev)
-		return -ENOMEM;
+	if (!mdev) {
+		ret = -ENOMEM;
+		goto err_free_pci_vec;
+	}
 
 	dev = container_of(mdev, struct mt7921_dev, mt76);
 	ret = mt7921_alloc_device(pdev, dev);
 	if (ret)
-		goto error;
+		goto err_free_dev;
 
 	mt76_mmio_init(&dev->mt76, pcim_iomap_table(pdev)[0]);
 	tasklet_init(&dev->irq_tasklet, mt7921_irq_tasklet, (unsigned long)dev);
@@ -166,15 +168,18 @@ static int mt7921_pci_probe(struct pci_dev *pdev,
 	ret = devm_request_irq(mdev->dev, pdev->irq, mt7921_irq_handler,
 			       IRQF_SHARED, KBUILD_MODNAME, dev);
 	if (ret)
-		goto error;
+		goto err_free_dev;
 
 	ret = mt7921_register_device(dev);
 	if (ret)
-		goto error;
+		goto err_free_dev;
 
 	return 0;
-error:
+
+err_free_dev:
 	mt76_free_device(&dev->mt76);
+err_free_pci_vec:
+	pci_free_irq_vectors(pdev);
 
 	return ret;
 }
