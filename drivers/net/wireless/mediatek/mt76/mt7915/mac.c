@@ -598,7 +598,6 @@ void mt7915_mac_fill_rx_vector(struct mt7915_dev *dev, struct sk_buff *skb)
 
 	dev_kfree_skb(skb);
 }
-#endif
 
 static u16
 mt7915_mac_tx_rate_val(struct mt76_phy *mphy, u8 mode, u8 rate_idx,
@@ -641,7 +640,6 @@ static void
 mt7915_mac_write_txwi_tm(struct mt7915_dev *dev, struct mt76_phy *mphy,
 			 __le32 *txwi, struct sk_buff *skb)
 {
-#ifdef CONFIG_NL80211_TESTMODE
 	struct mt76_testmode_data *td = &dev->mt76.test;
 	u8 bw, mode;
 	u16 rateval;
@@ -711,8 +709,8 @@ mt7915_mac_write_txwi_tm(struct mt7915_dev *dev, struct mt76_phy *mphy,
 	txwi[6] |= cpu_to_le32(val);
 	txwi[7] |= cpu_to_le32(FIELD_PREP(MT_TXD7_SPE_IDX,
 					  dev->test.spe_idx));
-#endif
 }
+#endif
 
 static void
 mt7915_mac_write_txwi_8023(struct mt7915_dev *dev, __le32 *txwi,
@@ -914,8 +912,10 @@ void mt7915_mac_write_txwi(struct mt7915_dev *dev, __le32 *txwi,
 		txwi[3] |= cpu_to_le32(MT_TXD3_BA_DISABLE);
 	}
 
+#ifdef CONFIG_NL80211_TESTMODE
 	if (mt76_testmode_enabled(&dev->mt76))
 		mt7915_mac_write_txwi_tm(dev, mphy, txwi, skb);
+#endif
 }
 
 int mt7915_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
