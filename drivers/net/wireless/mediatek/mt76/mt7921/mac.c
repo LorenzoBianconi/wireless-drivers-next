@@ -915,7 +915,7 @@ void mt7921_mac_write_txwi(struct mt7921_dev *dev, __le32 *txwi,
 	else
 		mt7921_mac_write_txwi_80211(dev, txwi, skb, key);
 
-	if ((txwi[2] & cpu_to_le32(MT_TXD2_FIX_RATE))) {
+	if (txwi[2] & cpu_to_le32(MT_TXD2_FIX_RATE)) {
 		u16 rate;
 
 		/* hardware won't add HTC for mgmt/ctrl frame */
@@ -943,21 +943,18 @@ mt7921_write_hw_txp(struct mt7921_dev *dev, struct mt76_tx_info *tx_info,
 	struct mt7921_hw_txp *txp = txp_ptr;
 	struct mt7921_txp_ptr *ptr = &txp->ptr[0];
 	int i, nbuf = tx_info->nbuf - 1;
-	u32 last_mask;
 
 	tx_info->buf[0].len = MT_TXD_SIZE + sizeof(*txp);
 	tx_info->nbuf = 1;
 
 	txp->msdu_id[0] = cpu_to_le16(id | MT_MSDU_ID_VALID);
 
-	last_mask = MT_TXD_LEN_LAST;
-
 	for (i = 0; i < nbuf; i++) {
 		u16 len = tx_info->buf[i + 1].len & MT_TXD_LEN_MASK;
 		u32 addr = tx_info->buf[i + 1].addr;
 
 		if (i == nbuf - 1)
-			len |= last_mask;
+			len |= MT_TXD_LEN_LAST;
 
 		if (i & 1) {
 			ptr->buf1 = cpu_to_le32(addr);
