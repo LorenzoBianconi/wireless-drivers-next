@@ -202,6 +202,57 @@ mt7921_get_phy_mode(struct mt7921_dev *dev, struct ieee80211_vif *vif,
 	return mode;
 }
 
+static u8
+mt7921_get_phy_mode_v2(struct mt7921_dev *dev, struct ieee80211_vif *vif,
+		    enum nl80211_band band, struct ieee80211_sta *sta)
+{
+	struct ieee80211_sta_ht_cap *ht_cap;
+	struct ieee80211_sta_vht_cap *vht_cap;
+	const struct ieee80211_sta_he_cap *he_cap;
+	u8 mode = 0;
+
+	if (sta) {
+		ht_cap = &sta->ht_cap;
+		vht_cap = &sta->vht_cap;
+		he_cap = &sta->he_cap;
+	} else {
+		struct ieee80211_supported_band *sband;
+		struct mt7921_phy *phy;
+		struct mt7921_vif *mvif;
+
+		mvif = (struct mt7921_vif *)vif->drv_priv;
+		phy = mvif->band_idx ? mt7921_ext_phy(dev) : &dev->phy;
+		sband = phy->mt76->hw->wiphy->bands[band];
+
+		ht_cap = &sband->ht_cap;
+		vht_cap = &sband->vht_cap;
+		he_cap = ieee80211_get_he_iftype_cap(sband, vif->type);
+	}
+
+	if (band == NL80211_BAND_2GHZ) {
+		mode |= PHY_TYPE_BIT_HR_DSSS | PHY_TYPE_BIT_ERP;
+
+		if (ht_cap->ht_supported)
+			mode |= PHY_TYPE_BIT_HT;
+
+		if (he_cap->has_he)
+			mode |= PHY_TYPE_BIT_HE;
+	} else if (band == NL80211_BAND_5GHZ) {
+		mode |= PHY_TYPE_BIT_OFDM;
+
+		if (ht_cap->ht_supported)
+			mode |= PHY_TYPE_BIT_HT;
+
+		if (vht_cap->vht_supported)
+			mode |= PHY_TYPE_BIT_VHT;
+
+		if (he_cap->has_he)
+			mode |= PHY_TYPE_BIT_HE;
+	}
+
+	return mode;
+}
+
 static int
 mt7921_mcu_parse_eeprom(struct mt76_dev *dev, struct sk_buff *skb)
 {
@@ -1666,8 +1717,13 @@ mt7921_mcu_sta_tlv(struct mt7921_dev *dev, struct sk_buff *skb,
 	tlv = mt7921_mcu_add_tlv(skb, STA_REC_PHY, sizeof(*phy));
 	phy = (struct sta_rec_phy *)tlv;
 	phy->legacy = supp_rate;
-	phy->phy_type = mt7921_get_phy_mode(dev, vif, band, sta);
+	phy->phy_type = mt7921_get_phy_mode_v2(dev, vif, band, sta);
 	phy->basic_rate = vif->bss_conf.basic_rates;
+
+	if (sta->ht_cap.ht_supported) {
+		memcpy(phy->rx_mcs_bitmask, sta->ht_cap.mcs.rx_mask,
+		       HT_MCS_MASK_NUM);
+	}
 
 	if (sta->he_cap.has_he) {
 		memcpy(phy->he_mac_cap, elem->mac_cap_info, HE_MAC_CAP_BYTE_NUM);
@@ -1677,6 +1733,12 @@ mt7921_mcu_sta_tlv(struct mt7921_dev *dev, struct sk_buff *skb,
 	tlv = mt7921_mcu_add_tlv(skb, STA_REC_STATE, sizeof(*state));
 	state = (struct sta_rec_state *)tlv;
 	state->state = 2;
+
+	if (sta->vht_cap.vht_supported) {
+		state->vht_opmode = sta->bandwidth;
+		state->vht_opmode |= (sta->rx_nss - 1) <<
+			IEEE80211_OPMODE_NOTIF_RX_NSS_SHIFT;
+	}
 }
 
 static void
