@@ -226,17 +226,6 @@ mt7921_hw_dev(struct ieee80211_hw *hw)
 	return container_of(phy->dev, struct mt7921_dev, mt76);
 }
 
-static inline struct mt7921_phy *
-mt7921_ext_phy(struct mt7921_dev *dev)
-{
-	struct mt76_phy *phy = dev->mt76.phy2;
-
-	if (!phy)
-		return NULL;
-
-	return phy->priv;
-}
-
 static inline u8 mt7921_lmac_mapping(struct mt7921_dev *dev, u8 ac)
 {
 	/* LMAC uses the reverse order of mac80211 AC indexes */
