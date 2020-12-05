@@ -1077,8 +1077,8 @@ struct sta_rec_bfee {
 struct sta_rec_state {
        __le16 tag;
        __le16 len;
-       u8 state;
        __le32 flags;
+       u8 state;
        u8 vht_opmode;
        u8 action;
        u8 rsv[1];
@@ -1086,6 +1086,7 @@ struct sta_rec_state {
 
 #define HE_MAC_CAP_BYTE_NUM 6
 #define HE_PHY_CAP_BYTE_NUM 11
+#define HT_MCS_MASK_NUM 10
 
 struct ht_vht_ba_size {
        u8 tx_ba;
@@ -1108,7 +1109,7 @@ struct sta_rec_phy {
        __le16 len;
        __le16 legacy;
        u8 phy_type;
-       u8 rx_mcs_bitmask;
+	u8 rx_mcs_bitmask[HT_MCS_MASK_NUM];
        u8 ampdu;
        u8 tx_ampdu;
        u8 rx_ampdu;
@@ -1120,7 +1121,7 @@ struct sta_rec_phy {
        u8 uapsd_sp;
        u8 he_mac_cap[HE_MAC_CAP_BYTE_NUM];
        u8 he_phy_cap[HE_PHY_CAP_BYTE_NUM];
-       u8 rsv[2];
+       u8 rsv[5];
        __le16 he_6g_cap;
        __le16 basic_rate;
        __le32 tx_max_amsdu_len;
@@ -1428,5 +1429,25 @@ struct mt7921_mcu_bss_event {
 	u8 free_quota;
 	u8 pad;
 } __packed;
+
+typedef enum _ENUM_PHY_TYPE_INDEX_T
+{
+    //PHY_TYPE_DSSS_INDEX,      /* DSSS PHY (clause 15) */ /* NOTE(Kevin): We don't use this now */
+    PHY_TYPE_HR_DSSS_INDEX = 0, /* HR/DSSS PHY (clause 18) */
+    PHY_TYPE_ERP_INDEX,         /* ERP PHY (clause 19) */
+    PHY_TYPE_ERP_P2P_INDEX,     /* ERP PHY (clause 19) w/o HR/DSSS */
+    PHY_TYPE_OFDM_INDEX,        /* OFDM 5 GHz PHY (clause 17) */
+    PHY_TYPE_HT_INDEX,          /* HT PHY (clause 20) */
+    PHY_TYPE_VHT_INDEX,
+    PHY_TYPE_HE_INDEX,
+    PHY_TYPE_INDEX_NUM // 7
+} ENUM_PHY_TYPE_INDEX_T, *P_ENUM_PHY_TYPE_INDEX_T;
+
+#define PHY_TYPE_BIT_HR_DSSS    BIT(PHY_TYPE_HR_DSSS_INDEX) /* HR/DSSS PHY (clause 18) */
+#define PHY_TYPE_BIT_ERP        BIT(PHY_TYPE_ERP_INDEX)     /* ERP PHY (clause 19) */
+#define PHY_TYPE_BIT_OFDM       BIT(PHY_TYPE_OFDM_INDEX)    /* OFDM 5 GHz PHY (clause 17) */
+#define PHY_TYPE_BIT_HT         BIT(PHY_TYPE_HT_INDEX)      /* HT PHY (clause 20) */
+#define PHY_TYPE_BIT_VHT        BIT(PHY_TYPE_VHT_INDEX)      /* HT PHY (clause 20) */
+#define PHY_TYPE_BIT_HE         BIT(PHY_TYPE_HE_INDEX)      /* HT PHY (clause ) */
 
 #endif

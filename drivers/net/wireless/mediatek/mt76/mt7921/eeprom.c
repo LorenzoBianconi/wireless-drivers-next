@@ -77,6 +77,8 @@ static void mt7921_eeprom_parse_hw_cap(struct mt7921_dev *dev)
 	if (!tx_mask || tx_mask > 4)
 		tx_mask = 4;
 
+	/* Should fix eeprom */
+	tx_mask = 2;
 	dev->chainmask = BIT(tx_mask) - 1;
 	dev->mphy.antenna_mask = dev->chainmask;
 	dev->phy.chainmask = dev->mphy.antenna_mask;
