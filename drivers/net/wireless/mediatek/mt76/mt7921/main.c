@@ -40,9 +40,7 @@ static int mt7921_start(struct ieee80211_hw *hw)
 
 	set_bit(MT76_STATE_RUNNING, &phy->mt76->state);
 
-	if (!mt76_testmode_enabled(&dev->mt76))
-		ieee80211_queue_delayed_work(hw, &phy->mac_work,
-					     MT7921_WATCHDOG_TIME);
+	ieee80211_queue_delayed_work(hw, &phy->mac_work, MT7921_WATCHDOG_TIME);
 
 	if (!running)
 		mt7921_mac_reset_counters(phy);
@@ -60,8 +58,6 @@ static void mt7921_stop(struct ieee80211_hw *hw)
 	cancel_delayed_work_sync(&phy->mac_work);
 
 	mutex_lock(&dev->mt76.mutex);
-
-	mt76_testmode_reset(&dev->mt76, true);
 
 	clear_bit(MT76_STATE_RUNNING, &phy->mt76->state);
 
@@ -140,8 +136,6 @@ static int mt7921_add_interface(struct ieee80211_hw *hw,
 
 	mutex_lock(&dev->mt76.mutex);
 
-	mt76_testmode_reset(&dev->mt76, true);
-
 	if (vif->type == NL80211_IFTYPE_MONITOR &&
 	    is_zero_ether_addr(vif->addr))
 		phy->monitor_vif = vif;
@@ -214,10 +208,6 @@ static void mt7921_remove_interface(struct ieee80211_hw *hw,
 
 	/* TODO: disable beacon for the bss */
 
-	mutex_lock(&dev->mt76.mutex);
-	mt76_testmode_reset(&dev->mt76, true);
-	mutex_unlock(&dev->mt76.mutex);
-
 	if (vif == phy->monitor_vif)
 		phy->monitor_vif = NULL;
 
@@ -284,9 +274,8 @@ out:
 
 	mt76_txq_schedule_all(phy->mt76);
 
-	if (!mt76_testmode_enabled(&dev->mt76))
-		ieee80211_queue_delayed_work(phy->mt76->hw, &phy->mac_work,
-					     MT7921_WATCHDOG_TIME);
+	ieee80211_queue_delayed_work(phy->mt76->hw, &phy->mac_work,
+				     MT7921_WATCHDOG_TIME);
 
 	return ret;
 }
@@ -369,7 +358,6 @@ static int mt7921_config(struct ieee80211_hw *hw, u32 changed)
 
 		mt76_rmw_field(dev, MT_DMA_DCR0(band), MT_DMA_DCR0_RXD_G5_EN,
 			       enabled);
-		mt76_testmode_reset(&dev->mt76, true);
 		mt76_wr(dev, MT_WF_RFCR(band), phy->rxfilter);
 	}
 

@@ -861,18 +861,6 @@ mt7921_tx_complete_status(struct mt76_dev *mdev, struct sk_buff *skb,
 
 	hw = mt76_tx_status_get_hw(mdev, skb);
 
-#ifdef CONFIG_NL80211_TESTMODE
-	if (skb == mdev->test.tx_skb) {
-		struct mt7921_phy *phy = mt7921_hw_phy(hw);
-		struct ieee80211_vif *vif = phy->monitor_vif;
-		struct mt7921_vif *mvif = (struct mt7921_vif *)vif->drv_priv;
-
-		mt76_tx_complete_skb(mdev, mvif->sta.wcid.idx, skb);
-
-		return;
-	}
-#endif
-
 	if (info->flags & IEEE80211_TX_CTL_AMPDU)
 		info->flags |= IEEE80211_TX_STAT_AMPDU;
 
