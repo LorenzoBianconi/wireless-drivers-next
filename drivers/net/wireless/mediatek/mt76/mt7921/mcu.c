@@ -2298,15 +2298,6 @@ int mt7921_mcu_set_chan_info(struct mt7921_phy *phy, int cmd)
 		.channel_band = chandef->chan->band,
 	};
 
-#ifdef CONFIG_NL80211_TESTMODE
-	if (dev->mt76.test.tx_antenna_mask &&
-	    (dev->mt76.test.state == MT76_TM_STATE_TX_FRAMES ||
-	     dev->mt76.test.state == MT76_TM_STATE_RX_FRAMES)) {
-		req.tx_streams_num = fls(dev->mt76.test.tx_antenna_mask);
-		req.rx_streams = dev->mt76.test.tx_antenna_mask;
-	}
-#endif
-
 	if (dev->mt76.hw->conf.flags & IEEE80211_CONF_OFFCHANNEL)
 		req.switch_reason = CH_SWITCH_SCAN_BYPASS_DPD;
 	else if ((chandef->chan->flags & IEEE80211_CHAN_RADAR) &&

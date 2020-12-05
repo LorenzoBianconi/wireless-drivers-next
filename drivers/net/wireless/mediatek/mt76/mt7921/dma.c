@@ -40,11 +40,6 @@ void mt7921_queue_rx_skb(struct mt76_dev *mdev, enum mt76_rxq_id q,
 	case PKT_TYPE_RX_EVENT:
 		mt7921_mcu_rx_event(dev, skb);
 		break;
-#ifdef CONFIG_NL80211_TESTMODE
-	case PKT_TYPE_TXRXV:
-		mt7921_mac_fill_rx_vector(dev, skb);
-		break;
-#endif
 	case PKT_TYPE_NORMAL_MCU:
 	case PKT_TYPE_NORMAL:
 		if (!mt7921_mac_fill_rx(dev, skb)) {
