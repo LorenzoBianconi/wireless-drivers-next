@@ -172,20 +172,6 @@ struct mt7921_dev {
 	s8 **rate_power; /* TODO: use mt76_rate_power */
 
 	bool fw_debug;
-
-#ifdef CONFIG_NL80211_TESTMODE
-	struct {
-		u32 *reg_backup;
-
-		s32 last_freq_offset;
-		u8 last_rcpi[4];
-		s8 last_ib_rssi[4];
-		s8 last_wb_rssi[4];
-		u8 last_snr;
-
-		u8 spe_idx;
-	} test;
-#endif
 };
 
 enum {
@@ -259,7 +245,6 @@ static inline u8 mt7921_lmac_mapping(struct mt7921_dev *dev, u8 ac)
 
 extern const struct ieee80211_ops mt7921_ops;
 extern struct pci_driver mt7921_pci_driver;
-extern const struct mt76_testmode_ops mt7921_testmode_ops;
 
 u32 mt7921_reg_map(struct mt7921_dev *dev, u32 addr);
 

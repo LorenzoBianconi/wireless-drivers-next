@@ -454,10 +454,6 @@ int mt7921_register_device(struct mt7921_dev *dev)
 	mt7921_set_stream_he_caps(&dev->phy);
 	dev->phy.dfs_state = -1;
 
-#ifdef CONFIG_NL80211_TESTMODE
-	dev->mt76.test_ops = &mt7921_testmode_ops;
-#endif
-
 	ret = mt76_register_device(&dev->mt76, true, mt7921_rates,
 				   ARRAY_SIZE(mt7921_rates));
 	if (ret)

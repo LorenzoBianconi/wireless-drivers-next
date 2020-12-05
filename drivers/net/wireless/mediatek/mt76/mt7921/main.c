@@ -350,13 +350,6 @@ static int mt7921_config(struct ieee80211_hw *hw, u32 changed)
 	int ret;
 
 	if (changed & IEEE80211_CONF_CHANGE_CHANNEL) {
-#ifdef CONFIG_NL80211_TESTMODE
-		if (dev->mt76.test.state != MT76_TM_STATE_OFF) {
-			mutex_lock(&dev->mt76.mutex);
-			mt76_testmode_reset(&dev->mt76, false);
-			mutex_unlock(&dev->mt76.mutex);
-		}
-#endif
 		ieee80211_stop_queues(hw);
 		ret = mt7921_set_channel(phy);
 		if (ret)
@@ -927,8 +920,6 @@ const struct ieee80211_ops mt7921_ops = {
 	.set_coverage_class = mt7921_set_coverage_class,
 	.sta_statistics = mt7921_sta_statistics,
 	.sta_set_4addr = mt7921_sta_set_4addr,
-	CFG80211_TESTMODE_CMD(mt76_testmode_cmd)
-	CFG80211_TESTMODE_DUMP(mt76_testmode_dump)
 #ifdef CONFIG_MAC80211_DEBUGFS
 	.sta_add_debugfs = mt7921_sta_add_debugfs,
 #endif
