@@ -166,8 +166,13 @@ mt7921_get_phy_mode(struct mt7921_dev *dev, struct ieee80211_vif *vif,
 		he_cap = &sta->he_cap;
 	} else {
 		struct ieee80211_supported_band *sband;
+		struct mt7921_phy *phy;
+		struct mt7921_vif *mvif;
 
-		sband = dev->phy.mt76->hw->wiphy->bands[band];
+		mvif = (struct mt7921_vif *)vif->drv_priv;
+		phy = mvif->band_idx ? mt7921_ext_phy(dev) : &dev->phy;
+		sband = phy->mt76->hw->wiphy->bands[band];
+
 		ht_cap = &sband->ht_cap;
 		vht_cap = &sband->vht_cap;
 		he_cap = ieee80211_get_he_iftype_cap(sband, vif->type);
@@ -212,8 +217,13 @@ mt7921_get_phy_mode_v2(struct mt7921_dev *dev, struct ieee80211_vif *vif,
 		he_cap = &sta->he_cap;
 	} else {
 		struct ieee80211_supported_band *sband;
+		struct mt7921_phy *phy;
+		struct mt7921_vif *mvif;
 
-		sband = dev->phy.mt76->hw->wiphy->bands[band];
+		mvif = (struct mt7921_vif *)vif->drv_priv;
+		phy = mvif->band_idx ? mt7921_ext_phy(dev) : &dev->phy;
+		sband = phy->mt76->hw->wiphy->bands[band];
+
 		ht_cap = &sband->ht_cap;
 		vht_cap = &sband->vht_cap;
 		he_cap = ieee80211_get_he_iftype_cap(sband, vif->type);
@@ -551,6 +561,9 @@ mt7921_mcu_tx_rate_report(struct mt7921_dev *dev, struct sk_buff *skb)
 
 	msta = container_of(wcid, struct mt7921_sta, wcid);
 	stats = &msta->stats;
+
+	if (msta->wcid.ext_phy && dev->mt76.phy2)
+		mphy = dev->mt76.phy2;
 
 	/* current rate */
 	mt7921_mcu_tx_rate_parse(mphy, ra, &rate, curr);
@@ -947,7 +960,12 @@ mt7921_mcu_bss_rfch_tlv(struct sk_buff *skb, struct ieee80211_vif *vif,
 	}
 
 	if (vif->bss_conf.he_support && vif->type == NL80211_IFTYPE_STATION) {
-		struct mt76_phy *mphy = &phy->dev->mt76.phy;
+		struct mt7921_dev *dev = phy->dev;
+		struct mt76_phy *mphy = &dev->mt76.phy;
+		bool ext_phy = phy != &dev->phy;
+
+		if (ext_phy && dev->mt76.phy2)
+			mphy = dev->mt76.phy2;
 
 		ch->he_ru26_block =
 			mt7921_check_he_obss_narrow_bw_ru(mphy->hw, vif);
@@ -2897,6 +2915,7 @@ int mt7921_mcu_hw_scan(struct mt7921_phy *phy, struct ieee80211_vif *vif,
 	int ext_channels_num = max_t(int, sreq->n_channels - 32, 0);
 	struct ieee80211_channel **scan_list = sreq->channels;
 	struct mt7921_dev *dev = phy->dev;
+	bool ext_phy = phy != &dev->phy;
 	struct mt7921_mcu_scan_channel *chan;
 	struct mt7921_hw_scan_req *req;
 	struct sk_buff *skb;
@@ -2910,7 +2929,7 @@ int mt7921_mcu_hw_scan(struct mt7921_phy *phy, struct ieee80211_vif *vif,
 
 	req = (struct mt7921_hw_scan_req *)skb_put(skb, sizeof(*req));
 
-	req->seq_num = mvif->scan_seq_num << 7;
+	req->seq_num = mvif->scan_seq_num | ext_phy << 7;
 	req->bss_idx = mvif->idx;
 	req->scan_type = sreq->n_ssids ? 1 : 0;
 	req->probe_req_num = sreq->n_ssids ? 2 : 0;

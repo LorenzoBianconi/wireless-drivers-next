@@ -46,19 +46,20 @@ mt7921_ampdu_stat_read_phy(struct mt7921_phy *phy,
 			   struct seq_file *file)
 {
 	struct mt7921_dev *dev = file->private;
-	int bound[15], range[4], i;
+	bool ext_phy = phy != &dev->phy;
+	int bound[15], range[4], i, n;
 
 	if (!phy)
 		return;
 
 	/* Tx ampdu stat */
 	for (i = 0; i < ARRAY_SIZE(range); i++)
-		range[i] = mt76_rr(dev, MT_MIB_ARNG(0, i));
+		range[i] = mt76_rr(dev, MT_MIB_ARNG(ext_phy, i));
 
 	for (i = 0; i < ARRAY_SIZE(bound); i++)
 		bound[i] = MT_MIB_ARNCR_RANGE(range[i / 4], i) + 1;
 
-	seq_printf(file, "\nPhy0\n");
+	seq_printf(file, "\nPhy %d\n", ext_phy);
 
 	seq_printf(file, "Length: %8d | ", bound[0]);
 	for (i = 0; i < ARRAY_SIZE(bound) - 1; i++)
@@ -66,8 +67,9 @@ mt7921_ampdu_stat_read_phy(struct mt7921_phy *phy,
 			   bound[i] + 1, bound[i + 1]);
 
 	seq_puts(file, "\nCount:  ");
+	n = ext_phy ? ARRAY_SIZE(dev->mt76.aggr_stats) / 2 : 0;
 	for (i = 0; i < ARRAY_SIZE(bound); i++)
-		seq_printf(file, "%8d | ", dev->mt76.aggr_stats[i]);
+		seq_printf(file, "%8d | ", dev->mt76.aggr_stats[i + n]);
 	seq_puts(file, "\n");
 
 	seq_printf(file, "BA miss count: %d\n", phy->mib.ba_miss_cnt);
@@ -80,6 +82,7 @@ mt7921_tx_stats_read(struct seq_file *file, void *data)
 	int stat[8], i, n;
 
 	mt7921_ampdu_stat_read_phy(&dev->phy, file);
+	mt7921_ampdu_stat_read_phy(mt7921_ext_phy(dev), file);
 
 	/* Tx amsdu info */
 	seq_puts(file, "Tx MSDU stat:\n");
