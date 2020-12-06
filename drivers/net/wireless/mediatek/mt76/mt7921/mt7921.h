@@ -46,22 +46,18 @@
 
 struct mt7921_vif;
 struct mt7921_sta;
-struct mt7921_dfs_pulse;
-struct mt7921_dfs_pattern;
 
 enum mt7921_txq_id {
 	MT7921_TXQ_BAND0,
 	MT7921_TXQ_BAND1,
 	MT7921_TXQ_FWDL = 16,
 	MT7921_TXQ_MCU_WM,
-	MT7921_TXQ_MCU_WA,
 };
 
 enum mt7921_rxq_id {
 	MT7921_RXQ_BAND0 = 0,
 	MT7921_RXQ_BAND1,
 	MT7921_RXQ_MCU_WM = 0,
-	MT7921_RXQ_MCU_WA,
 };
 
 struct mt7921_sta_stats {
@@ -275,8 +271,6 @@ int mt7921_mcu_set_eeprom(struct mt7921_dev *dev);
 int mt7921_mcu_get_eeprom(struct mt7921_dev *dev, u32 offset);
 int mt7921_mcu_set_mac(struct mt7921_dev *dev, int band, bool enable,
 		       bool hdr_trans);
-int mt7921_mcu_set_test_param(struct mt7921_dev *dev, u8 param, bool test_mode,
-			      u8 en);
 int mt7921_mcu_set_rts_thresh(struct mt7921_phy *phy, u32 val);
 int mt7921_mcu_set_sku_en(struct mt7921_phy *phy, bool enable);
 int mt7921_mcu_set_sku(struct mt7921_phy *phy);
