@@ -97,11 +97,6 @@ enum {
 	MCU_EXT_EVENT_RATE_REPORT = 0x87,
 };
 
-enum {
-	MCU_ATE_SET_TRX = 0x1,
-	MCU_ATE_SET_FREQ_OFFSET = 0xa,
-};
-
 struct mt7921_mcu_rxd {
 	__le32 rxd[6];
 
@@ -156,7 +151,6 @@ struct mt7921_mcu_ra_info {
 	u8 prob_up_period;
 	u8 prob_down_pending;
 } __packed;
-
 
 struct mt7921_mcu_phy_rx_info {
 	u8 category;
@@ -257,8 +251,6 @@ enum {
 	MCU_CMD_SET_BSS_CONNECTED = MCU_CE_PREFIX | 0x16,
 	MCU_CMD_SET_BSS_ABORT = MCU_CE_PREFIX | 0x17,
 	MCU_CMD_CANCEL_HW_SCAN = MCU_CE_PREFIX | 0x1b,
-	MCU_CMD_SET_ROC = MCU_CE_PREFIX | 0x1c,
-	MCU_CMD_SET_P2P_OPPPS = MCU_CE_PREFIX | 0x33,
 	MCU_CMD_SCHED_SCAN_ENABLE = MCU_CE_PREFIX | 0x61,
 	MCU_CMD_SCHED_SCAN_REQ = MCU_CE_PREFIX | 0x62,
 	MCU_CMD_REG_WRITE = MCU_CE_PREFIX | 0xc0,
@@ -364,16 +356,6 @@ enum {
 };
 
 enum {
-	SCS_SEND_DATA,
-	SCS_SET_MANUAL_PD_TH,
-	SCS_CONFIG,
-	SCS_ENABLE,
-	SCS_SHOW_INFO,
-	SCS_GET_GLO_ADDR,
-	SCS_GET_GLO_ADDR_EVENT,
-};
-
-enum {
 	CMD_CBW_20MHZ = IEEE80211_STA_RX_BW_20,
 	CMD_CBW_40MHZ = IEEE80211_STA_RX_BW_40,
 	CMD_CBW_80MHZ = IEEE80211_STA_RX_BW_80,
@@ -393,114 +375,6 @@ struct tlv {
 	__le16 len;
 } __packed;
 
-struct bss_info_omac {
-	__le16 tag;
-	__le16 len;
-	u8 hw_bss_idx;
-	u8 omac_idx;
-	u8 band_idx;
-	u8 rsv0;
-	__le32 conn_type;
-	u32 rsv1;
-} __packed;
-
-struct bss_info_basic {
-	__le16 tag;
-	__le16 len;
-	__le32 network_type;
-	u8 active;
-	u8 rsv0;
-	__le16 bcn_interval;
-	u8 bssid[ETH_ALEN];
-	u8 wmm_idx;
-	u8 dtim_period;
-	u8 bmc_wcid_lo;
-	u8 cipher;
-	u8 phy_mode;
-	u8 max_bssid;	/* max BSSID. range: 1 ~ 8, 0: MBSSID disabled */
-	u8 non_tx_bssid;/* non-transmitted BSSID, 0: transmitted BSSID */
-	u8 bmc_wcid_hi;	/* high Byte and version */
-	u8 rsv[2];
-} __packed;
-
-struct bss_info_rf_ch {
-	__le16 tag;
-	__le16 len;
-	u8 pri_ch;
-	u8 center_ch0;
-	u8 center_ch1;
-	u8 bw;
-	u8 he_ru26_block;	/* 1: don't send HETB in RU26, 0: allow */
-	u8 he_all_disable;	/* 1: disallow all HETB, 0: allow */
-	u8 rsv[2];
-} __packed;
-
-struct bss_info_ext_bss {
-	__le16 tag;
-	__le16 len;
-	__le32 mbss_tsf_offset; /* in unit of us */
-	u8 rsv[8];
-} __packed;
-
-struct bss_info_bmc_rate {
-	__le16 tag;
-	__le16 len;
-	__le16 bc_trans;
-	__le16 mc_trans;
-	u8 short_preamble;
-	u8 rsv[7];
-} __packed;
-
-struct bss_info_ra {
-	__le16 tag;
-	__le16 len;
-	u8 op_mode;
-	u8 adhoc_en;
-	u8 short_preamble;
-	u8 tx_streams;
-	u8 rx_streams;
-	u8 algo;
-	u8 force_sgi;
-	u8 force_gf;
-	u8 ht_mode;
-	u8 has_20_sta;		/* Check if any sta support GF. */
-	u8 bss_width_trigger_events;
-	u8 vht_nss_cap;
-	u8 vht_bw_signal;	/* not use */
-	u8 vht_force_sgi;	/* not use */
-	u8 se_off;
-	u8 antenna_idx;
-	u8 train_up_rule;
-	u8 rsv[3];
-	unsigned short train_up_high_thres;
-	short train_up_rule_rssi;
-	unsigned short low_traffic_thres;
-	__le16 max_phyrate;
-	__le32 phy_cap;
-	__le32 interval;
-	__le32 fast_interval;
-} __packed;
-
-struct bss_info_hw_amsdu {
-	__le16 tag;
-	__le16 len;
-	__le32 cmp_bitmap_0;
-	__le32 cmp_bitmap_1;
-	__le16 trig_thres;
-	u8 enable;
-	u8 rsv;
-} __packed;
-
-struct bss_info_he {
-	__le16 tag;
-	__le16 len;
-	u8 he_pe_duration;
-	u8 vht_op_info_present;
-	__le16 he_rts_thres;
-	__le16 max_nss_mcs[CMD_HE_MCS_BW_NUM];
-	u8 rsv[6];
-} __packed;
-
 struct bss_info_uni_he {
 	__le16 tag;
 	__le16 len;
@@ -510,75 +384,6 @@ struct bss_info_uni_he {
 	__le16 max_nss_mcs[CMD_HE_MCS_BW_NUM];
 	u8 rsv[2];
 } __packed;
-
-struct bss_info_bcn {
-	__le16 tag;
-	__le16 len;
-	u8 ver;
-	u8 enable;
-	__le16 sub_ntlv;
-} __packed __aligned(4);
-
-struct bss_info_bcn_csa {
-	__le16 tag;
-	__le16 len;
-	u8 cnt;
-	u8 rsv[3];
-} __packed __aligned(4);
-
-struct bss_info_bcn_bcc {
-	__le16 tag;
-	__le16 len;
-	u8 cnt;
-	u8 rsv[3];
-} __packed __aligned(4);
-
-struct bss_info_bcn_mbss {
-#define MAX_BEACON_NUM	32
-	__le16 tag;
-	__le16 len;
-	__le32 bitmap;
-	__le16 offset[MAX_BEACON_NUM];
-	u8 rsv[8];
-} __packed __aligned(4);
-
-struct bss_info_bcn_cont {
-	__le16 tag;
-	__le16 len;
-	__le16 tim_ofs;
-	__le16 csa_ofs;
-	__le16 bcc_ofs;
-	__le16 pkt_len;
-} __packed __aligned(4);
-
-enum {
-	BSS_INFO_BCN_CSA,
-	BSS_INFO_BCN_BCC,
-	BSS_INFO_BCN_MBSSID,
-	BSS_INFO_BCN_CONTENT,
-	BSS_INFO_BCN_MAX
-};
-
-enum {
-	BSS_INFO_OMAC,
-	BSS_INFO_BASIC,
-	BSS_INFO_RF_CH,		/* optional, for BT/LTE coex */
-	BSS_INFO_PM,		/* sta only */
-	BSS_INFO_UAPSD,		/* sta only */
-	BSS_INFO_ROAM_DETECT,	/* obsoleted */
-	BSS_INFO_LQ_RM,		/* obsoleted */
-	BSS_INFO_EXT_BSS,
-	BSS_INFO_BMC_RATE,	/* for bmc rate control in CR4 */
-	BSS_INFO_SYNC_MODE,	/* obsoleted */
-	BSS_INFO_RA,
-	BSS_INFO_HW_AMSDU,
-	BSS_INFO_BSS_COLOR,
-	BSS_INFO_HE_BASIC,
-	BSS_INFO_PROTECT_INFO,
-	BSS_INFO_OFFLOAD,
-	BSS_INFO_11V_MBSSID,
-	BSS_INFO_MAX_NUM
-};
 
 enum {
 	WTBL_RESET_AND_SET = 1,
@@ -764,51 +569,6 @@ struct sta_rec_uapsd {
 	u8 rsv1[2];
 } __packed;
 
-struct sta_rec_muru {
-	__le16 tag;
-	__le16 len;
-
-	struct {
-		bool ofdma_dl_en;
-		bool ofdma_ul_en;
-		bool mimo_dl_en;
-		bool mimo_ul_en;
-		u8 rsv[4];
-	} cfg;
-
-	struct {
-		u8 punc_pream_rx;
-		bool he_20m_in_40m_2g;
-		bool he_20m_in_160m;
-		bool he_80m_in_160m;
-		bool lt16_sigb;
-		bool rx_su_comp_sigb;
-		bool rx_su_non_comp_sigb;
-		u8 rsv;
-	} ofdma_dl;
-
-	struct {
-		u8 t_frame_dur;
-		u8 mu_cascading;
-		u8 uo_ra;
-		u8 he_2x996_tone;
-		u8 rx_t_frame_11ac;
-		u8 rsv[3];
-	} ofdma_ul;
-
-	struct {
-		bool vht_mu_bfee;
-		bool partial_bw_dl_mimo;
-		u8 rsv[2];
-	} mimo_dl;
-
-	struct {
-		bool full_ul_mimo;
-		bool partial_ul_mimo;
-		u8 rsv[2];
-	} mimo_ul;
-} __packed;
-
 struct sta_rec_he {
 	__le16 tag;
 	__le16 len;
@@ -869,138 +629,6 @@ struct sta_rec_sec {
 	u8 rsv[2];
 
 	struct sec_key key[2];
-} __packed;
-
-struct ra_phy {
-	u8 type;
-	u8 flag;
-	u8 stbc;
-	u8 sgi;
-	u8 bw;
-	u8 ldpc;
-	u8 mcs;
-	u8 nss;
-	u8 he_ltf;
-};
-
-struct sta_rec_ra {
-	__le16 tag;
-	__le16 len;
-
-	u8 valid;
-	u8 auto_rate;
-	u8 phy_mode;
-	u8 channel;
-	u8 bw;
-	u8 disable_cck;
-	u8 ht_mcs32;
-	u8 ht_gf;
-	u8 ht_mcs[4];
-	u8 mmps_mode;
-	u8 gband_256;
-	u8 af;
-	u8 auth_wapi_mode;
-	u8 rate_len;
-
-	u8 supp_mode;
-	u8 supp_cck_rate;
-	u8 supp_ofdm_rate;
-	__le32 supp_ht_mcs;
-	__le16 supp_vht_mcs[4];
-
-	u8 op_mode;
-	u8 op_vht_chan_width;
-	u8 op_vht_rx_nss;
-	u8 op_vht_rx_nss_type;
-
-	__le32 sta_status;
-
-	struct ra_phy phy;
-} __packed;
-
-struct sta_rec_ra_fixed {
-	__le16 tag;
-	__le16 len;
-
-	__le32 field;
-	u8 op_mode;
-	u8 op_vht_chan_width;
-	u8 op_vht_rx_nss;
-	u8 op_vht_rx_nss_type;
-
-	struct ra_phy phy;
-
-	u8 spe_en;
-	u8 short_preamble;
-	u8 is_5g;
-	u8 mmps_mode;
-} __packed;
-
-#define RATE_PARAM_FIXED		3
-#define RATE_PARAM_AUTO			20
-#define RATE_CFG_MCS			GENMASK(3, 0)
-#define RATE_CFG_NSS			GENMASK(7, 4)
-#define RATE_CFG_GI			GENMASK(11, 8)
-#define RATE_CFG_BW			GENMASK(15, 12)
-#define RATE_CFG_STBC			GENMASK(19, 16)
-#define RATE_CFG_LDPC			GENMASK(23, 20)
-#define RATE_CFG_PHY_TYPE		GENMASK(27, 24)
-
-struct sta_rec_bf {
-	__le16 tag;
-	__le16 len;
-
-	__le16 pfmu;		/* 0xffff: no access right for PFMU */
-	bool su_mu;		/* 0: SU, 1: MU */
-	u8 bf_cap;		/* 0: iBF, 1: eBF */
-	u8 sounding_phy;	/* 0: legacy, 1: OFDM, 2: HT, 4: VHT */
-	u8 ndpa_rate;
-	u8 ndp_rate;
-	u8 rept_poll_rate;
-	u8 tx_mode;		/* 0: legacy, 1: OFDM, 2: HT, 4: VHT ... */
-	u8 nc;
-	u8 nr;
-	u8 bw;			/* 0: 20M, 1: 40M, 2: 80M, 3: 160M */
-
-	u8 mem_total;
-	u8 mem_20m;
-	struct {
-		u8 row;
-		u8 col: 6, row_msb: 2;
-	} mem[4];
-
-	__le16 smart_ant;
-	u8 se_idx;
-	u8 auto_sounding;	/* b7: low traffic indicator
-				 * b6: Stop sounding for this entry
-				 * b5 ~ b0: postpone sounding
-				 */
-	u8 ibf_timeout;
-	u8 ibf_dbw;
-	u8 ibf_ncol;
-	u8 ibf_nrow;
-	u8 nr_bw160;
-	u8 nc_bw160;
-	u8 ru_start_idx;
-	u8 ru_end_idx;
-
-	bool trigger_su;
-	bool trigger_mu;
-	bool ng16_su;
-	bool ng16_mu;
-	bool codebook42_su;
-	bool codebook75_mu;
-
-	u8 he_ltf;
-	u8 rsv[2];
-} __packed;
-
-struct sta_rec_bfee {
-	__le16 tag;
-	__le16 len;
-	bool fb_identity_matrix;	/* 1: feedback identity matrix */
-	bool ignore_feedback;		/* 1: ignore */
-	u8 rsv[2];
 } __packed;
 
 struct sta_rec_state {
@@ -1143,22 +771,6 @@ enum {
 
 #define MT7921_WTBL_UPDATE_BA_SIZE	(sizeof(struct wtbl_req_hdr) +	\
 					 sizeof(struct wtbl_ba))
-
-#define MT7921_BSS_UPDATE_MAX_SIZE	(sizeof(struct sta_req_hdr) +	\
-					 sizeof(struct bss_info_omac) +	\
-					 sizeof(struct bss_info_basic) +\
-					 sizeof(struct bss_info_rf_ch) +\
-					 sizeof(struct bss_info_ra) +	\
-					 sizeof(struct bss_info_hw_amsdu) +\
-					 sizeof(struct bss_info_he) +	\
-					 sizeof(struct bss_info_bmc_rate) +\
-					 sizeof(struct bss_info_ext_bss))
-
-#define MT7921_BEACON_UPDATE_SIZE	(sizeof(struct sta_req_hdr) +	\
-					 sizeof(struct bss_info_bcn_csa) + \
-					 sizeof(struct bss_info_bcn_bcc) + \
-					 sizeof(struct bss_info_bcn_mbss) + \
-					 sizeof(struct bss_info_bcn_cont))
 
 #define PHY_MODE_A			BIT(0)
 #define PHY_MODE_B			BIT(1)
