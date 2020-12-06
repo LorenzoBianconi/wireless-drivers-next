@@ -94,12 +94,6 @@ enum {
 
 /* ext event table */
 enum {
-	MCU_EXT_EVENT_PS_SYNC = 0x5,
-	MCU_EXT_EVENT_FW_LOG_2_HOST = 0x13,
-	MCU_EXT_EVENT_THERMAL_PROTECT = 0x22,
-	MCU_EXT_EVENT_ASSERT_DUMP = 0x23,
-	MCU_EXT_EVENT_RDD_REPORT = 0x3a,
-	MCU_EXT_EVENT_CSA_NOTIFY = 0x4f,
 	MCU_EXT_EVENT_RATE_REPORT = 0x87,
 };
 
@@ -122,58 +116,6 @@ struct mt7921_mcu_rxd {
 	u8 __rsv1[2];
 	u8 s2d_index;
 };
-
-struct mt7921_mcu_rdd_report {
-	struct mt7921_mcu_rxd rxd;
-
-	u8 idx;
-	u8 long_detected;
-	u8 constant_prf_detected;
-	u8 staggered_prf_detected;
-	u8 radar_type_idx;
-	u8 periodic_pulse_num;
-	u8 long_pulse_num;
-	u8 hw_pulse_num;
-
-	u8 out_lpn;
-	u8 out_spn;
-	u8 out_crpn;
-	u8 out_crpw;
-	u8 out_crbn;
-	u8 out_stgpn;
-	u8 out_stgpw;
-
-	u8 rsv;
-
-	__le32 out_pri_const;
-	__le32 out_pri_stg[3];
-
-	struct {
-		__le32 start;
-		__le16 pulse_width;
-		__le16 pulse_power;
-		u8 mdrdy_flag;
-		u8 rsv[3];
-	} long_pulse[32];
-
-	struct {
-		__le32 start;
-		__le16 pulse_width;
-		__le16 pulse_power;
-		u8 mdrdy_flag;
-		u8 rsv[3];
-	} periodic_pulse[32];
-
-	struct {
-		__le32 start;
-		__le16 pulse_width;
-		__le16 pulse_power;
-		u8 sc_pass;
-		u8 sw_reset;
-		u8 mdrdy_flag;
-		u8 tx_active;
-	} hw_pulse[32];
-} __packed;
 
 struct mt7921_mcu_eeprom_info {
 	__le32 addr;
@@ -275,33 +217,20 @@ enum {
 
 enum {
 	MCU_EXT_CMD_EFUSE_ACCESS = 0x01,
-	MCU_EXT_CMD_PM_STATE_CTRL = 0x07,
 	MCU_EXT_CMD_CHANNEL_SWITCH = 0x08,
 	MCU_EXT_CMD_FW_LOG_2_HOST = 0x13,
-	MCU_EXT_CMD_TXBF_ACTION = 0x1e,
 	MCU_EXT_CMD_EFUSE_BUFFER_MODE = 0x21,
-	MCU_EXT_CMD_STA_REC_UPDATE = 0x25,
-	MCU_EXT_CMD_BSS_INFO_UPDATE = 0x26,
 	MCU_EXT_CMD_EDCA_UPDATE = 0x27,
-	MCU_EXT_CMD_DEV_INFO_UPDATE = 0x2A,
 	MCU_EXT_CMD_THERMAL_CTRL = 0x2c,
 	MCU_EXT_CMD_WTBL_UPDATE = 0x32,
-	MCU_EXT_CMD_SET_DRR_CTRL = 0x36,
-	MCU_EXT_CMD_SET_RDD_CTRL = 0x3a,
-	MCU_EXT_CMD_ATE_CTRL = 0x3d,
 	MCU_EXT_CMD_PROTECT_CTRL = 0x3e,
 	MCU_EXT_CMD_MAC_INIT_CTRL = 0x46,
 	MCU_EXT_CMD_RX_HDR_TRANS = 0x47,
-	MCU_EXT_CMD_MUAR_UPDATE = 0x48,
 	MCU_EXT_CMD_SET_RX_PATH = 0x4e,
 	MCU_EXT_CMD_TX_POWER_FEATURE_CTRL = 0x58,
 	MCU_EXT_CMD_MWDS_SUPPORT = 0x80,
-	MCU_EXT_CMD_SET_SER_TRIGGER = 0x81,
-	MCU_EXT_CMD_SCS_CTRL = 0x82,
 	MCU_EXT_CMD_RATE_CTRL = 0x87,
 	MCU_EXT_CMD_FW_DBG_CTRL = 0x95,
-	MCU_EXT_CMD_SET_RDD_TH = 0x9d,
-	MCU_EXT_CMD_SET_SPR = 0xa8,
 	MCU_EXT_CMD_PHY_STAT_INFO = 0xad,
 };
 
