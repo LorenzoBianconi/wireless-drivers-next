@@ -935,8 +935,6 @@ void mt7921_mac_tx_free(struct mt7921_dev *dev, struct sk_buff *skb)
 			msta = container_of(wcid, struct mt7921_sta, wcid);
 			phy = msta->vif->phy;
 			spin_lock_bh(&dev->sta_poll_lock);
-			if (list_empty(&msta->stats_list))
-				list_add_tail(&msta->stats_list, &phy->stats_list);
 			if (list_empty(&msta->poll_list))
 				list_add_tail(&msta->poll_list, &dev->sta_poll_list);
 			spin_unlock_bh(&dev->sta_poll_lock);
@@ -1330,68 +1328,6 @@ mt7921_mac_update_mib_stats(struct mt7921_phy *phy)
 	}
 }
 
-#if 0
-static void
-mt7921_mac_sta_stats_work(struct mt7921_phy *phy)
-{
-	struct mt7921_dev *dev = phy->dev;
-	struct mt7921_sta *msta;
-	LIST_HEAD(list);
-
-	spin_lock_bh(&dev->sta_poll_lock);
-	list_splice_init(&phy->stats_list, &list);
-
-	while (!list_empty(&list)) {
-		msta = list_first_entry(&list, struct mt7921_sta, stats_list);
-		list_del_init(&msta->stats_list);
-		spin_unlock_bh(&dev->sta_poll_lock);
-
-		/* use MT_TX_FREE_RATE to report Tx rate for further devices */
-		mt7921_mcu_get_tx_rate(dev, RATE_CTRL_RU_INFO, msta->wcid.idx);
-
-		spin_lock_bh(&dev->sta_poll_lock);
-	}
-
-	spin_unlock_bh(&dev->sta_poll_lock);
-}
-#endif
-
-void mt7921_mac_sta_rc_work(struct work_struct *work)
-{
-	struct mt7921_dev *dev = container_of(work, struct mt7921_dev, rc_work);
-	struct ieee80211_sta *sta;
-	struct ieee80211_vif *vif;
-	struct mt7921_sta *msta;
-	u32 changed;
-	LIST_HEAD(list);
-
-	spin_lock_bh(&dev->sta_poll_lock);
-	list_splice_init(&dev->sta_rc_list, &list);
-
-	while (!list_empty(&list)) {
-		msta = list_first_entry(&list, struct mt7921_sta, rc_list);
-		list_del_init(&msta->rc_list);
-		changed = msta->stats.changed;
-		msta->stats.changed = 0;
-		spin_unlock_bh(&dev->sta_poll_lock);
-
-		sta = container_of((void *)msta, struct ieee80211_sta, drv_priv);
-		vif = container_of((void *)msta->vif, struct ieee80211_vif, drv_priv);
-/*
-		if (changed & (IEEE80211_RC_SUPP_RATES_CHANGED |
-			       IEEE80211_RC_NSS_CHANGED |
-			       IEEE80211_RC_BW_CHANGED))
-			mt7921_mcu_add_rate_ctrl(dev, vif, sta);
-
-		if (changed & IEEE80211_RC_SMPS_CHANGED)
-			mt7921_mcu_add_smps(dev, vif, sta);
-*/
-		spin_lock_bh(&dev->sta_poll_lock);
-	}
-
-	spin_unlock_bh(&dev->sta_poll_lock);
-}
-
 void mt7921_mac_work(struct work_struct *work)
 {
 	struct mt7921_phy *phy;
@@ -1409,12 +1345,7 @@ void mt7921_mac_work(struct work_struct *work)
 
 		mt7921_mac_update_mib_stats(phy);
 	}
-/*
-	if (++phy->sta_work_count == 10) {
-		phy->sta_work_count = 0;
-		mt7921_mac_sta_stats_work(phy);
-	};
-*/
+
 	mutex_unlock(&mdev->mutex);
 
 	ieee80211_queue_delayed_work(phy->mt76->hw, &phy->mac_work,

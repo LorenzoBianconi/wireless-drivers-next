@@ -206,37 +206,6 @@ static int mt7921_dmashdl_disabled(struct mt7921_dev *dev)
 	return 0;
 }
 
-#if 0
-static int mt7921_dmashdl_init(struct mt7921_dev *dev)
-{
-	int i;
-
-	mt76_rmw(dev, MT_DMA_SHDL(MT_DMASHDL_PKT_MAX_SIZE),
-		 MT_DMASHDL_PKT_MAX_SIZE_PLE | MT_DMASHDL_PKT_MAX_SIZE_PSE,
-		 FIELD_PREP(MT_DMASHDL_PKT_MAX_SIZE_PLE, 1) |
-		 FIELD_PREP(MT_DMASHDL_PKT_MAX_SIZE_PSE, 0));
-
-	mt76_clear(dev, MT_DMA_SHDL(MT_DMASHDL_REFILL), 0xffff0000);
-
-	for (i = 0; i < 16; i++)
-		mt76_wr(dev, MT_DMA_SHDL(MT_DMASHDL_GROUP_QUOTA(i)),
-			FIELD_PREP(MT_DMASHDL_GROUP_QUOTA_MIN, 0x0) |
-			FIELD_PREP(MT_DMASHDL_GROUP_QUOTA_MAX, 0xfff));
-
-	mt76_wr(dev, MT_DMA_SHDL(MT_DMASHDL_Q_MAP(0)), 0x11110000);
-	mt76_wr(dev, MT_DMA_SHDL(MT_DMASHDL_Q_MAP(1)), 0x00000000);
-	mt76_wr(dev, MT_DMA_SHDL(MT_DMASHDL_Q_MAP(2)), 0x11111000);
-	mt76_wr(dev, MT_DMA_SHDL(MT_DMASHDL_Q_MAP(3)), 0x11111000);
-
-	mt76_wr(dev, MT_DMA_SHDL(MT_DMASHDL_SCHED_SET(0)), 0x76543210);
-	mt76_wr(dev, MT_DMA_SHDL(MT_DMASHDL_SCHED_SET(1)), 0xfedcba98);
-
-	mt76_set(dev, MT_DMA_SHDL(MT_DMASHDL_PAGE), BIT(16));
-
-	return 0;
-}
-#endif
-
 int mt7921_dma_init(struct mt7921_dev *dev)
 {
 	/* Increase buffer size to receive large VHT/HE MPDUs */

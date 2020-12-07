@@ -74,7 +74,6 @@ struct mt7921_sta {
 
 	struct mt7921_vif *vif;
 
-	struct list_head stats_list;
 	struct list_head poll_list;
 	struct list_head rc_list;
 	u32 airtime_ac[8];
@@ -128,7 +127,6 @@ struct mt7921_phy {
 	u32 ampdu_ref;
 
 	struct mib_stats mib;
-	struct list_head stats_list;
 
 	struct delayed_work mac_work;
 	u8 mac_work_count;
@@ -151,12 +149,10 @@ struct mt7921_dev {
 	u16 chainmask;
 
 	struct work_struct init_work;
-	struct work_struct rc_work;
 	struct work_struct reset_work;
 	wait_queue_head_t reset_wait;
 	u32 reset_state;
 
-	struct list_head sta_rc_list;
 	struct list_head sta_poll_list;
 	spinlock_t sta_poll_lock;
 
@@ -274,7 +270,6 @@ int mt7921_mcu_set_mac(struct mt7921_dev *dev, int band, bool enable,
 int mt7921_mcu_set_rts_thresh(struct mt7921_phy *phy, u32 val);
 int mt7921_mcu_set_sku_en(struct mt7921_phy *phy, bool enable);
 int mt7921_mcu_set_sku(struct mt7921_phy *phy);
-int mt7921_mcu_get_tx_rate(struct mt7921_dev *dev, u32 cmd, u16 wlan_idx);
 int mt7921_mcu_get_rx_rate(struct mt7921_phy *phy, struct ieee80211_vif *vif,
 			   struct ieee80211_sta *sta, struct rate_info *rate);
 int mt7921_mcu_fw_log_2_host(struct mt7921_dev *dev, u8 ctrl);
@@ -346,7 +341,6 @@ void mt7921_mac_sta_remove(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 			   struct ieee80211_sta *sta);
 void mt7921_mac_work(struct work_struct *work);
 void mt7921_mac_reset_work(struct work_struct *work);
-void mt7921_mac_sta_rc_work(struct work_struct *work);
 int mt7921_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 			  enum mt76_txq_id qid, struct mt76_wcid *wcid,
 			  struct ieee80211_sta *sta,

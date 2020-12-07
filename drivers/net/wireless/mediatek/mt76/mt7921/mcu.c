@@ -2000,24 +2000,6 @@ int mt7921_mcu_get_eeprom(struct mt7921_dev *dev, u32 offset)
 	return 0;
 }
 
-int mt7921_mcu_get_tx_rate(struct mt7921_dev *dev, u32 cmd, u16 wlan_idx)
-{
-	struct {
-		__le32 cmd;
-		__le16 wlan_idx;
-		__le16 ru_idx;
-		__le16 direction;
-		__le16 dump_group;
-	} req = {
-		.cmd = cpu_to_le32(cmd),
-		.wlan_idx = cpu_to_le16(wlan_idx),
-		.dump_group = cpu_to_le16(1),
-	};
-
-	return mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD_RATE_CTRL, &req,
-				 sizeof(req), false);
-}
-
 int mt7921_mcu_set_sku(struct mt7921_phy *phy)
 {
 	struct mt7921_dev *dev = phy->dev;

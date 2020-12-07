@@ -171,7 +171,6 @@ static int mt7921_add_interface(struct ieee80211_hw *hw,
 	idx = MT7921_WTBL_RESERVED - mvif->idx;
 
 	INIT_LIST_HEAD(&mvif->sta.rc_list);
-	INIT_LIST_HEAD(&mvif->sta.stats_list);
 	INIT_LIST_HEAD(&mvif->sta.poll_list);
 	mvif->sta.wcid.idx = idx;
 	mvif->sta.wcid.ext_phy = mvif->band_idx;
@@ -477,7 +476,6 @@ int mt7921_mac_sta_add(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 		return -ENOSPC;
 
 	INIT_LIST_HEAD(&msta->rc_list);
-	INIT_LIST_HEAD(&msta->stats_list);
 	INIT_LIST_HEAD(&msta->poll_list);
 	msta->vif = mvif;
 	msta->wcid.sta = 1;
@@ -522,8 +520,6 @@ void mt7921_mac_sta_remove(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 	spin_lock_bh(&dev->sta_poll_lock);
 	if (!list_empty(&msta->poll_list))
 		list_del_init(&msta->poll_list);
-	if (!list_empty(&msta->stats_list))
-		list_del_init(&msta->stats_list);
 	if (!list_empty(&msta->rc_list))
 		list_del_init(&msta->rc_list);
 	spin_unlock_bh(&dev->sta_poll_lock);
@@ -848,16 +844,6 @@ mt7921_sta_rc_update(struct ieee80211_hw *hw,
 		     struct ieee80211_sta *sta,
 		     u32 changed)
 {
-	struct mt7921_dev *dev = mt7921_hw_dev(hw);
-	struct mt7921_sta *msta = (struct mt7921_sta *)sta->drv_priv;
-
-	spin_lock_bh(&dev->sta_poll_lock);
-	msta->stats.changed |= changed;
-	if (list_empty(&msta->rc_list))
-		list_add_tail(&msta->rc_list, &dev->sta_rc_list);
-	spin_unlock_bh(&dev->sta_poll_lock);
-
-	ieee80211_queue_work(hw, &dev->rc_work);
 }
 
 static void mt7921_sta_set_4addr(struct ieee80211_hw *hw,
