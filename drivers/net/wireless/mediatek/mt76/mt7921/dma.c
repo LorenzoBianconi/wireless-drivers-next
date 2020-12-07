@@ -168,7 +168,10 @@ static u32 __mt7921_reg_addr(struct mt7921_dev *dev, u32 addr)
 	    (addr >= 0x7c000000 && addr < 0x7c400000))
 		return mt7921_reg_map_l1(dev, addr);
 
-	return mt7921_reg_map_l2(dev, addr);
+	dev_err(dev->mt76.dev, "Access currently unsupported address %08x\n",
+		addr);
+
+	return 0;
 }
 
 static u32 mt7921_rr(struct mt76_dev *mdev, u32 offset)

@@ -331,49 +331,8 @@ mt7921_l1_rmw(struct mt7921_dev *dev, u32 addr, u32 mask, u32 val)
 #define mt7921_l1_set(dev, addr, val)	mt7921_l1_rmw(dev, addr, 0, val)
 #define mt7921_l1_clear(dev, addr, val)	mt7921_l1_rmw(dev, addr, val, 0)
 
-static inline u32
-mt7921_reg_map_l2(struct mt7921_dev *dev, u32 addr)
-{
-	u32 offset = FIELD_GET(MT_HIF_REMAP_L2_OFFSET, addr);
-	u32 base = FIELD_GET(MT_HIF_REMAP_L2_BASE, addr);
-
-	/* Needed to check */
-	return 0;
-
-	mt76_rmw_field(dev, MT_HIF_REMAP_L2, MT_HIF_REMAP_L2_MASK, base);
-	/* use read to push write */
-	mt76_rr(dev, MT_HIF_REMAP_L2);
-
-	return MT_HIF_REMAP_BASE_L2 + offset;
-}
-
-static inline u32
-mt7921_l2_rr(struct mt7921_dev *dev, u32 addr)
-{
-	return mt76_rr(dev, mt7921_reg_map_l2(dev, addr));
-}
-
-static inline void
-mt7921_l2_wr(struct mt7921_dev *dev, u32 addr, u32 val)
-{
-	mt76_wr(dev, mt7921_reg_map_l2(dev, addr), val);
-}
-
-static inline u32
-mt7921_l2_rmw(struct mt7921_dev *dev, u32 addr, u32 mask, u32 val)
-{
-	val |= mt7921_l2_rr(dev, addr) & ~mask;
-	mt7921_l2_wr(dev, addr, val);
-
-	return val;
-}
-
-#define mt7921_l2_set(dev, addr, val)	mt7921_l2_rmw(dev, addr, 0, val)
-#define mt7921_l2_clear(dev, addr, val)	mt7921_l2_rmw(dev, addr, val, 0)
-
 bool mt7921_mac_wtbl_update(struct mt7921_dev *dev, int idx, u32 mask);
 void mt7921_mac_reset_counters(struct mt7921_phy *phy);
-void mt7921_mac_cca_stats_reset(struct mt7921_phy *phy);
 void mt7921_mac_write_txwi(struct mt7921_dev *dev, __le32 *txwi,
 			   struct sk_buff *skb, struct mt76_wcid *wcid,
 			   struct ieee80211_key_conf *key, bool beacon);

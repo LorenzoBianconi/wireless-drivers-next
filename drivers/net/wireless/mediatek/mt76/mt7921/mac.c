@@ -1023,16 +1023,6 @@ void mt7921_tx_complete_skb(struct mt76_dev *mdev, struct mt76_queue_entry *e)
 	}
 }
 
-void mt7921_mac_cca_stats_reset(struct mt7921_phy *phy)
-{
-	struct mt7921_dev *dev = phy->dev;
-	bool ext_phy = phy != &dev->phy;
-	u32 reg = MT_WF_PHY_RX_CTRL1(ext_phy);
-
-	mt7921_l2_clear(dev, reg, MT_WF_PHY_RX_CTRL1_STSCNT_EN);
-	mt7921_l2_set(dev, reg, BIT(11) | BIT(9));
-}
-
 void mt7921_mac_reset_counters(struct mt7921_phy *phy)
 {
 	struct mt7921_dev *dev = phy->dev;

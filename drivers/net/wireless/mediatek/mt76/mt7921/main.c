@@ -263,7 +263,6 @@ int mt7921_set_channel(struct mt7921_phy *phy)
 		goto out;
 
 	mt7921_mac_set_timing(phy);
-	mt7921_mac_cca_stats_reset(phy);
 
 	mt7921_mac_reset_counters(phy);
 	phy->noise = 0;

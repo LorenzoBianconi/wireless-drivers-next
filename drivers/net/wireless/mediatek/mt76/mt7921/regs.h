@@ -275,7 +275,7 @@
 #define HOST_RX_DONE_INT_STS0		BIT(0)	/* Rx mcu */
 #define HOST_RX_DONE_INT_STS2		BIT(2)	/* Rx data */
 #define HOST_RX_DONE_INT_STS4		BIT(22)	/* Rx mcu after fw downloaded */
-#define HOST_TX_DONE_INT_STS16		BIT(26)	
+#define HOST_TX_DONE_INT_STS16		BIT(26)
 #define HOST_TX_DONE_INT_STS17		BIT(27) /* MCU tx done*/
 
 #define MT_WFDMA0_HOST_INT_ENA		MT_WFDMA0(0x204)
@@ -428,13 +428,6 @@
 #define MT_PCIE_MAC_BASE		0x74030000
 #define MT_PCIE_MAC(ofs)		(MT_PCIE_MAC_BASE + (ofs))
 #define MT_PCIE_MAC_INT_ENABLE		MT_PCIE_MAC(0x188)
-
-#define MT_WF_PHY_BASE			0x40000
-#define MT_WF_PHY(ofs)			(MT_WF_PHY_BASE + (ofs))
-
-#define MT_WF_PHY_RX_CTRL1(_phy)	MT_WF_PHY(0x2004 + ((_phy) << 16))
-#define MT_WF_PHY_RX_CTRL1_IPI_EN	GENMASK(2, 0)
-#define MT_WF_PHY_RX_CTRL1_STSCNT_EN	GENMASK(11, 9)
 
 #define MT_DMA_SHDL(ofs)		(0xd6000 + (ofs))
 #define MT_DMASHDL_SW_CONTROL		MT_DMA_SHDL(0x004)
