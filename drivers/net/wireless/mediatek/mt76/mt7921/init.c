@@ -449,7 +449,6 @@ int mt7921_register_device(struct mt7921_dev *dev)
 
 	mt76_set_stream_caps(&dev->mphy, true);
 	mt7921_set_stream_he_caps(&dev->phy);
-	dev->phy.dfs_state = -1;
 
 	ret = mt76_register_device(&dev->mt76, true, mt7921_rates,
 				   ARRAY_SIZE(mt7921_rates));
