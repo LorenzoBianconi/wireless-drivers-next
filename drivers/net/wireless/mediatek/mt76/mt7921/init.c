@@ -36,9 +36,6 @@ static struct ieee80211_rate mt7921_rates[] = {
 
 static const struct ieee80211_iface_limit if_limits[] = {
 	{
-		.max = 1,
-		.types = BIT(NL80211_IFTYPE_ADHOC)
-	}, {
 		.max = MT7921_MAX_INTERFACES,
 		.types = BIT(NL80211_IFTYPE_STATION)
 	}
