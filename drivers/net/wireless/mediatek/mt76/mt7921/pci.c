@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: ISC
 /* Copyright (C) 2020 MediaTek Inc.
  *
- * Author: Ryder Lee <ryder.lee@mediatek.com>
  */
 
 #include <linux/kernel.h>
@@ -206,4 +205,6 @@ module_pci_driver(mt7921_pci_driver);
 MODULE_DEVICE_TABLE(pci, mt7921_pci_device_table);
 MODULE_FIRMWARE(MT7921_FIRMWARE_WM);
 MODULE_FIRMWARE(MT7921_ROM_PATCH);
+MODULE_AUTHOR("Sean Wang <sean.wang@mediatek.com>");
+MODULE_AUTHOR("Lorenzo Bianconi <lorenzo@kernel.org>");
 MODULE_LICENSE("Dual BSD/GPL");
