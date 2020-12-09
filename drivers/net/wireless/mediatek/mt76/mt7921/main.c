@@ -170,7 +170,6 @@ static int mt7921_add_interface(struct ieee80211_hw *hw,
 
 	idx = MT7921_WTBL_RESERVED - mvif->idx;
 
-	INIT_LIST_HEAD(&mvif->sta.rc_list);
 	INIT_LIST_HEAD(&mvif->sta.poll_list);
 	mvif->sta.wcid.idx = idx;
 	mvif->sta.wcid.ext_phy = mvif->band_idx;
@@ -205,8 +204,6 @@ static void mt7921_remove_interface(struct ieee80211_hw *hw,
 	struct mt7921_phy *phy = mt7921_hw_phy(hw);
 	int idx = msta->wcid.idx;
 
-	/* TODO: disable beacon for the bss */
-
 	if (vif == phy->monitor_vif)
 		phy->monitor_vif = NULL;
 
@@ -225,25 +222,6 @@ static void mt7921_remove_interface(struct ieee80211_hw *hw,
 	spin_unlock_bh(&dev->sta_poll_lock);
 }
 
-static void mt7921_init_dfs_state(struct mt7921_phy *phy)
-{
-	struct mt76_phy *mphy = phy->mt76;
-	struct ieee80211_hw *hw = mphy->hw;
-	struct cfg80211_chan_def *chandef = &hw->conf.chandef;
-
-	if (hw->conf.flags & IEEE80211_CONF_OFFCHANNEL)
-		return;
-
-	if (!(chandef->chan->flags & IEEE80211_CHAN_RADAR))
-		return;
-
-	if (mphy->chandef.chan->center_freq == chandef->chan->center_freq &&
-	    mphy->chandef.width == chandef->width)
-		return;
-
-	phy->dfs_state = -1;
-}
-
 int mt7921_set_channel(struct mt7921_phy *phy)
 {
 	struct mt7921_dev *dev = phy->dev;
@@ -254,7 +232,6 @@ int mt7921_set_channel(struct mt7921_phy *phy)
 	mutex_lock(&dev->mt76.mutex);
 	set_bit(MT76_RESET, &phy->mt76->state);
 
-	mt7921_init_dfs_state(phy);
 	mt76_set_channel(phy->mt76);
 
 	ret = mt7921_mcu_set_chan_info(phy, MCU_EXT_CMD_CHANNEL_SWITCH);
@@ -475,7 +452,6 @@ int mt7921_mac_sta_add(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 	if (idx < 0)
 		return -ENOSPC;
 
-	INIT_LIST_HEAD(&msta->rc_list);
 	INIT_LIST_HEAD(&msta->poll_list);
 	msta->vif = mvif;
 	msta->wcid.sta = 1;
@@ -520,8 +496,6 @@ void mt7921_mac_sta_remove(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 	spin_lock_bh(&dev->sta_poll_lock);
 	if (!list_empty(&msta->poll_list))
 		list_del_init(&msta->poll_list);
-	if (!list_empty(&msta->rc_list))
-		list_del_init(&msta->rc_list);
 	spin_unlock_bh(&dev->sta_poll_lock);
 }
 
@@ -846,22 +820,6 @@ mt7921_sta_rc_update(struct ieee80211_hw *hw,
 {
 }
 
-static void mt7921_sta_set_4addr(struct ieee80211_hw *hw,
-				 struct ieee80211_vif *vif,
-				 struct ieee80211_sta *sta,
-				 bool enabled)
-{
-	struct mt7921_dev *dev = mt7921_hw_dev(hw);
-	struct mt7921_sta *msta = (struct mt7921_sta *)sta->drv_priv;
-
-	if (enabled)
-		set_bit(MT_WCID_FLAG_4ADDR, &msta->wcid.flags);
-	else
-		clear_bit(MT_WCID_FLAG_4ADDR, &msta->wcid.flags);
-
-	mt7921_mcu_sta_update_hdr_trans(dev, vif, sta);
-}
-
 const struct ieee80211_ops mt7921_ops = {
 	.tx = mt7921_tx,
 	.start = mt7921_start,
@@ -892,7 +850,6 @@ const struct ieee80211_ops mt7921_ops = {
 	.set_antenna = mt7921_set_antenna,
 	.set_coverage_class = mt7921_set_coverage_class,
 	.sta_statistics = mt7921_sta_statistics,
-	.sta_set_4addr = mt7921_sta_set_4addr,
 #ifdef CONFIG_MAC80211_DEBUGFS
 	.sta_add_debugfs = mt7921_sta_add_debugfs,
 #endif

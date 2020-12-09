@@ -75,7 +75,6 @@ struct mt7921_sta {
 	struct mt7921_vif *vif;
 
 	struct list_head poll_list;
-	struct list_head rc_list;
 	u32 airtime_ac[8];
 
 	struct mt7921_sta_stats stats;
@@ -121,8 +120,6 @@ struct mt7921_phy {
 	s16 coverage_class;
 	u8 slottime;
 
-	int dfs_state;
-
 	__le32 rx_ampdu_ts;
 	u32 ampdu_ref;
 
@@ -163,7 +160,7 @@ struct mt7921_dev {
 
 	s8 **rate_power; /* TODO: use mt76_rate_power */
 
-	bool fw_debug;
+	u8 fw_debug;
 };
 
 enum {
