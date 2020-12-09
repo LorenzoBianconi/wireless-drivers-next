@@ -663,29 +663,28 @@ union BA_SIZE {
 };
 
 struct sta_rec_phy {
-       __le16 tag;
-       __le16 len;
-       __le16 legacy;
-       u8 phy_type;
-	u8 rx_mcs_bitmask[HT_MCS_MASK_NUM];
-       u8 ampdu;
-       u8 tx_ampdu;
-       u8 rx_ampdu;
-       u8 tx_amsdu_in_ampdu;
-       u8 rx_amsdu_in_ampdu;
-       u8 rts_policy;
-       u8 rcpi;
-       u8 uapsd_ac;
-       u8 uapsd_sp;
-       u8 he_mac_cap[HE_MAC_CAP_BYTE_NUM];
-       u8 he_phy_cap[HE_PHY_CAP_BYTE_NUM];
-       u8 rsv[5];
-       __le16 he_6g_cap;
-       __le16 basic_rate;
-       __le32 tx_max_amsdu_len;
-       union BA_SIZE ba_size;
+        __le16 tag;
+        __le16 len;
+        __le16 legacy;
+        __le16 he_6g_cap;
+        __le32 tx_max_amsdu_len;
+        __le16 basic_rate;
+        u8 phy_type;
+        u8 ampdu;
+        u8 tx_ampdu;
+        u8 rx_ampdu;
+        u8 tx_amsdu_in_ampdu;
+        u8 rx_amsdu_in_ampdu;
+        u8 rts_policy;
+        u8 rcpi;
+        u8 uapsd_ac;
+        u8 uapsd_sp;
+        u8 he_mac_cap[HE_MAC_CAP_BYTE_NUM];
+        u8 he_phy_cap[HE_PHY_CAP_BYTE_NUM];
+        u8 rx_mcs_bitmask[HT_MCS_MASK_NUM];
+        u8 rsv[1];
+        union BA_SIZE ba_size;
 } __packed;
-
 
 enum {
 	STA_REC_BASIC,
