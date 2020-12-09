@@ -11,9 +11,9 @@ mt7921_fw_debug_set(void *data, u64 val)
 {
 	struct mt7921_dev *dev = data;
 
-	dev->fw_debug = !!val;
+	dev->fw_debug = (u8) val;
 
-	mt7921_mcu_fw_log_2_host(dev, dev->fw_debug ? 2 : 0);
+	mt7921_mcu_fw_log_2_host(dev, dev->fw_debug);
 
 	return 0;
 }

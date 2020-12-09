@@ -160,7 +160,7 @@ struct mt7921_dev {
 
 	s8 **rate_power; /* TODO: use mt76_rate_power */
 
-	bool fw_debug;
+	u8 fw_debug;
 };
 
 enum {

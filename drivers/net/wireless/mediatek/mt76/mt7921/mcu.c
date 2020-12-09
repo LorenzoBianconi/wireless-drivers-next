@@ -616,6 +616,35 @@ mt7921_mcu_bss_event(struct mt7921_dev *dev, struct sk_buff *skb)
 }
 
 static void
+mt7921_mcu_debug_msg_event(struct mt7921_dev *dev, struct sk_buff *skb)
+{
+	struct mt7921_mcu_rxd *rxd = (struct mt7921_mcu_rxd *)skb->data;
+	struct debug_msg {
+		__le16 id; /* 0: unknown, 1:print, 2:fwlog */
+		u8 type; /*0: unknown, 1: mem8, 2:mem32, 3:ascii 4:binary */
+		u8 flag;
+		__le32 value;
+		__le16 len;
+		u8 content[512];
+	} __packed *debug_msg;
+	u16 cur_len;
+	int i;
+
+	skb_pull(skb, sizeof(*rxd));
+	debug_msg = (struct debug_msg *)skb->data;
+
+	cur_len = min_t(u16, le16_to_cpu(debug_msg->len), 512);
+
+	if (debug_msg->type == 0x3) {
+		for (i = 0 ; i < cur_len; i++)
+			if (!debug_msg->content[i])
+				debug_msg->content[i]=' ';
+
+		trace_printk("%s", debug_msg->content);
+	}
+}
+
+static void
 mt7921_mcu_rx_unsolicited_event(struct mt7921_dev *dev, struct sk_buff *skb)
 {
 	struct mt7921_mcu_rxd *rxd = (struct mt7921_mcu_rxd *)skb->data;
@@ -634,6 +663,9 @@ mt7921_mcu_rx_unsolicited_event(struct mt7921_dev *dev, struct sk_buff *skb)
 		return;
 	case MCU_EVENT_BSS_ABSENCE:
 		mt7921_mcu_bss_event(dev, skb);
+		break;
+	case MCU_EVENT_DBG_MSG:
+		mt7921_mcu_debug_msg_event(dev, skb);
 		break;
 	default:
 		break;
@@ -655,6 +687,7 @@ void mt7921_mcu_rx_event(struct mt7921_dev *dev, struct sk_buff *skb)
 	    rxd->eid == MCU_EVENT_SCHED_SCAN_DONE ||
 	    rxd->eid == MCU_EVENT_BSS_ABSENCE ||
 	    rxd->eid == MCU_EVENT_SCAN_DONE ||
+	    rxd->eid == MCU_EVENT_DBG_MSG ||
 	    rxd->eid == MCU_EVENT_ROC ||
 	    !rxd->seq)
 		mt7921_mcu_rx_unsolicited_event(dev, skb);
