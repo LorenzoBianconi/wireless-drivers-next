@@ -10,20 +10,10 @@ static int
 mt7921_fw_debug_set(void *data, u64 val)
 {
 	struct mt7921_dev *dev = data;
-	enum {
-		DEBUG_TXCMD = 62,
-		DEBUG_CMD_RPT_TX,
-		DEBUG_CMD_RPT_TRIG,
-		DEBUG_SPL,
-		DEBUG_RPT_RX,
-	} debug;
 
 	dev->fw_debug = !!val;
 
 	mt7921_mcu_fw_log_2_host(dev, dev->fw_debug ? 2 : 0);
-
-	for (debug = DEBUG_TXCMD; debug <= DEBUG_RPT_RX; debug++)
-		mt7921_mcu_fw_dbg_ctrl(dev, debug, dev->fw_debug);
 
 	return 0;
 }
@@ -149,17 +139,12 @@ static int
 mt7921_queues_read(struct seq_file *s, void *data)
 {
 	struct mt7921_dev *dev = dev_get_drvdata(s->private);
-	struct mt76_phy *mphy_ext = dev->mt76.phy2;
-	struct mt76_queue *ext_q = mphy_ext ? mphy_ext->q_tx[MT_TXQ_BE] : NULL;
 	struct {
 		struct mt76_queue *q;
 		char *queue;
 	} queue_map[] = {
 		{ dev->mphy.q_tx[MT_TXQ_BE],	 "WFDMA0" },
-		{ ext_q,			 "WFDMA1" },
-		{ dev->mphy.q_tx[MT_TXQ_BE],	 "WFDMA0" },
 		{ dev->mt76.q_mcu[MT_MCUQ_WM],	 "MCUWM"  },
-		{ dev->mt76.q_mcu[MT_MCUQ_WA],	 "MCUWA"  },
 		{ dev->mt76.q_mcu[MT_MCUQ_FWDL], "MCUFWQ" },
 	};
 	int i;
