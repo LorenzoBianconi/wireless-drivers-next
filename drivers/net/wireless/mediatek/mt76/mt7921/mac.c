@@ -773,6 +773,25 @@ mt7921_write_hw_txp(struct mt7921_dev *dev, struct mt76_tx_info *tx_info,
 	}
 }
 
+static void mt7921_set_tx_blocked(struct mt7921_dev *dev, bool blocked)
+{
+	struct mt76_phy *mphy = &dev->mphy, *mphy2 = dev->mt76.phy2;
+	struct mt76_queue *q, *q2 = NULL;
+
+	q = mphy->q_tx[0];
+	if (blocked == q->blocked)
+		return;
+
+	q->blocked = blocked;
+	if (mphy2) {
+		q2 = mphy2->q_tx[0];
+		q2->blocked = blocked;
+	}
+
+	if (!blocked)
+		mt76_worker_schedule(&dev->mt76.tx_worker);
+}
+
 int mt7921_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 			  enum mt76_txq_id qid, struct mt76_wcid *wcid,
 			  struct ieee80211_sta *sta,
@@ -797,7 +816,13 @@ int mt7921_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 
 	spin_lock_bh(&dev->token_lock);
 	id = idr_alloc(&dev->token, t, 0, MT7921_TOKEN_SIZE, GFP_ATOMIC);
+	if (id >= 0)
+		dev->token_count++;
+
+	if (dev->token_count >= MT7921_TOKEN_SIZE - MT7921_TOKEN_FREE_THR)
+		mt7921_set_tx_blocked(dev, true);
 	spin_unlock_bh(&dev->token_lock);
+
 	if (id < 0)
 		return id;
 
@@ -895,6 +920,7 @@ void mt7921_mac_tx_free(struct mt7921_dev *dev, struct sk_buff *skb)
 	struct ieee80211_sta *sta = NULL;
 	LIST_HEAD(free_list);
 	struct sk_buff *tmp;
+	bool wake = false;
 	u8 i, count;
 
 	/* clean DMA queues and unmap buffers first */
@@ -946,6 +972,11 @@ void mt7921_mac_tx_free(struct mt7921_dev *dev, struct sk_buff *skb)
 
 		spin_lock_bh(&dev->token_lock);
 		txwi = idr_remove(&dev->token, msdu);
+		if (txwi)
+			dev->token_count--;
+		if (dev->token_count < MT7921_TOKEN_SIZE - MT7921_TOKEN_FREE_THR &&
+		    dev->mphy.q_tx[0]->blocked)
+			wake = true;
 		spin_unlock_bh(&dev->token_lock);
 
 		if (!txwi)
@@ -976,6 +1007,13 @@ void mt7921_mac_tx_free(struct mt7921_dev *dev, struct sk_buff *skb)
 	}
 
 	mt7921_mac_sta_poll(dev);
+
+	if (wake) {
+		spin_lock_bh(&dev->token_lock);
+		mt7921_set_tx_blocked(dev, false);
+		spin_unlock_bh(&dev->token_lock);
+	}
+
 	mt76_worker_schedule(&dev->mt76.tx_worker);
 
 	napi_consume_skb(skb, 1);

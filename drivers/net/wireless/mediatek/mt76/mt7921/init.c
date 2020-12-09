@@ -476,6 +476,7 @@ void mt7921_unregister_device(struct mt7921_dev *dev)
 			ieee80211_free_txskb(hw, txwi->skb);
 		}
 		mt76_put_txwi(&dev->mt76, txwi);
+		dev->token_count--;
 	}
 	spin_unlock_bh(&dev->token_lock);
 	idr_destroy(&dev->token);
