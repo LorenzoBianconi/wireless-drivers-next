@@ -380,4 +380,13 @@ u32 mt7921_get_wtbl_info(struct mt7921_dev *dev, u16 wlan_idx);
 int mt7921_mcu_set_vif_ps(struct mt7921_dev *dev, struct ieee80211_vif *vif);
 int mt7921_mcu_set_bss_pm(struct mt7921_dev *dev, struct ieee80211_vif *vif,
 			  bool enable);
+int mt7921_mcu_set_hif_suspend(struct mt7921_dev *dev, bool suspend);
+void mt7921_mcu_set_suspend_iter(void *priv, u8 *mac,
+				 struct ieee80211_vif *vif);
+int mt7921_mcu_update_gtk_rekey(struct ieee80211_hw *hw,
+				struct ieee80211_vif *vif,
+				struct cfg80211_gtk_rekey_data *key);
+int mt7921_mcu_update_arp_filter(struct ieee80211_hw *hw,
+				 struct ieee80211_vif *vif,
+				 struct ieee80211_bss_conf *info);
 #endif

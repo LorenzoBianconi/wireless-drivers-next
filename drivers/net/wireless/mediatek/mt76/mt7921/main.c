@@ -8,6 +8,11 @@
 #include "mt7921.h"
 #include "mcu.h"
 
+static bool mt7921_dev_running(struct mt7921_dev *dev)
+{
+	return test_bit(MT76_STATE_RUNNING, &dev->mphy.state);
+}
+
 static int mt7921_start(struct ieee80211_hw *hw)
 {
 	struct mt7921_dev *dev = mt7921_hw_dev(hw);
@@ -812,6 +817,87 @@ mt7921_sta_rc_update(struct ieee80211_hw *hw,
 {
 }
 
+#ifdef CONFIG_PM
+static int mt7921_suspend(struct ieee80211_hw *hw,
+			  struct cfg80211_wowlan *wowlan)
+{
+	struct mt7921_dev *dev = mt7921_hw_dev(hw);
+	struct mt7921_phy *phy = mt7921_hw_phy(hw);
+	int err = 0;
+
+	mutex_lock(&dev->mt76.mutex);
+
+	clear_bit(MT76_STATE_RUNNING, &phy->mt76->state);
+	cancel_delayed_work_sync(&phy->scan_work);
+	cancel_delayed_work_sync(&phy->mac_work);
+
+	set_bit(MT76_STATE_SUSPEND, &phy->mt76->state);
+	ieee80211_iterate_active_interfaces(hw,
+					    IEEE80211_IFACE_ITER_RESUME_ALL,
+					    mt7921_mcu_set_suspend_iter, phy);
+
+	if (!mt7921_dev_running(dev))
+		err = mt7921_mcu_set_hif_suspend(dev, true);
+
+	mutex_unlock(&dev->mt76.mutex);
+
+	return err;
+}
+
+static int mt7921_resume(struct ieee80211_hw *hw)
+{
+	struct mt7921_dev *dev = mt7921_hw_dev(hw);
+	struct mt7921_phy *phy = mt7921_hw_phy(hw);
+	bool running;
+
+	mutex_lock(&dev->mt76.mutex);
+
+	running = mt7921_dev_running(dev);
+	set_bit(MT76_STATE_RUNNING, &phy->mt76->state);
+
+	if (!running) {
+		int err;
+
+		err = mt7921_mcu_set_hif_suspend(dev, false);
+		if (err < 0) {
+			mutex_unlock(&dev->mt76.mutex);
+			return err;
+		}
+	}
+
+	clear_bit(MT76_STATE_SUSPEND, &phy->mt76->state);
+	ieee80211_iterate_active_interfaces(hw,
+					    IEEE80211_IFACE_ITER_RESUME_ALL,
+					    mt7921_mcu_set_suspend_iter, phy);
+
+	ieee80211_queue_delayed_work(hw, &phy->mac_work,
+				     MT7921_WATCHDOG_TIME);
+
+	mutex_unlock(&dev->mt76.mutex);
+
+	return 0;
+}
+
+static void mt7921_set_wakeup(struct ieee80211_hw *hw, bool enabled)
+{
+	struct mt7921_dev *dev = mt7921_hw_dev(hw);
+	struct mt76_dev *mdev = &dev->mt76;
+
+	device_set_wakeup_enable(mdev->dev, enabled);
+}
+
+static void mt7921_set_rekey_data(struct ieee80211_hw *hw,
+				  struct ieee80211_vif *vif,
+				  struct cfg80211_gtk_rekey_data *data)
+{
+	struct mt7921_dev *dev = mt7921_hw_dev(hw);
+
+	mutex_lock(&dev->mt76.mutex);
+	mt7921_mcu_update_gtk_rekey(hw, vif, data);
+	mutex_unlock(&dev->mt76.mutex);
+}
+#endif /* CONFIG_PM */
+
 const struct ieee80211_ops mt7921_ops = {
 	.tx = mt7921_tx,
 	.start = mt7921_start,
@@ -844,4 +930,10 @@ const struct ieee80211_ops mt7921_ops = {
 	.cancel_hw_scan = mt7921_cancel_hw_scan,
 	.sched_scan_start = mt7921_start_sched_scan,
 	.sched_scan_stop = mt7921_stop_sched_scan,
+#ifdef CONFIG_PM
+	.suspend = mt7921_suspend,
+	.resume = mt7921_resume,
+	.set_wakeup = mt7921_set_wakeup,
+	.set_rekey_data = mt7921_set_rekey_data,
+#endif /* CONFIG_PM */
 };
