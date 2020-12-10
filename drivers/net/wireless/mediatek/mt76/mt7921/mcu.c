@@ -204,7 +204,7 @@ mt7921_get_phy_mode(struct mt7921_dev *dev, struct ieee80211_vif *vif,
 
 static u8
 mt7921_get_phy_mode_v2(struct mt7921_dev *dev, struct ieee80211_vif *vif,
-		    enum nl80211_band band, struct ieee80211_sta *sta)
+		       enum nl80211_band band, struct ieee80211_sta *sta)
 {
 	struct ieee80211_sta_ht_cap *ht_cap;
 	struct ieee80211_sta_vht_cap *vht_cap;
@@ -270,7 +270,6 @@ mt7921_mcu_parse_eeprom(struct mt76_dev *dev, struct sk_buff *skb)
 
 	return 0;
 }
-
 
 static int
 mt7921_mcu_parse_response(struct mt76_dev *mdev, int cmd,
@@ -620,13 +619,13 @@ mt7921_mcu_debug_msg_event(struct mt7921_dev *dev, struct sk_buff *skb)
 {
 	struct mt7921_mcu_rxd *rxd = (struct mt7921_mcu_rxd *)skb->data;
 	struct debug_msg {
-		__le16 id; /* 0: unknown, 1:print, 2:fwlog */
-		u8 type; /*0: unknown, 1: mem8, 2:mem32, 3:ascii 4:binary */
+		__le16 id;
+		u8 type;
 		u8 flag;
 		__le32 value;
 		__le16 len;
 		u8 content[512];
-	} __packed *debug_msg;
+	} __packed * debug_msg;
 	u16 cur_len;
 	int i;
 
@@ -638,7 +637,7 @@ mt7921_mcu_debug_msg_event(struct mt7921_dev *dev, struct sk_buff *skb)
 	if (debug_msg->type == 0x3) {
 		for (i = 0 ; i < cur_len; i++)
 			if (!debug_msg->content[i])
-				debug_msg->content[i]=' ';
+				debug_msg->content[i] = ' ';
 
 		trace_printk("%s", debug_msg->content);
 	}
@@ -779,7 +778,7 @@ mt7921_mcu_add_tlv(struct sk_buff *skb, int tag, int len)
 
 static void
 mt7921_mcu_uni_bss_he_tlv(struct tlv *tlv, struct ieee80211_vif *vif,
-		      struct mt7921_phy *phy)
+			  struct mt7921_phy *phy)
 {
 #define DEFAULT_HE_PE_DURATION		4
 #define DEFAULT_HE_DURATION_RTS_THRES	1023
@@ -1225,7 +1224,7 @@ mt7921_mcu_sta_he_tlv(struct sk_buff *skb, struct ieee80211_sta *sta)
 
 static void
 mt7921_mcu_sta_uapsd_tlv(struct sk_buff *skb, struct ieee80211_sta *sta,
-		     struct ieee80211_vif *vif)
+			 struct ieee80211_vif *vif)
 {
 	struct sta_rec_uapsd *uapsd;
 	struct tlv *tlv;
@@ -1263,7 +1262,7 @@ mt7921_mcu_sta_amsdu_tlv(struct sk_buff *skb, struct ieee80211_sta *sta)
 	struct tlv *tlv;
 
 	if (!sta->max_amsdu_len)
-	    return;
+		return;
 
 	tlv = mt7921_mcu_add_tlv(skb, STA_REC_HW_AMSDU, sizeof(*amsdu));
 	amsdu = (struct sta_rec_amsdu *)tlv;
@@ -2021,7 +2020,7 @@ int mt7921_mcu_get_eeprom(struct mt7921_dev *dev, u32 offset)
 	u8 *buf;
 
 	ret = mt76_mcu_send_and_get_msg(&dev->mt76, MCU_EXT_CMD_EFUSE_ACCESS, &req,
-				sizeof(req), true, &skb);
+					sizeof(req), true, &skb);
 	if (ret)
 		return ret;
 
@@ -2398,7 +2397,7 @@ mt7921_mcu_uni_add_bss(struct mt7921_phy *phy, struct ieee80211_vif *vif,
 		mt7921_mcu_uni_bss_he_tlv((struct tlv *)&he_req.he, vif, phy);
 
 		err = mt76_mcu_send_msg(&dev->mt76, MCU_UNI_CMD_BSS_INFO_UPDATE,
-					  &he_req, sizeof(he_req), true);
+					&he_req, sizeof(he_req), true);
 		if (err < 0)
 			return err;
 	}

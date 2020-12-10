@@ -344,7 +344,6 @@ mt7921_txwi_to_txp(struct mt76_dev *dev, struct mt76_txwi_cache *t)
 #define MT_TXD_LEN_MASK			GENMASK(11, 0)
 #define MT_TXD_LEN_MSDU_LAST		BIT(14)
 #define MT_TXD_LEN_AMSDU_LAST		BIT(15)
-/* mt7663 */
 #define MT_TXD_LEN_LAST			BIT(15)
 
 struct mt7921_txp_ptr {
@@ -358,7 +357,6 @@ struct mt7921_hw_txp {
 	__le16 msdu_id[MT_HW_TXP_MAX_MSDU_NUM];
 	struct mt7921_txp_ptr ptr[MT_HW_TXP_MAX_BUF_NUM / 2];
 } __packed __aligned(4);
-
 
 struct mt7921_txp_common {
 	union {

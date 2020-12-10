@@ -23,7 +23,7 @@ mt7921_rx_poll_complete(struct mt76_dev *mdev, enum mt76_rxq_id q)
 
 	if (q == MT_RXQ_MAIN)
 		mt7921_irq_enable(dev, MT_INT_RX_DONE_DATA);
-	else if (q == MT_RXQ_MCU_540)
+	else if (q == MT_RXQ_MCU_WA)
 		mt7921_irq_enable(dev, MT_INT_RX_DONE_WM2);
 	else
 		mt7921_irq_enable(dev, MT_INT_RX_DONE_WM);
@@ -65,11 +65,11 @@ static void mt7921_irq_tasklet(unsigned long data)
 	if (intr & MT_INT_TX_DONE_ALL)
 		napi_schedule(&dev->mt76.tx_napi);
 
-	if (intr & MT_INT_RX_DONE_WM) /* rx from mcu before firmware download */
+	if (intr & MT_INT_RX_DONE_WM)
 		napi_schedule(&dev->mt76.napi[MT_RXQ_MCU]);
 
-	if (intr & MT_INT_RX_DONE_WM2) /* rx from mcu after firmware download */
-		napi_schedule(&dev->mt76.napi[MT_RXQ_MCU_540]);
+	if (intr & MT_INT_RX_DONE_WM2)
+		napi_schedule(&dev->mt76.napi[MT_RXQ_MCU_WA]);
 
 	if (intr & MT_INT_RX_DONE_DATA) /* rx data from lmac */
 		napi_schedule(&dev->mt76.napi[MT_RXQ_MAIN]);
@@ -161,7 +161,6 @@ static int mt7921_pci_probe(struct pci_dev *pdev,
 
 	mt76_wr(dev, MT_WFDMA0_HOST_INT_ENA, 0);
 
-	/* master switch of PCIe tnterrupt enable */
 	mt7921_l1_wr(dev, MT_PCIE_MAC_INT_ENABLE, 0xff);
 
 	ret = devm_request_irq(mdev->dev, pdev->irq, mt7921_irq_handler,
