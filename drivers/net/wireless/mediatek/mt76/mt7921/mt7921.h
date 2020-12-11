@@ -16,6 +16,7 @@
 #define MT7921_WTBL_STA			(MT7921_WTBL_RESERVED - \
 					 MT7921_MAX_INTERFACES)
 
+#define MT7921_PM_TIMEOUT		(HZ / 12)
 #define MT7921_HW_SCAN_TIMEOUT		(HZ / 10)
 #define MT7921_WATCHDOG_TIME		(HZ / 10)
 #define MT7921_RESET_TIMEOUT		(30 * HZ)
@@ -26,6 +27,8 @@
 
 #define MT7921_RX_RING_SIZE		1536
 #define MT7921_RX_MCU_RING_SIZE		512
+
+#define MT7921_DRV_OWN_RETRY_COUNT	10
 
 #define MT7921_FIRMWARE_WM		"mediatek/WIFI_RAM_CODE_MT7961_1.bin"
 #define MT7921_ROM_PATCH		"mediatek/WIFI_MT7961_patch_mcu_1_2_hdr.bin"
@@ -152,6 +155,23 @@ struct mt7921_dev {
 	struct idr token;
 
 	u8 fw_debug;
+
+	struct {
+		bool enable;
+
+		spinlock_t txq_lock;
+		struct {
+			struct mt7921_sta *msta;
+			struct sk_buff *skb;
+		} tx_q[IEEE80211_NUM_ACS];
+
+		struct work_struct wake_work;
+		struct completion wake_cmpl;
+
+		struct delayed_work ps_work;
+		unsigned long last_activity;
+		unsigned long idle_timeout;
+	} pm;
 };
 
 enum {
@@ -178,6 +198,23 @@ mt7921_hw_dev(struct ieee80211_hw *hw)
 	struct mt76_phy *phy = hw->priv;
 
 	return container_of(phy->dev, struct mt7921_dev, mt76);
+}
+
+int mt7921_pm_wake(struct mt7921_dev *dev);
+void mt7921_pm_power_save_sched(struct mt7921_dev *dev);
+
+static inline void mt7921_mutex_acquire(struct mt7921_dev *dev)
+	 __acquires(&dev->mt76.mutex)
+{
+	mutex_lock(&dev->mt76.mutex);
+	mt7921_pm_wake(dev);
+}
+
+static inline void mt7921_mutex_release(struct mt7921_dev *dev)
+	__releases(&dev->mt76.mutex)
+{
+	mt7921_pm_power_save_sched(dev);
+	mutex_unlock(&dev->mt76.mutex);
 }
 
 static inline u8 mt7921_lmac_mapping(struct mt7921_dev *dev, u8 ac)
@@ -310,4 +347,13 @@ int mt7921_mcu_set_bss_pm(struct mt7921_dev *dev, struct ieee80211_vif *vif,
 int mt7921_mcu_update_arp_filter(struct ieee80211_hw *hw,
 				 struct ieee80211_vif *vif,
 				 struct ieee80211_bss_conf *info);
+int mt7921_mcu_drv_pmctrl(struct mt7921_dev *dev);
+int mt7921_mcu_fw_pmctrl(struct mt7921_dev *dev);
+void mt7921_pm_wake_work(struct work_struct *work);
+void mt7921_pm_power_save_work(struct work_struct *work);
+bool mt7921_wait_for_mcu_init(struct mt7921_dev *dev);
+int mt7921_mac_set_beacon_filter(struct mt7921_phy *phy,
+				 struct ieee80211_vif *vif,
+				 bool enable);
+void mt7921_pm_interface_iter(void *priv, u8 *mac, struct ieee80211_vif *vif);
 #endif
