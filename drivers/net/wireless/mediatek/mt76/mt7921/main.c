@@ -748,7 +748,6 @@ mt7921_cancel_hw_scan(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 	mutex_unlock(&dev->mt76.mutex);
 }
 
-
 static int
 mt7921_set_antenna(struct ieee80211_hw *hw, u32 tx_ant, u32 rx_ant)
 {
@@ -850,9 +849,6 @@ const struct ieee80211_ops mt7921_ops = {
 	.set_antenna = mt7921_set_antenna,
 	.set_coverage_class = mt7921_set_coverage_class,
 	.sta_statistics = mt7921_sta_statistics,
-#ifdef CONFIG_MAC80211_DEBUGFS
-	.sta_add_debugfs = mt7921_sta_add_debugfs,
-#endif
 	.hw_scan = mt7921_hw_scan,
 	.cancel_hw_scan = mt7921_cancel_hw_scan,
 };

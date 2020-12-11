@@ -288,7 +288,6 @@ enum {
 	UNI_OFFLOAD_OFFLOAD_BMC_RPY_DETECT,
 };
 
-
 enum {
 	PATCH_SEM_RELEASE,
 	PATCH_SEM_GET
@@ -633,13 +632,13 @@ struct sta_rec_sec {
 } __packed;
 
 struct sta_rec_state {
-       __le16 tag;
-       __le16 len;
-       __le32 flags;
-       u8 state;
-       u8 vht_opmode;
-       u8 action;
-       u8 rsv[1];
+	__le16 tag;
+	__le16 len;
+	__le32 flags;
+	u8 state;
+	u8 vht_opmode;
+	u8 action;
+	u8 rsv[1];
 } __packed;
 
 #define HE_MAC_CAP_BYTE_NUM 6
@@ -647,43 +646,43 @@ struct sta_rec_state {
 #define HT_MCS_MASK_NUM 10
 
 struct ht_vht_ba_size {
-       u8 tx_ba;
-       u8 rx_ba;
-       u8 rsv[2];
+	u8 tx_ba;
+	u8 rx_ba;
+	u8 rsv[2];
 } __packed;
 
 struct he_ba_size {
-       __le16 tx_ba;
-       __le16 rx_ba;
+	__le16 tx_ba;
+	__le16 rx_ba;
 } __packed;
 
 union BA_SIZE {
-       struct ht_vht_ba_size ht_vht;
-       struct he_ba_size he;
+	struct ht_vht_ba_size ht_vht;
+	struct he_ba_size he;
 };
 
 struct sta_rec_phy {
-        __le16 tag;
-        __le16 len;
-        __le16 legacy;
-        __le16 he_6g_cap;
-        __le32 tx_max_amsdu_len;
-        __le16 basic_rate;
-        u8 phy_type;
-        u8 ampdu;
-        u8 tx_ampdu;
-        u8 rx_ampdu;
-        u8 tx_amsdu_in_ampdu;
-        u8 rx_amsdu_in_ampdu;
-        u8 rts_policy;
-        u8 rcpi;
-        u8 uapsd_ac;
-        u8 uapsd_sp;
-        u8 he_mac_cap[HE_MAC_CAP_BYTE_NUM];
-        u8 he_phy_cap[HE_PHY_CAP_BYTE_NUM];
-        u8 rx_mcs_bitmask[HT_MCS_MASK_NUM];
-        u8 rsv[1];
-        union BA_SIZE ba_size;
+	__le16 tag;
+	__le16 len;
+	__le16 legacy;
+	__le16 he_6g_cap;
+	__le32 tx_max_amsdu_len;
+	__le16 basic_rate;
+	u8 phy_type;
+	u8 ampdu;
+	u8 tx_ampdu;
+	u8 rx_ampdu;
+	u8 tx_amsdu_in_ampdu;
+	u8 rx_amsdu_in_ampdu;
+	u8 rts_policy;
+	u8 rcpi;
+	u8 uapsd_ac;
+	u8 uapsd_sp;
+	u8 he_mac_cap[HE_MAC_CAP_BYTE_NUM];
+	u8 he_phy_cap[HE_PHY_CAP_BYTE_NUM];
+	u8 rx_mcs_bitmask[HT_MCS_MASK_NUM];
+	u8 rsv[1];
+	union BA_SIZE ba_size;
 } __packed;
 
 enum {
@@ -694,7 +693,7 @@ enum {
 	STA_REC_BF,
 	STA_REC_AMSDU,
 	STA_REC_BA,
-        STA_REC_STATE,
+	STA_REC_STATE,
 	STA_REC_TX_PROC,	/* for hdr trans and CSO in CR4 */
 	STA_REC_HT,
 	STA_REC_VHT,
@@ -971,24 +970,22 @@ struct mt7921_mcu_bss_event {
 	u8 pad;
 } __packed;
 
-typedef enum _ENUM_PHY_TYPE_INDEX_T
-{
-    //PHY_TYPE_DSSS_INDEX,      /* DSSS PHY (clause 15) */ /* NOTE(Kevin): We don't use this now */
-    PHY_TYPE_HR_DSSS_INDEX = 0, /* HR/DSSS PHY (clause 18) */
-    PHY_TYPE_ERP_INDEX,         /* ERP PHY (clause 19) */
-    PHY_TYPE_ERP_P2P_INDEX,     /* ERP PHY (clause 19) w/o HR/DSSS */
-    PHY_TYPE_OFDM_INDEX,        /* OFDM 5 GHz PHY (clause 17) */
-    PHY_TYPE_HT_INDEX,          /* HT PHY (clause 20) */
-    PHY_TYPE_VHT_INDEX,
-    PHY_TYPE_HE_INDEX,
-    PHY_TYPE_INDEX_NUM // 7
-} ENUM_PHY_TYPE_INDEX_T, *P_ENUM_PHY_TYPE_INDEX_T;
+enum {
+	PHY_TYPE_HR_DSSS_INDEX = 0,
+	PHY_TYPE_ERP_INDEX,
+	PHY_TYPE_ERP_P2P_INDEX,
+	PHY_TYPE_OFDM_INDEX,
+	PHY_TYPE_HT_INDEX,
+	PHY_TYPE_VHT_INDEX,
+	PHY_TYPE_HE_INDEX,
+	PHY_TYPE_INDEX_NUM
+};
 
-#define PHY_TYPE_BIT_HR_DSSS    BIT(PHY_TYPE_HR_DSSS_INDEX) /* HR/DSSS PHY (clause 18) */
-#define PHY_TYPE_BIT_ERP        BIT(PHY_TYPE_ERP_INDEX)     /* ERP PHY (clause 19) */
-#define PHY_TYPE_BIT_OFDM       BIT(PHY_TYPE_OFDM_INDEX)    /* OFDM 5 GHz PHY (clause 17) */
-#define PHY_TYPE_BIT_HT         BIT(PHY_TYPE_HT_INDEX)      /* HT PHY (clause 20) */
-#define PHY_TYPE_BIT_VHT        BIT(PHY_TYPE_VHT_INDEX)      /* HT PHY (clause 20) */
-#define PHY_TYPE_BIT_HE         BIT(PHY_TYPE_HE_INDEX)      /* HT PHY (clause ) */
+#define PHY_TYPE_BIT_HR_DSSS    BIT(PHY_TYPE_HR_DSSS_INDEX)
+#define PHY_TYPE_BIT_ERP        BIT(PHY_TYPE_ERP_INDEX)
+#define PHY_TYPE_BIT_OFDM       BIT(PHY_TYPE_OFDM_INDEX)
+#define PHY_TYPE_BIT_HT         BIT(PHY_TYPE_HT_INDEX)
+#define PHY_TYPE_BIT_VHT        BIT(PHY_TYPE_VHT_INDEX)
+#define PHY_TYPE_BIT_HE         BIT(PHY_TYPE_HE_INDEX)
 
 #endif

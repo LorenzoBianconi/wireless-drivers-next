@@ -36,7 +36,6 @@ static int mt7921_check_eeprom(struct mt7921_dev *dev)
 	val = get_unaligned_le16(eeprom);
 
 	switch (val) {
-	case 0x7915:
 	case 0x7961:
 		return 0;
 	default:

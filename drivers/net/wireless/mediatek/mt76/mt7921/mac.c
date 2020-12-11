@@ -57,7 +57,6 @@ static u32 mt7921_mac_wtbl_lmac_addr(struct mt7921_dev *dev, u16 wcid)
 	return MT_WTBL_LMAC_OFFS(wcid, 0);
 }
 
-/* TODO: use txfree airtime info to avoid runtime accessing in the long run */
 static void mt7921_mac_sta_poll(struct mt7921_dev *dev)
 {
 	static const u8 ac_to_tid[] = {
@@ -545,7 +544,6 @@ static void
 mt7921_mac_write_txwi_8023(struct mt7921_dev *dev, __le32 *txwi,
 			   struct sk_buff *skb, struct mt76_wcid *wcid)
 {
-
 	u8 tid = skb->priority & IEEE80211_QOS_CTL_TID_MASK;
 	u8 fc_type, fc_stype;
 	bool wmm = false;
@@ -931,8 +929,7 @@ void mt7921_mac_tx_free(struct mt7921_dev *dev, struct sk_buff *skb)
 		mt76_queue_tx_cleanup(dev, mphy_ext->q_tx[MT_TXQ_BE], false);
 	}
 
-	/*
-	 * TODO: MT_TX_FREE_LATENCY is msdu time from the TXD is queued into PLE,
+	/* TODO: MT_TX_FREE_LATENCY is msdu time from the TXD is queued into PLE,
 	 * to the time ack is received or dropped by hw (air + hw queue time).
 	 * Should avoid accessing WTBL to get Tx airtime, and use it instead.
 	 */
@@ -941,8 +938,7 @@ void mt7921_mac_tx_free(struct mt7921_dev *dev, struct sk_buff *skb)
 		u32 msdu, info = le32_to_cpu(free->info[i]);
 		u8 stat;
 
-		/*
-		 * 1'b1: new wcid pair.
+		/* 1'b1: new wcid pair.
 		 * 1'b0: msdu_id with the same 'wcid pair' as above.
 		 */
 		if (info & MT_TX_FREE_PAIR) {

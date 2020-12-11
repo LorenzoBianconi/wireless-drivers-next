@@ -4,14 +4,12 @@
 #include "mt7921.h"
 #include "eeprom.h"
 
-/** global debugfs **/
-
 static int
 mt7921_fw_debug_set(void *data, u64 val)
 {
 	struct mt7921_dev *dev = data;
 
-	dev->fw_debug = (u8) val;
+	dev->fw_debug = (u8)val;
 
 	mt7921_mcu_fw_log_2_host(dev, dev->fw_debug);
 
@@ -72,7 +70,6 @@ mt7921_tx_stats_read(struct seq_file *file, void *data)
 	int stat[8], i, n;
 
 	mt7921_ampdu_stat_read_phy(&dev->phy, file);
-	mt7921_ampdu_stat_read_phy(mt7921_ext_phy(dev), file);
 
 	/* Tx amsdu info */
 	seq_puts(file, "Tx MSDU stat:\n");
@@ -181,71 +178,3 @@ int mt7921_init_debugfs(struct mt7921_dev *dev)
 
 	return 0;
 }
-
-#ifdef CONFIG_MAC80211_DEBUGFS
-/** per-station debugfs **/
-
-static int
-mt7921_sta_stats_read(struct seq_file *s, void *data)
-{
-	struct ieee80211_sta *sta = s->private;
-	struct mt7921_sta *msta = (struct mt7921_sta *)sta->drv_priv;
-	struct mt7921_sta_stats *stats = &msta->stats;
-	struct rate_info *rate = &stats->prob_rate;
-	static const char * const bw[] = {
-		"BW20", "BW5", "BW10", "BW40",
-		"BW80", "BW160", "BW_HE_RU"
-	};
-
-	if (!rate->legacy && !rate->flags)
-		return 0;
-
-	seq_puts(s, "Probing rate - ");
-	if (rate->flags & RATE_INFO_FLAGS_MCS)
-		seq_puts(s, "HT ");
-	else if (rate->flags & RATE_INFO_FLAGS_VHT_MCS)
-		seq_puts(s, "VHT ");
-	else if (rate->flags & RATE_INFO_FLAGS_HE_MCS)
-		seq_puts(s, "HE ");
-	else
-		seq_printf(s, "Bitrate %d\n", rate->legacy);
-
-	if (rate->flags) {
-		seq_printf(s, "%s NSS%d MCS%d ",
-			   bw[rate->bw], rate->nss, rate->mcs);
-
-		if (rate->flags & RATE_INFO_FLAGS_SHORT_GI)
-			seq_puts(s, "SGI ");
-		else if (rate->he_gi)
-			seq_puts(s, "HE GI ");
-
-		if (rate->he_dcm)
-			seq_puts(s, "DCM ");
-	}
-
-	seq_printf(s, "\nPPDU PER: %ld.%1ld%%\n",
-		   stats->per / 10, stats->per % 10);
-
-	return 0;
-}
-
-static int
-mt7921_sta_stats_open(struct inode *inode, struct file *f)
-{
-	return single_open(f, mt7921_sta_stats_read, inode->i_private);
-}
-
-static const struct file_operations fops_sta_stats = {
-	.open = mt7921_sta_stats_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.release = single_release,
-	.owner = THIS_MODULE,
-};
-
-void mt7921_sta_add_debugfs(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
-			    struct ieee80211_sta *sta, struct dentry *dir)
-{
-	debugfs_create_file("stats", 0400, dir, sta, &fops_sta_stats);
-}
-#endif
