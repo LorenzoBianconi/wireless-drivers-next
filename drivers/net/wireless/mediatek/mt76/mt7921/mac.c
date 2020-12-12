@@ -913,7 +913,6 @@ void mt7921_mac_tx_free(struct mt7921_dev *dev, struct sk_buff *skb)
 {
 	struct mt7921_tx_free *free = (struct mt7921_tx_free *)skb->data;
 	struct mt76_dev *mdev = &dev->mt76;
-	struct mt76_phy *mphy_ext = mdev->phy2;
 	struct mt76_txwi_cache *txwi;
 	struct ieee80211_sta *sta = NULL;
 	LIST_HEAD(free_list);
@@ -924,10 +923,6 @@ void mt7921_mac_tx_free(struct mt7921_dev *dev, struct sk_buff *skb)
 	/* clean DMA queues and unmap buffers first */
 	mt76_queue_tx_cleanup(dev, dev->mphy.q_tx[MT_TXQ_PSD], false);
 	mt76_queue_tx_cleanup(dev, dev->mphy.q_tx[MT_TXQ_BE], false);
-	if (mphy_ext) {
-		mt76_queue_tx_cleanup(dev, mphy_ext->q_tx[MT_TXQ_PSD], false);
-		mt76_queue_tx_cleanup(dev, mphy_ext->q_tx[MT_TXQ_BE], false);
-	}
 
 	/* TODO: MT_TX_FREE_LATENCY is msdu time from the TXD is queued into PLE,
 	 * to the time ack is received or dropped by hw (air + hw queue time).
@@ -1213,7 +1208,6 @@ static void
 mt7921_dma_reset(struct mt7921_phy *phy)
 {
 	struct mt7921_dev *dev = phy->dev;
-	struct mt76_phy *mphy_ext = dev->mt76.phy2;
 	int i;
 
 	mt76_clear(dev, MT_WFDMA0_GLO_CFG,
@@ -1222,11 +1216,8 @@ mt7921_dma_reset(struct mt7921_phy *phy)
 	usleep_range(1000, 2000);
 
 	mt76_queue_tx_cleanup(dev, dev->mt76.q_mcu[MT_MCUQ_WA], true);
-	for (i = 0; i < __MT_TXQ_MAX; i++) {
+	for (i = 0; i < __MT_TXQ_MAX; i++)
 		mt76_queue_tx_cleanup(dev, phy->mt76->q_tx[i], true);
-		if (mphy_ext)
-			mt76_queue_tx_cleanup(dev, mphy_ext->q_tx[i], true);
-	}
 
 	mt76_for_each_q_rx(&dev->mt76, i) {
 		mt76_queue_rx_reset(dev, i);
