@@ -327,7 +327,6 @@ static void mt7921_configure_filter(struct ieee80211_hw *hw,
 	struct mt7921_dev *dev = mt7921_hw_dev(hw);
 	struct mt7921_phy *phy = mt7921_hw_phy(hw);
 	bool band = phy != &dev->phy;
-
 	u32 ctl_flags = MT_WF_RFCR1_DROP_ACK |
 			MT_WF_RFCR1_DROP_BF_POLL |
 			MT_WF_RFCR1_DROP_BA |
@@ -340,6 +339,8 @@ static void mt7921_configure_filter(struct ieee80211_hw *hw,
 		phy->rxfilter &= ~(_hw);				\
 		phy->rxfilter |= !(flags & FIF_##_flag) * (_hw);	\
 	} while (0)
+
+	mutex_lock(&dev->mt76.mutex);
 
 	phy->rxfilter &= ~(MT_WF_RFCR_DROP_OTHER_BSS |
 			   MT_WF_RFCR_DROP_OTHER_BEACON |
@@ -371,6 +372,8 @@ static void mt7921_configure_filter(struct ieee80211_hw *hw,
 		mt76_clear(dev, MT_WF_RFCR1(band), ctl_flags);
 	else
 		mt76_set(dev, MT_WF_RFCR1(band), ctl_flags);
+
+	mutex_unlock(&dev->mt76.mutex);
 }
 
 static void mt7921_bss_info_changed(struct ieee80211_hw *hw,
