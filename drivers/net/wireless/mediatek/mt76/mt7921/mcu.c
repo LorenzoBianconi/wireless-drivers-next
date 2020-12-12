@@ -166,13 +166,9 @@ mt7921_get_phy_mode(struct mt7921_dev *dev, struct ieee80211_vif *vif,
 		he_cap = &sta->he_cap;
 	} else {
 		struct ieee80211_supported_band *sband;
-		struct mt7921_phy *phy;
-		struct mt7921_vif *mvif;
+		struct mt7921_phy *phy = &dev->phy;
 
-		mvif = (struct mt7921_vif *)vif->drv_priv;
-		phy = mvif->band_idx ? mt7921_ext_phy(dev) : &dev->phy;
 		sband = phy->mt76->hw->wiphy->bands[band];
-
 		ht_cap = &sband->ht_cap;
 		vht_cap = &sband->vht_cap;
 		he_cap = ieee80211_get_he_iftype_cap(sband, vif->type);
@@ -217,13 +213,9 @@ mt7921_get_phy_mode_v2(struct mt7921_dev *dev, struct ieee80211_vif *vif,
 		he_cap = &sta->he_cap;
 	} else {
 		struct ieee80211_supported_band *sband;
-		struct mt7921_phy *phy;
-		struct mt7921_vif *mvif;
+		struct mt7921_phy *phy = &dev->phy;
 
-		mvif = (struct mt7921_vif *)vif->drv_priv;
-		phy = mvif->band_idx ? mt7921_ext_phy(dev) : &dev->phy;
 		sband = phy->mt76->hw->wiphy->bands[band];
-
 		ht_cap = &sband->ht_cap;
 		vht_cap = &sband->vht_cap;
 		he_cap = ieee80211_get_he_iftype_cap(sband, vif->type);

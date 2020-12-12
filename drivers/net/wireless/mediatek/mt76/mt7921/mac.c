@@ -1085,7 +1085,6 @@ void mt7921_mac_set_timing(struct mt7921_phy *phy)
 {
 	s16 coverage_class = phy->coverage_class;
 	struct mt7921_dev *dev = phy->dev;
-	bool ext_phy = phy != &dev->phy;
 	u32 val, reg_offset;
 	u32 cck = FIELD_PREP(MT_TIMEOUT_VAL_PLCP, 231) |
 		  FIELD_PREP(MT_TIMEOUT_VAL_CCA, 48);
@@ -1102,17 +1101,7 @@ void mt7921_mac_set_timing(struct mt7921_phy *phy)
 	else
 		sifs = 10;
 
-	if (ext_phy) {
-		coverage_class = max_t(s16, dev->phy.coverage_class,
-				       coverage_class);
-	} else {
-		struct mt7921_phy *phy_ext = mt7921_ext_phy(dev);
-
-		if (phy_ext)
-			coverage_class = max_t(s16, phy_ext->coverage_class,
-					       coverage_class);
-	}
-	mt76_set(dev, MT_ARB_SCR(ext_phy),
+	mt76_set(dev, MT_ARB_SCR(0),
 		 MT_ARB_SCR_TX_DISABLE | MT_ARB_SCR_RX_DISABLE);
 	udelay(1);
 
@@ -1120,9 +1109,9 @@ void mt7921_mac_set_timing(struct mt7921_phy *phy)
 	reg_offset = FIELD_PREP(MT_TIMEOUT_VAL_PLCP, offset) |
 		     FIELD_PREP(MT_TIMEOUT_VAL_CCA, offset);
 
-	mt76_wr(dev, MT_TMAC_CDTR(ext_phy), cck + reg_offset);
-	mt76_wr(dev, MT_TMAC_ODTR(ext_phy), ofdm + reg_offset);
-	mt76_wr(dev, MT_TMAC_ICR0(ext_phy),
+	mt76_wr(dev, MT_TMAC_CDTR(0), cck + reg_offset);
+	mt76_wr(dev, MT_TMAC_ODTR(0), ofdm + reg_offset);
+	mt76_wr(dev, MT_TMAC_ICR0(0),
 		FIELD_PREP(MT_IFS_EIFS, 360) |
 		FIELD_PREP(MT_IFS_RIFS, 2) |
 		FIELD_PREP(MT_IFS_SIFS, sifs) |
@@ -1133,8 +1122,8 @@ void mt7921_mac_set_timing(struct mt7921_phy *phy)
 	else
 		val = MT7921_CFEND_RATE_11B;
 
-	mt76_rmw_field(dev, MT_AGG_ACR0(ext_phy), MT_AGG_ACR_CFEND_RATE, val);
-	mt76_clear(dev, MT_ARB_SCR(ext_phy),
+	mt76_rmw_field(dev, MT_AGG_ACR0(0), MT_AGG_ACR_CFEND_RATE, val);
+	mt76_clear(dev, MT_ARB_SCR(0),
 		   MT_ARB_SCR_TX_DISABLE | MT_ARB_SCR_RX_DISABLE);
 }
 

@@ -10,14 +10,7 @@
 
 static bool mt7921_dev_running(struct mt7921_dev *dev)
 {
-	struct mt7921_phy *phy;
-
-	if (test_bit(MT76_STATE_RUNNING, &dev->mphy.state))
-		return true;
-
-	phy = mt7921_ext_phy(dev);
-
-	return phy && test_bit(MT76_STATE_RUNNING, &phy->mt76->state);
+	return test_bit(MT76_STATE_RUNNING, &dev->mphy.state);
 }
 
 static int mt7921_start(struct ieee80211_hw *hw)
@@ -131,7 +124,6 @@ static int mt7921_add_interface(struct ieee80211_hw *hw,
 	struct mt7921_dev *dev = mt7921_hw_dev(hw);
 	struct mt7921_phy *phy = mt7921_hw_phy(hw);
 	struct mt76_txq *mtxq;
-	bool ext_phy = phy != &dev->phy;
 	int idx, ret = 0;
 
 	mutex_lock(&dev->mt76.mutex);
@@ -153,13 +145,8 @@ static int mt7921_add_interface(struct ieee80211_hw *hw,
 	}
 	mvif->omac_idx = idx;
 	mvif->phy = phy;
-	mvif->band_idx = ext_phy;
-
-	if (ext_phy)
-		mvif->wmm_idx = ext_phy * (MT7921_MAX_WMM_SETS / 2) +
-				mvif->idx % (MT7921_MAX_WMM_SETS / 2);
-	else
-		mvif->wmm_idx = mvif->idx % MT7921_MAX_WMM_SETS;
+	mvif->band_idx = 0;
+	mvif->wmm_idx = mvif->idx % MT7921_MAX_WMM_SETS;
 
 	ret = mt7921_mcu_uni_add_dev(dev, vif, true);
 	if (ret)
@@ -460,12 +447,8 @@ int mt7921_mac_sta_add(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 	msta->wcid.tx_info |= MT_WCID_TX_INFO_SET;
 	msta->stats.jiffies = jiffies;
 
-	if (vif->type == NL80211_IFTYPE_STATION && !sta->tdls) {
-		struct mt7921_phy *phy;
-
-		phy = mvif->band_idx ? mt7921_ext_phy(dev) : &dev->phy;
-		mt7921_mcu_uni_add_bss(phy, vif, true);
-	}
+	if (vif->type == NL80211_IFTYPE_STATION && !sta->tdls)
+		mt7921_mcu_uni_add_bss(&dev->phy, vif, true);
 	mt7921_mac_wtbl_update(dev, idx,
 			       MT_WTBL_UPDATE_ADM_COUNT_CLEAR);
 
@@ -485,13 +468,8 @@ void mt7921_mac_sta_remove(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 	mt7921_mcu_uni_add_sta(dev, vif, sta, false);
 	mt7921_mac_wtbl_update(dev, msta->wcid.idx,
 			       MT_WTBL_UPDATE_ADM_COUNT_CLEAR);
-	if (vif->type == NL80211_IFTYPE_STATION && !sta->tdls) {
-		struct mt7921_vif *mvif = (struct mt7921_vif *)vif->drv_priv;
-		struct mt7921_phy *phy;
-
-		phy = mvif->band_idx ? mt7921_ext_phy(dev) : &dev->phy;
-		mt7921_mcu_uni_add_bss(phy, vif, false);
-	}
+	if (vif->type == NL80211_IFTYPE_STATION && !sta->tdls)
+		mt7921_mcu_uni_add_bss(&dev->phy, vif, false);
 
 	spin_lock_bh(&dev->sta_poll_lock);
 	if (!list_empty(&msta->poll_list))
