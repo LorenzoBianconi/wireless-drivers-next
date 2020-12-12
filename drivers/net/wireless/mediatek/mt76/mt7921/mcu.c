@@ -563,16 +563,8 @@ mt7921_mcu_rx_ext_event(struct mt7921_dev *dev, struct sk_buff *skb)
 static void
 mt7921_mcu_scan_event(struct mt7921_dev *dev, struct sk_buff *skb)
 {
-	u8 *seq_num = skb->data + sizeof(struct mt7921_mcu_rxd);
-	struct mt7921_phy *phy;
-	struct mt76_phy *mphy;
-
-	if (*seq_num & BIT(7) && dev->mt76.phy2)
-		mphy = dev->mt76.phy2;
-	else
-		mphy = &dev->mt76.phy;
-
-	phy = (struct mt7921_phy *)mphy->priv;
+	struct mt76_phy *mphy = &dev->mt76.phy;
+	struct mt7921_phy *phy = (struct mt7921_phy *)mphy->priv;
 
 	spin_lock_bh(&dev->mt76.lock);
 	__skb_queue_tail(&phy->scan_event_list, skb);
@@ -585,18 +577,11 @@ mt7921_mcu_scan_event(struct mt7921_dev *dev, struct sk_buff *skb)
 static void
 mt7921_mcu_bss_event(struct mt7921_dev *dev, struct sk_buff *skb)
 {
+	struct mt76_phy *mphy = &dev->mt76.phy;
 	struct mt7921_mcu_bss_event *event;
-	struct mt76_phy *mphy;
-	u8 band_idx = 0; /* DBDC support */
 
 	event = (struct mt7921_mcu_bss_event *)(skb->data +
 						sizeof(struct mt7921_mcu_rxd));
-
-	if (band_idx && dev->mt76.phy2)
-		mphy = dev->mt76.phy2;
-	else
-		mphy = &dev->mt76.phy;
-
 	if (event->is_absent)
 		ieee80211_stop_queues(mphy->hw);
 	else
