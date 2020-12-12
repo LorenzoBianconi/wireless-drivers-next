@@ -531,9 +531,6 @@ mt7921_mcu_tx_rate_report(struct mt7921_dev *dev, struct sk_buff *skb)
 	msta = container_of(wcid, struct mt7921_sta, wcid);
 	stats = &msta->stats;
 
-	if (msta->wcid.ext_phy && dev->mt76.phy2)
-		mphy = dev->mt76.phy2;
-
 	/* current rate */
 	mt7921_mcu_tx_rate_parse(mphy, ra, &rate, curr);
 	stats->tx_rate = rate;
@@ -2481,7 +2478,6 @@ int mt7921_mcu_hw_scan(struct mt7921_phy *phy, struct ieee80211_vif *vif,
 	int ext_channels_num = max_t(int, sreq->n_channels - 32, 0);
 	struct ieee80211_channel **scan_list = sreq->channels;
 	struct mt7921_dev *dev = phy->dev;
-	bool ext_phy = phy != &dev->phy;
 	struct mt7921_mcu_scan_channel *chan;
 	struct mt7921_hw_scan_req *req;
 	struct sk_buff *skb;
@@ -2495,7 +2491,7 @@ int mt7921_mcu_hw_scan(struct mt7921_phy *phy, struct ieee80211_vif *vif,
 
 	req = (struct mt7921_hw_scan_req *)skb_put(skb, sizeof(*req));
 
-	req->seq_num = mvif->scan_seq_num | ext_phy << 7;
+	req->seq_num = mvif->scan_seq_num;
 	req->bss_idx = mvif->idx;
 	req->scan_type = sreq->n_ssids ? 1 : 0;
 	req->probe_req_num = sreq->n_ssids ? 2 : 0;

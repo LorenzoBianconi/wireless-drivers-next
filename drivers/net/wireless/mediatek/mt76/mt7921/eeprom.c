@@ -46,10 +46,9 @@ static int mt7921_check_eeprom(struct mt7921_dev *dev)
 void mt7921_eeprom_parse_band_config(struct mt7921_phy *phy)
 {
 	struct mt7921_dev *dev = phy->dev;
-	bool ext_phy = phy != &dev->phy;
 	u32 val;
 
-	val = mt7921_eeprom_read(dev, MT_EE_WIFI_CONF + ext_phy);
+	val = mt7921_eeprom_read(dev, MT_EE_WIFI_CONF);
 	val = FIELD_GET(MT_EE_WIFI_CONF_BAND_SEL, val);
 	switch (val) {
 	case MT_EE_5GHZ:

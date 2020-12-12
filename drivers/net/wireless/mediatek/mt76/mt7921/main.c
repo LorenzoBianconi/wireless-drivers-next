@@ -8,35 +8,19 @@
 #include "mt7921.h"
 #include "mcu.h"
 
-static bool mt7921_dev_running(struct mt7921_dev *dev)
-{
-	return test_bit(MT76_STATE_RUNNING, &dev->mphy.state);
-}
-
 static int mt7921_start(struct ieee80211_hw *hw)
 {
 	struct mt7921_dev *dev = mt7921_hw_dev(hw);
 	struct mt7921_phy *phy = mt7921_hw_phy(hw);
-	bool running;
 
 	mutex_lock(&dev->mt76.mutex);
 
-	running = mt7921_dev_running(dev);
-
-	if (!running)
-		mt7921_mcu_set_mac(dev, 0, true, false);
-
-	if (phy != &dev->phy)
-		mt7921_mcu_set_mac(dev, 1, true, false);
-
+	mt7921_mcu_set_mac(dev, 0, true, false);
 	mt7921_mcu_set_chan_info(phy, MCU_EXT_CMD_SET_RX_PATH);
-
+	mt7921_mac_reset_counters(phy);
 	set_bit(MT76_STATE_RUNNING, &phy->mt76->state);
 
 	ieee80211_queue_delayed_work(hw, &phy->mac_work, MT7921_WATCHDOG_TIME);
-
-	if (!running)
-		mt7921_mac_reset_counters(phy);
 
 	mutex_unlock(&dev->mt76.mutex);
 
@@ -51,15 +35,8 @@ static void mt7921_stop(struct ieee80211_hw *hw)
 	cancel_delayed_work_sync(&phy->mac_work);
 
 	mutex_lock(&dev->mt76.mutex);
-
 	clear_bit(MT76_STATE_RUNNING, &phy->mt76->state);
-
-	if (phy != &dev->phy)
-		mt7921_mcu_set_mac(dev, 1, false, false);
-
-	if (!mt7921_dev_running(dev))
-		mt7921_mcu_set_mac(dev, 0, false, false);
-
+	mt7921_mcu_set_mac(dev, 0, false, false);
 	mutex_unlock(&dev->mt76.mutex);
 }
 
@@ -732,7 +709,6 @@ mt7921_set_antenna(struct ieee80211_hw *hw, u32 tx_ant, u32 rx_ant)
 	struct mt7921_dev *dev = mt7921_hw_dev(hw);
 	struct mt7921_phy *phy = mt7921_hw_phy(hw);
 	int max_nss = hweight8(hw->wiphy->available_antennas_tx);
-	bool ext_phy = phy != &dev->phy;
 
 	if (!tx_ant || tx_ant != rx_ant || ffs(tx_ant) > max_nss)
 		return -EINVAL;
@@ -743,13 +719,6 @@ mt7921_set_antenna(struct ieee80211_hw *hw, u32 tx_ant, u32 rx_ant)
 	mutex_lock(&dev->mt76.mutex);
 
 	phy->mt76->antenna_mask = tx_ant;
-
-	if (ext_phy) {
-		if (dev->chainmask == 0xf)
-			tx_ant <<= 2;
-		else
-			tx_ant <<= 1;
-	}
 	phy->chainmask = tx_ant;
 
 	mt76_set_stream_caps(phy->mt76, true);
