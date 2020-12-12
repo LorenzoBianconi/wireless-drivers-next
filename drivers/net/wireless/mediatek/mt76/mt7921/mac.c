@@ -303,14 +303,8 @@ int mt7921_mac_fill_rx(struct mt7921_dev *dev, struct sk_buff *skb)
 
 	memset(status, 0, sizeof(*status));
 
-	if (rxd1 & MT_RXD1_NORMAL_BAND_IDX) {
-		mphy = dev->mt76.phy2;
-		if (!mphy)
-			return -EINVAL;
-
-		phy = mphy->priv;
-		status->ext_phy = true;
-	}
+	if (rxd1 & MT_RXD1_NORMAL_BAND_IDX)
+		return -EINVAL;
 
 	if (!test_bit(MT76_STATE_RUNNING, &mphy->state))
 		return -EINVAL;
@@ -765,19 +759,14 @@ mt7921_write_hw_txp(struct mt7921_dev *dev, struct mt76_tx_info *tx_info,
 
 static void mt7921_set_tx_blocked(struct mt7921_dev *dev, bool blocked)
 {
-	struct mt76_phy *mphy = &dev->mphy, *mphy2 = dev->mt76.phy2;
-	struct mt76_queue *q, *q2 = NULL;
+	struct mt76_phy *mphy = &dev->mphy;
+	struct mt76_queue *q;
 
 	q = mphy->q_tx[0];
 	if (blocked == q->blocked)
 		return;
 
 	q->blocked = blocked;
-	if (mphy2) {
-		q2 = mphy2->q_tx[0];
-		q2->blocked = blocked;
-	}
-
 	if (!blocked)
 		mt76_worker_schedule(&dev->mt76.tx_worker);
 }
@@ -1153,14 +1142,8 @@ void mt7921_update_channel(struct mt76_dev *mdev)
 	struct mt7921_dev *dev = container_of(mdev, struct mt7921_dev, mt76);
 
 	mt7921_phy_update_channel(&mdev->phy, 0);
-	if (mdev->phy2)
-		mt7921_phy_update_channel(mdev->phy2, 1);
-
 	/* reset obss airtime */
 	mt76_set(dev, MT_WF_RMAC_MIB_TIME0(0), MT_WF_RMAC_MIB_RXTIME_CLR);
-	if (mdev->phy2)
-		mt76_set(dev, MT_WF_RMAC_MIB_TIME0(1),
-			 MT_WF_RMAC_MIB_RXTIME_CLR);
 }
 
 static bool
