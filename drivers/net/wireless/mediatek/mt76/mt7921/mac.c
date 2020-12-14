@@ -781,7 +781,7 @@ int mt7921_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 	struct ieee80211_key_conf *key = info->control.hw_key;
 	struct mt76_tx_cb *cb = mt76_tx_skb_cb(tx_info->skb);
 	struct mt76_txwi_cache *t;
-	struct mt7921_txp *txp;
+	struct mt7921_txp_common *txp;
 	int id;
 	u8 *txwi = (u8 *)txwi_ptr;
 
@@ -808,7 +808,7 @@ int mt7921_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 	mt7921_mac_write_txwi(dev, txwi_ptr, tx_info->skb, wcid, key,
 			      false);
 
-	txp = (struct mt7921_txp *)(txwi + MT_TXD_SIZE);
+	txp = (struct mt7921_txp_common *)(txwi + MT_TXD_SIZE);
 	memset(txp, 0, sizeof(struct mt7921_txp_common));
 	mt7921_write_hw_txp(dev, tx_info, txp, id);
 
@@ -881,13 +881,32 @@ mt7921_tx_complete_status(struct mt76_dev *mdev, struct sk_buff *skb,
 void mt7921_txp_skb_unmap(struct mt76_dev *dev,
 			  struct mt76_txwi_cache *t)
 {
-	struct mt7921_txp *txp;
+	struct mt7921_txp_common *txp;
 	int i;
 
 	txp = mt7921_txwi_to_txp(dev, t);
-	for (i = 1; i < txp->nbuf; i++)
-		dma_unmap_single(dev->dev, le32_to_cpu(txp->buf[i]),
-				 le16_to_cpu(txp->len[i]), DMA_TO_DEVICE);
+
+	for (i = 0; i < ARRAY_SIZE(txp->hw.ptr); i++) {
+		struct mt7921_txp_ptr *ptr = &txp->hw.ptr[i];
+		bool last;
+		u16 len;
+
+		len = le16_to_cpu(ptr->len0);
+		last = len & MT_TXD_LEN_LAST;
+		len &= MT_TXD_LEN_MASK;
+		dma_unmap_single(dev->dev, le32_to_cpu(ptr->buf0), len,
+				 DMA_TO_DEVICE);
+		if (last)
+			break;
+
+		len = le16_to_cpu(ptr->len1);
+		last = len & MT_TXD_LEN_LAST;
+		len &= MT_TXD_LEN_MASK;
+		dma_unmap_single(dev->dev, le32_to_cpu(ptr->buf1), len,
+				 DMA_TO_DEVICE);
+		if (last)
+			break;
+	}
 }
 
 void mt7921_mac_tx_free(struct mt7921_dev *dev, struct sk_buff *skb)
@@ -1010,12 +1029,14 @@ void mt7921_tx_complete_skb(struct mt76_dev *mdev, struct mt76_queue_entry *e)
 	/* error path */
 	if (e->skb == DMA_DUMMY_DATA) {
 		struct mt76_txwi_cache *t;
-		struct mt7921_txp *txp;
+		struct mt7921_txp_common *txp;
+		u16 token;
 
 		txp = mt7921_txwi_to_txp(mdev, e->txwi);
 
+		token = le16_to_cpu(txp->hw.msdu_id[0]) & ~MT_MSDU_ID_VALID;
 		spin_lock_bh(&dev->token_lock);
-		t = idr_remove(&dev->token, le16_to_cpu(txp->token));
+		t = idr_remove(&dev->token, le16_to_cpu(token));
 		spin_unlock_bh(&dev->token_lock);
 		e->skb = t ? t->skb : NULL;
 	}

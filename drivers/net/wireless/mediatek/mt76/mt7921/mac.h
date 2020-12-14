@@ -323,7 +323,7 @@ struct mt7921_dfs_radar_spec {
 	struct mt7921_dfs_pattern radar_pattern[16];
 };
 
-static inline struct mt7921_txp *
+static inline struct mt7921_txp_common *
 mt7921_txwi_to_txp(struct mt76_dev *dev, struct mt76_txwi_cache *t)
 {
 	u8 *txwi;
@@ -333,7 +333,7 @@ mt7921_txwi_to_txp(struct mt76_dev *dev, struct mt76_txwi_cache *t)
 
 	txwi = mt76_get_txwi_ptr(dev, t);
 
-	return (struct mt7921_txp *)(txwi + MT_TXD_SIZE);
+	return (struct mt7921_txp_common *)(txwi + MT_TXD_SIZE);
 }
 
 #define MT_HW_TXP_MAX_MSDU_NUM		4
