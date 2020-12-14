@@ -75,6 +75,7 @@ struct mt7921_sta {
 
 	struct mt7921_vif *vif;
 
+	struct list_head stats_list;
 	struct list_head poll_list;
 	u32 airtime_ac[8];
 
@@ -125,6 +126,7 @@ struct mt7921_phy {
 	u32 ampdu_ref;
 
 	struct mib_stats mib;
+	struct list_head stats_list;
 
 	struct delayed_work mac_work;
 	u8 mac_work_count;
@@ -365,4 +367,5 @@ int mt7921_mcu_hw_scan(struct mt7921_phy *phy, struct ieee80211_vif *vif,
 		       struct ieee80211_scan_request *scan_req);
 int mt7921_mcu_cancel_hw_scan(struct mt7921_phy *phy,
 			      struct ieee80211_vif *vif);
+u32 mt7921_get_wtbl_info(struct mt7921_dev *dev, u16 wlan_idx);
 #endif
