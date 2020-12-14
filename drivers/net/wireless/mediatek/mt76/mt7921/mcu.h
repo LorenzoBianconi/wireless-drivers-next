@@ -742,48 +742,24 @@ struct sta_rec_state {
 	u8 rsv[1];
 } __packed;
 
-#define HE_MAC_CAP_BYTE_NUM 6
-#define HE_PHY_CAP_BYTE_NUM 11
 #define HT_MCS_MASK_NUM 10
 
-struct ht_vht_ba_size {
-	u8 tx_ba;
-	u8 rx_ba;
-	u8 rsv[2];
+struct sta_rec_ra_info {
+	__le16 tag;
+	__le16 len;
+	__le16 legacy;
+	u8 rx_mcs_bitmask[HT_MCS_MASK_NUM];
 } __packed;
-
-struct he_ba_size {
-	__le16 tx_ba;
-	__le16 rx_ba;
-} __packed;
-
-union BA_SIZE {
-	struct ht_vht_ba_size ht_vht;
-	struct he_ba_size he;
-};
 
 struct sta_rec_phy {
 	__le16 tag;
 	__le16 len;
-	__le16 legacy;
-	__le16 he_6g_cap;
-	__le32 tx_max_amsdu_len;
 	__le16 basic_rate;
 	u8 phy_type;
 	u8 ampdu;
-	u8 tx_ampdu;
-	u8 rx_ampdu;
-	u8 tx_amsdu_in_ampdu;
-	u8 rx_amsdu_in_ampdu;
 	u8 rts_policy;
 	u8 rcpi;
-	u8 uapsd_ac;
-	u8 uapsd_sp;
-	u8 he_mac_cap[HE_MAC_CAP_BYTE_NUM];
-	u8 he_phy_cap[HE_PHY_CAP_BYTE_NUM];
-	u8 rx_mcs_bitmask[HT_MCS_MASK_NUM];
-	u8 rsv[1];
-	union BA_SIZE ba_size;
+	u8 rsv[2];
 } __packed;
 
 enum {

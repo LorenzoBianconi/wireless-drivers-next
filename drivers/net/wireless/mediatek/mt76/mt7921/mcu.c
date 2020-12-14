@@ -1294,11 +1294,10 @@ mt7921_mcu_sta_tlv(struct mt7921_dev *dev, struct sk_buff *skb,
 	struct tlv *tlv;
 	struct sta_rec_state *state;
 	struct sta_rec_phy *phy;
+	struct sta_rec_ra_info *ra_info;
 	struct cfg80211_chan_def *chandef = &dev->mphy.chandef;
 	enum nl80211_band band = chandef->chan->band;
 	u32 supp_rate = sta->supp_rates[band];
-	struct ieee80211_sta_he_cap *he_cap = &sta->he_cap;
-	struct ieee80211_he_cap_elem *elem = &he_cap->he_cap_elem;
 
 	/* starec ht */
 	if (sta->ht_cap.ht_supported) {
@@ -1332,18 +1331,16 @@ mt7921_mcu_sta_tlv(struct mt7921_dev *dev, struct sk_buff *skb,
 
 	tlv = mt7921_mcu_add_tlv(skb, STA_REC_PHY, sizeof(*phy));
 	phy = (struct sta_rec_phy *)tlv;
-	phy->legacy = supp_rate;
 	phy->phy_type = mt7921_get_phy_mode_v2(dev, vif, band, sta);
 	phy->basic_rate = vif->bss_conf.basic_rates;
 
-	if (sta->ht_cap.ht_supported) {
-		memcpy(phy->rx_mcs_bitmask, sta->ht_cap.mcs.rx_mask,
-		       HT_MCS_MASK_NUM);
-	}
+	tlv = mt7921_mcu_add_tlv(skb, STA_REC_RA, sizeof(*ra_info));
+	ra_info = (struct sta_rec_ra_info *)tlv;
+	ra_info->legacy = supp_rate;
 
-	if (sta->he_cap.has_he) {
-		memcpy(phy->he_mac_cap, elem->mac_cap_info, HE_MAC_CAP_BYTE_NUM);
-		memcpy(phy->he_phy_cap, elem->phy_cap_info, HE_PHY_CAP_BYTE_NUM);
+	if (sta->ht_cap.ht_supported) {
+		memcpy(ra_info->rx_mcs_bitmask, sta->ht_cap.mcs.rx_mask,
+		       HT_MCS_MASK_NUM);
 	}
 
 	tlv = mt7921_mcu_add_tlv(skb, STA_REC_STATE, sizeof(*state));
