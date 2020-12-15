@@ -1743,8 +1743,8 @@ int mt7921_mcu_fw_log_2_host(struct mt7921_dev *dev, u8 ctrl)
 		.ctrl_val = ctrl
 	};
 
-	return mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD_FW_LOG_2_HOST, &data,
-				 sizeof(data), true);
+	return mt76_mcu_send_msg(&dev->mt76, MCU_CMD_FWLOG_2_HOST, &data,
+				 sizeof(data), false);
 }
 
 int mt7921_mcu_fw_dbg_ctrl(struct mt7921_dev *dev, u32 module, u8 level)
