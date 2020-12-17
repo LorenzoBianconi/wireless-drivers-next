@@ -1132,7 +1132,6 @@ struct mt7921_mcu_tx_config {
 	u8 dyn_bw;
 
 	u8 amdsu_cross_lg;
-	u8 amdsu_lg;
 	u8 check_per;
 	u8 gid_63;
 	u8 he;
