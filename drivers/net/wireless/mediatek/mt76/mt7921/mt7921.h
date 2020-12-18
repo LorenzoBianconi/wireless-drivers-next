@@ -159,13 +159,9 @@ struct mt7921_dev {
 	struct list_head sta_poll_list;
 	spinlock_t sta_poll_lock;
 
-	u32 hw_pattern;
-
 	spinlock_t token_lock;
 	int token_count;
 	struct idr token;
-
-	s8 **rate_power; /* TODO: use mt76_rate_power */
 
 	u8 fw_debug;
 };
@@ -192,18 +188,6 @@ enum {
 	MT_LMAC_ALTX0 = 0x10,
 	MT_LMAC_BMC0,
 	MT_LMAC_BCN0,
-};
-
-enum {
-	MT_RX_SEL0,
-	MT_RX_SEL1,
-};
-
-enum {
-	RATE_CTRL_RU_INFO,
-	RATE_CTRL_FIXED_RATE_INFO,
-	RATE_CTRL_DUMP_INFO,
-	RATE_CTRL_MU_INFO,
 };
 
 static inline struct mt7921_phy *
@@ -261,12 +245,9 @@ int mt7921_mcu_get_eeprom(struct mt7921_dev *dev, u32 offset);
 int mt7921_mcu_set_mac(struct mt7921_dev *dev, int band, bool enable,
 		       bool hdr_trans);
 int mt7921_mcu_set_rts_thresh(struct mt7921_phy *phy, u32 val);
-int mt7921_mcu_set_sku_en(struct mt7921_phy *phy, bool enable);
-int mt7921_mcu_set_sku(struct mt7921_phy *phy);
 int mt7921_mcu_get_rx_rate(struct mt7921_phy *phy, struct ieee80211_vif *vif,
 			   struct ieee80211_sta *sta, struct rate_info *rate);
 int mt7921_mcu_fw_log_2_host(struct mt7921_dev *dev, u8 ctrl);
-int mt7921_mcu_fw_dbg_ctrl(struct mt7921_dev *dev, u32 module, u8 level);
 void mt7921_mcu_rx_event(struct mt7921_dev *dev, struct sk_buff *skb);
 void mt7921_mcu_exit(struct mt7921_dev *dev);
 

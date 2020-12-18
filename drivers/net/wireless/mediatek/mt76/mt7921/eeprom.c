@@ -50,6 +50,7 @@ void mt7921_eeprom_parse_band_config(struct mt7921_phy *phy)
 
 	val = mt7921_eeprom_read(dev, MT_EE_WIFI_CONF);
 	val = FIELD_GET(MT_EE_WIFI_CONF_BAND_SEL, val);
+
 	switch (val) {
 	case MT_EE_5GHZ:
 		phy->mt76->cap.has_5ghz = true;
@@ -70,13 +71,9 @@ static void mt7921_eeprom_parse_hw_cap(struct mt7921_dev *dev)
 
 	mt7921_eeprom_parse_band_config(&dev->phy);
 
-	/* read tx mask from eeprom */
+	/* read tx mask from eeprom (0: 1Tx, 1: 2Tx) */
 	tx_mask = FIELD_GET(MT_EE_WIFI_CONF_TX_MASK, eeprom[MT_EE_WIFI_CONF]);
-	if (!tx_mask || tx_mask > 4)
-		tx_mask = 4;
-
-	/* Should fix eeprom */
-	tx_mask = 2;
+	tx_mask = tx_mask + 1;
 	dev->chainmask = BIT(tx_mask) - 1;
 	dev->mphy.antenna_mask = dev->chainmask;
 	dev->phy.chainmask = dev->mphy.antenna_mask;
@@ -101,146 +98,4 @@ int mt7921_eeprom_init(struct mt7921_dev *dev)
 	mt76_eeprom_override(&dev->mphy);
 
 	return 0;
-}
-
-int mt7921_eeprom_get_target_power(struct mt7921_dev *dev,
-				   struct ieee80211_channel *chan,
-				   u8 chain_idx)
-{
-	int index;
-	bool tssi_on;
-
-	if (chain_idx > 3)
-		return -EINVAL;
-
-	tssi_on = mt7921_tssi_enabled(dev, chan->band);
-
-	if (chan->band == NL80211_BAND_2GHZ) {
-		index = MT_EE_TX0_POWER_2G + chain_idx * 3 + !tssi_on;
-	} else {
-		int group = tssi_on ?
-			    mt7921_get_channel_group(chan->hw_value) : 8;
-
-		index = MT_EE_TX0_POWER_5G + chain_idx * 12 + group;
-	}
-
-	return mt7921_eeprom_read(dev, index);
-}
-
-static const u8 sku_cck_delta_map[] = {
-	SKU_CCK_GROUP0,
-	SKU_CCK_GROUP0,
-	SKU_CCK_GROUP1,
-	SKU_CCK_GROUP1,
-};
-
-static const u8 sku_ofdm_delta_map[] = {
-	SKU_OFDM_GROUP0,
-	SKU_OFDM_GROUP0,
-	SKU_OFDM_GROUP1,
-	SKU_OFDM_GROUP1,
-	SKU_OFDM_GROUP2,
-	SKU_OFDM_GROUP2,
-	SKU_OFDM_GROUP3,
-	SKU_OFDM_GROUP4,
-};
-
-static const u8 sku_mcs_delta_map[] = {
-	SKU_MCS_GROUP0,
-	SKU_MCS_GROUP1,
-	SKU_MCS_GROUP1,
-	SKU_MCS_GROUP2,
-	SKU_MCS_GROUP2,
-	SKU_MCS_GROUP3,
-	SKU_MCS_GROUP4,
-	SKU_MCS_GROUP5,
-	SKU_MCS_GROUP6,
-	SKU_MCS_GROUP7,
-	SKU_MCS_GROUP8,
-	SKU_MCS_GROUP9,
-};
-
-#define SKU_GROUP(_mode, _len, _ofs_2g, _ofs_5g, _map)	\
-	[_mode] = {					\
-	.len = _len,					\
-	.offset = {					\
-		_ofs_2g,				\
-		_ofs_5g,				\
-	},						\
-	.delta_map = _map				\
-}
-
-const struct sku_group mt7921_sku_groups[] = {
-	SKU_GROUP(SKU_CCK, 4, 0x252, 0, sku_cck_delta_map),
-	SKU_GROUP(SKU_OFDM, 8, 0x254, 0x29d, sku_ofdm_delta_map),
-
-	SKU_GROUP(SKU_HT_BW20, 8, 0x259, 0x2a2, sku_mcs_delta_map),
-	SKU_GROUP(SKU_HT_BW40, 9, 0x262, 0x2ab, sku_mcs_delta_map),
-	SKU_GROUP(SKU_VHT_BW20, 12, 0x259, 0x2a2, sku_mcs_delta_map),
-	SKU_GROUP(SKU_VHT_BW40, 12, 0x262, 0x2ab, sku_mcs_delta_map),
-	SKU_GROUP(SKU_VHT_BW80, 12, 0, 0x2b4, sku_mcs_delta_map),
-	SKU_GROUP(SKU_VHT_BW160, 12, 0, 0, sku_mcs_delta_map),
-
-	SKU_GROUP(SKU_HE_RU26, 12, 0x27f, 0x2dd, sku_mcs_delta_map),
-	SKU_GROUP(SKU_HE_RU52, 12, 0x289, 0x2e7, sku_mcs_delta_map),
-	SKU_GROUP(SKU_HE_RU106, 12, 0x293, 0x2f1, sku_mcs_delta_map),
-	SKU_GROUP(SKU_HE_RU242, 12, 0x26b, 0x2bf, sku_mcs_delta_map),
-	SKU_GROUP(SKU_HE_RU484, 12, 0x275, 0x2c9, sku_mcs_delta_map),
-	SKU_GROUP(SKU_HE_RU996, 12, 0, 0x2d3, sku_mcs_delta_map),
-	SKU_GROUP(SKU_HE_RU2x996, 12, 0, 0, sku_mcs_delta_map),
-};
-
-static s8
-mt7921_get_sku_delta(struct mt7921_dev *dev, u32 addr)
-{
-	u32 val = mt7921_eeprom_read(dev, addr);
-	s8 delta = FIELD_GET(SKU_DELTA_VAL, val);
-
-	if (!(val & SKU_DELTA_EN))
-		return 0;
-
-	return val & SKU_DELTA_ADD ? delta : -delta;
-}
-
-static void
-mt7921_eeprom_init_sku_band(struct mt7921_dev *dev,
-			    struct ieee80211_supported_band *sband)
-{
-	int i, band = sband->band;
-	s8 *rate_power = dev->rate_power[band], max_delta = 0;
-	u8 idx = 0;
-
-	for (i = 0; i < ARRAY_SIZE(mt7921_sku_groups); i++) {
-		const struct sku_group *sku = &mt7921_sku_groups[i];
-		u32 offset = sku->offset[band];
-		int j;
-
-		if (!offset) {
-			idx += sku->len;
-			continue;
-		}
-
-		rate_power[idx++] = mt7921_get_sku_delta(dev, offset);
-		if (rate_power[idx - 1] > max_delta)
-			max_delta = rate_power[idx - 1];
-
-		if (i == SKU_HT_BW20 || i == SKU_VHT_BW20)
-			offset += 1;
-
-		for (j = 1; j < sku->len; j++) {
-			u32 addr = offset + sku->delta_map[j];
-
-			rate_power[idx++] = mt7921_get_sku_delta(dev, addr);
-			if (rate_power[idx - 1] > max_delta)
-				max_delta = rate_power[idx - 1];
-		}
-	}
-
-	rate_power[idx] = max_delta;
-}
-
-void mt7921_eeprom_init_sku(struct mt7921_dev *dev)
-{
-	mt7921_eeprom_init_sku_band(dev, &dev->mphy.sband_2g.sband);
-	mt7921_eeprom_init_sku_band(dev, &dev->mphy.sband_5g.sband);
 }

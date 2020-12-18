@@ -71,30 +71,8 @@ static void mt7921_irq_tasklet(unsigned long data)
 	if (intr & MT_INT_RX_DONE_WM2)
 		napi_schedule(&dev->mt76.napi[MT_RXQ_MCU_WA]);
 
-	if (intr & MT_INT_RX_DONE_DATA) /* rx data from lmac */
+	if (intr & MT_INT_RX_DONE_DATA)
 		napi_schedule(&dev->mt76.napi[MT_RXQ_MAIN]);
-}
-
-static int
-mt7921_alloc_device(struct pci_dev *pdev, struct mt7921_dev *dev)
-{
-#define NUM_BANDS	2
-	int i;
-	s8 **sku;
-
-	sku = devm_kzalloc(&pdev->dev, NUM_BANDS * sizeof(*sku), GFP_KERNEL);
-	if (!sku)
-		return -ENOMEM;
-
-	for (i = 0; i < NUM_BANDS; i++) {
-		sku[i] = devm_kzalloc(&pdev->dev, MT7921_SKU_TABLE_SIZE *
-				      sizeof(**sku), GFP_KERNEL);
-		if (!sku[i])
-			return -ENOMEM;
-	}
-	dev->rate_power = sku;
-
-	return 0;
 }
 
 static int mt7921_pci_probe(struct pci_dev *pdev,
@@ -149,9 +127,6 @@ static int mt7921_pci_probe(struct pci_dev *pdev,
 	}
 
 	dev = container_of(mdev, struct mt7921_dev, mt76);
-	ret = mt7921_alloc_device(pdev, dev);
-	if (ret)
-		goto err_free_dev;
 
 	mt76_mmio_init(&dev->mt76, pcim_iomap_table(pdev)[0]);
 	tasklet_init(&dev->irq_tasklet, mt7921_irq_tasklet, (unsigned long)dev);

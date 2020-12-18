@@ -76,21 +76,13 @@ struct mt7921_uni_txd {
 
 /* event table */
 enum {
-	MCU_EVENT_TARGET_ADDRESS_LEN = 0x01,
-	MCU_EVENT_FW_START = 0x01,
-	MCU_EVENT_GENERIC = 0x01,
-	MCU_EVENT_ACCESS_REG = 0x02,
-	MCU_EVENT_MT_PATCH_SEM = 0x04,
 	MCU_EVENT_REG_ACCESS = 0x05,
 	MCU_EVENT_SCAN_DONE = 0x0d,
-	MCU_EVENT_ROC = 0x10,
 	MCU_EVENT_BSS_ABSENCE  = 0x11,
 	MCU_EVENT_BSS_BEACON_LOSS = 0x13,
 	MCU_EVENT_CH_PRIVILEGE = 0x18,
 	MCU_EVENT_SCHED_SCAN_DONE = 0x23,
 	MCU_EVENT_DBG_MSG = 0x27,
-	MCU_EVENT_EXT = 0xed,
-	MCU_EVENT_RESTART_DL = 0xef,
 };
 
 /* ext event table */
@@ -118,51 +110,6 @@ struct mt7921_mcu_eeprom_info {
 	__le32 valid;
 	u8 data[16];
 } __packed;
-
-struct mt7921_mcu_ra_info {
-	struct mt7921_mcu_rxd rxd;
-
-	__le32 event_id;
-	__le16 wlan_idx;
-	__le16 ru_idx;
-	__le16 direction;
-	__le16 dump_group;
-
-	__le32 suggest_rate;
-	__le32 min_rate;	/* for dynamic sounding */
-	__le32 max_rate;	/* for dynamic sounding */
-	__le32 init_rate_down_rate;
-
-	__le16 curr_rate;
-	__le16 init_rate_down_total;
-	__le16 init_rate_down_succ;
-	__le16 success;
-	__le16 attempts;
-
-	__le16 prev_rate;
-	__le16 prob_up_rate;
-	u8 no_rate_up_cnt;
-	u8 ppdu_cnt;
-	u8 gi;
-
-	u8 try_up_fail;
-	u8 try_up_total;
-	u8 suggest_wf;
-	u8 try_up_check;
-	u8 prob_up_period;
-	u8 prob_down_pending;
-} __packed;
-
-struct mt7921_mcu_phy_rx_info {
-	u8 category;
-	u8 rate;
-	u8 mode;
-	u8 nsts;
-	u8 gi;
-	u8 coding;
-	u8 stbc;
-	u8 bw;
-};
 
 #define MT_RA_RATE_NSS			GENMASK(8, 6)
 #define MT_RA_RATE_MCS			GENMASK(3, 0)
@@ -199,21 +146,17 @@ enum {
 enum {
 	MCU_CMD_TARGET_ADDRESS_LEN_REQ = MCU_FW_PREFIX | 0x01,
 	MCU_CMD_FW_START_REQ = MCU_FW_PREFIX | 0x02,
-	MCU_CMD_INIT_ACCESS_REG = 0x3,
 	MCU_CMD_NIC_POWER_CTRL = MCU_FW_PREFIX | 0x4,
 	MCU_CMD_PATCH_START_REQ = MCU_FW_PREFIX | 0x05,
 	MCU_CMD_PATCH_FINISH_REQ = MCU_FW_PREFIX | 0x07,
 	MCU_CMD_PATCH_SEM_CONTROL = MCU_FW_PREFIX | 0x10,
-	MCU_CMD_BT_SEM_CONTROL = MCU_FW_PREFIX | 0x11,
 	MCU_CMD_EXT_CID = 0xED,
 	MCU_CMD_FW_SCATTER = MCU_FW_PREFIX | 0xEE,
-	MCU_CMD_RESTART_DL_REQ = MCU_FW_PREFIX | 0xEF,
 };
 
 enum {
 	MCU_EXT_CMD_EFUSE_ACCESS = 0x01,
 	MCU_EXT_CMD_CHANNEL_SWITCH = 0x08,
-	MCU_EXT_CMD_FW_LOG_2_HOST = 0x13,
 	MCU_EXT_CMD_EFUSE_BUFFER_MODE = 0x21,
 	MCU_EXT_CMD_EDCA_UPDATE = 0x27,
 	MCU_EXT_CMD_THERMAL_CTRL = 0x2c,
@@ -222,11 +165,6 @@ enum {
 	MCU_EXT_CMD_MAC_INIT_CTRL = 0x46,
 	MCU_EXT_CMD_RX_HDR_TRANS = 0x47,
 	MCU_EXT_CMD_SET_RX_PATH = 0x4e,
-	MCU_EXT_CMD_TX_POWER_FEATURE_CTRL = 0x58,
-	MCU_EXT_CMD_MWDS_SUPPORT = 0x80,
-	MCU_EXT_CMD_RATE_CTRL = 0x87,
-	MCU_EXT_CMD_FW_DBG_CTRL = 0x95,
-	MCU_EXT_CMD_PHY_STAT_INFO = 0xad,
 };
 
 enum {
