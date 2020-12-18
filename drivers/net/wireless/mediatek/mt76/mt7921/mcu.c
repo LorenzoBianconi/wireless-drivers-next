@@ -6,7 +6,6 @@
 #include "mt7921.h"
 #include "mcu.h"
 #include "mac.h"
-#include "eeprom.h"
 
 struct mt7921_patch_hdr {
 	char build_date[16];
@@ -407,10 +406,7 @@ mt7921_mcu_send_message(struct mt76_dev *mdev, struct sk_buff *skb,
 		break;
 	}
 
-	if (cmd == MCU_EXT_CMD_MWDS_SUPPORT)
-		mcu_txd->s2d_index = MCU_S2D_H2C;
-	else
-		mcu_txd->s2d_index = MCU_S2D_H2N;
+	mcu_txd->s2d_index = MCU_S2D_H2N;
 	WARN_ON(cmd == MCU_EXT_CMD_EFUSE_ACCESS &&
 		mcu_txd->set_query != MCU_Q_QUERY);
 
@@ -435,7 +431,6 @@ mt7921_mcu_tx_rate_parse(struct mt76_phy *mphy,
 	rate->mcs = FIELD_GET(MT_WTBL_RATE_MCS, r);
 	rate->nss = FIELD_GET(MT_WTBL_RATE_NSS, r) + 1;
 
-
 	switch (peer->bw) {
 	case IEEE80211_STA_RX_BW_160:
 		gi = peer->g16;
@@ -450,7 +445,6 @@ mt7921_mcu_tx_rate_parse(struct mt76_phy *mphy,
 		gi = peer->g2;
 		break;
 	}
-
 
 	gi = txmode >= MT_PHY_TYPE_HE_SU ?
 		FIELD_GET(MT_WTBL_RATE_HE_GI, gi) :
@@ -543,17 +537,6 @@ mt7921_mcu_tx_rate_report(struct mt7921_dev *dev, struct sk_buff *skb,
 }
 
 static void
-mt7921_mcu_rx_ext_event(struct mt7921_dev *dev, struct sk_buff *skb)
-{
-	struct mt7921_mcu_rxd *rxd = (struct mt7921_mcu_rxd *)skb->data;
-
-	switch (rxd->ext_eid) {
-	default:
-		break;
-	}
-}
-
-static void
 mt7921_mcu_scan_event(struct mt7921_dev *dev, struct sk_buff *skb)
 {
 	struct mt76_phy *mphy = &dev->mt76.phy;
@@ -640,7 +623,7 @@ mt7921_mcu_debug_msg_event(struct mt7921_dev *dev, struct sk_buff *skb)
 			if (!debug_msg->content[i])
 				debug_msg->content[i] = ' ';
 
-		trace_printk("%s", debug_msg->content);
+		dev_dbg(dev->mt76.dev, "%s", debug_msg->content);
 	}
 }
 
@@ -650,13 +633,8 @@ mt7921_mcu_rx_unsolicited_event(struct mt7921_dev *dev, struct sk_buff *skb)
 	struct mt7921_mcu_rxd *rxd = (struct mt7921_mcu_rxd *)skb->data;
 
 	switch (rxd->eid) {
-	case MCU_EVENT_EXT:
-		mt7921_mcu_rx_ext_event(dev, skb);
-		break;
 	case MCU_EVENT_BSS_BEACON_LOSS:
 		mt7921_mcu_beacon_loss_event(dev, skb);
-		break;
-	case MCU_EVENT_ROC:
 		break;
 	case MCU_EVENT_SCHED_SCAN_DONE:
 	case MCU_EVENT_SCAN_DONE:
@@ -689,7 +667,6 @@ void mt7921_mcu_rx_event(struct mt7921_dev *dev, struct sk_buff *skb)
 	    rxd->eid == MCU_EVENT_BSS_ABSENCE ||
 	    rxd->eid == MCU_EVENT_SCAN_DONE ||
 	    rxd->eid == MCU_EVENT_DBG_MSG ||
-	    rxd->eid == MCU_EVENT_ROC ||
 	    !rxd->seq)
 		mt7921_mcu_rx_unsolicited_event(dev, skb);
 	else
@@ -1785,24 +1762,6 @@ int mt7921_mcu_fw_log_2_host(struct mt7921_dev *dev, u8 ctrl)
 				 sizeof(data), false);
 }
 
-int mt7921_mcu_fw_dbg_ctrl(struct mt7921_dev *dev, u32 module, u8 level)
-{
-	struct {
-		u8 ver;
-		u8 pad;
-		__le16 len;
-		u8 level;
-		u8 rsv[3];
-		__le32 module_idx;
-	} data = {
-		.module_idx = cpu_to_le32(module),
-		.level = level,
-	};
-
-	return mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD_FW_DBG_CTRL, &data,
-				 sizeof(data), false);
-}
-
 int mt7921_mcu_init(struct mt7921_dev *dev)
 {
 	static const struct mt76_mcu_ops mt7921_mcu_ops = {
@@ -2040,148 +1999,6 @@ int mt7921_mcu_get_eeprom(struct mt7921_dev *dev, u32 offset)
 	buf = dev->mt76.eeprom.data + le32_to_cpu(res->addr);
 	memcpy(buf, res->data, 16);
 	dev_kfree_skb(skb);
-
-	return 0;
-}
-
-int mt7921_mcu_set_sku(struct mt7921_phy *phy)
-{
-	struct mt7921_dev *dev = phy->dev;
-	struct mt76_phy *mphy = phy->mt76;
-	struct ieee80211_hw *hw = mphy->hw;
-	struct mt7921_sku_val {
-		u8 format_id;
-		u8 limit_type;
-		u8 dbdc_idx;
-		s8 val[MT7921_SKU_RATE_NUM];
-	} __packed req = {
-		.format_id = 4,
-		.dbdc_idx = phy != &dev->phy,
-	};
-	int i;
-	s8 *delta;
-
-	delta = dev->rate_power[mphy->chandef.chan->band];
-	mphy->txpower_cur = hw->conf.power_level * 2 +
-			    delta[MT7921_SKU_MAX_DELTA_IDX];
-
-	for (i = 0; i < MT7921_SKU_RATE_NUM; i++)
-		req.val[i] = hw->conf.power_level * 2 + delta[i];
-
-	return mt76_mcu_send_msg(&dev->mt76,
-				 MCU_EXT_CMD_TX_POWER_FEATURE_CTRL, &req,
-				 sizeof(req), true);
-}
-
-int mt7921_mcu_set_sku_en(struct mt7921_phy *phy, bool enable)
-{
-	struct mt7921_dev *dev = phy->dev;
-	struct mt7921_sku {
-		u8 format_id;
-		u8 sku_enable;
-		u8 dbdc_idx;
-		u8 rsv;
-	} __packed req = {
-		.format_id = 0,
-		.dbdc_idx = phy != &dev->phy,
-		.sku_enable = enable,
-	};
-
-	return mt76_mcu_send_msg(&dev->mt76,
-				 MCU_EXT_CMD_TX_POWER_FEATURE_CTRL, &req,
-				 sizeof(req), true);
-}
-
-int mt7921_mcu_get_rx_rate(struct mt7921_phy *phy, struct ieee80211_vif *vif,
-			   struct ieee80211_sta *sta, struct rate_info *rate)
-{
-	struct mt7921_vif *mvif = (struct mt7921_vif *)vif->drv_priv;
-	struct mt7921_sta *msta = (struct mt7921_sta *)sta->drv_priv;
-	struct mt7921_dev *dev = phy->dev;
-	struct mt76_phy *mphy = phy->mt76;
-	struct {
-		u8 category;
-		u8 band;
-		__le16 wcid;
-	} __packed req = {
-		.category = MCU_PHY_STATE_CONTENTION_RX_RATE,
-		.band = mvif->band_idx,
-		.wcid = cpu_to_le16(msta->wcid.idx),
-	};
-	struct ieee80211_supported_band *sband;
-	struct mt7921_mcu_phy_rx_info *res;
-	struct sk_buff *skb;
-	u16 flags = 0;
-	int ret;
-	int i;
-
-	ret = mt76_mcu_send_and_get_msg(&dev->mt76, MCU_EXT_CMD_PHY_STAT_INFO,
-					&req, sizeof(req), true, &skb);
-	if (ret)
-		return ret;
-
-	res = (struct mt7921_mcu_phy_rx_info *)skb->data;
-
-	rate->mcs = res->rate;
-	rate->nss = res->nsts + 1;
-
-	switch (res->mode) {
-	case MT_PHY_TYPE_CCK:
-	case MT_PHY_TYPE_OFDM:
-		if (mphy->chandef.chan->band == NL80211_BAND_5GHZ)
-			sband = &mphy->sband_5g.sband;
-		else
-			sband = &mphy->sband_2g.sband;
-
-		for (i = 0; i < sband->n_bitrates; i++) {
-			if (rate->mcs != (sband->bitrates[i].hw_value & 0xf))
-				continue;
-
-			rate->legacy = sband->bitrates[i].bitrate;
-			break;
-		}
-		break;
-	case MT_PHY_TYPE_HT:
-	case MT_PHY_TYPE_HT_GF:
-		rate->mcs += (rate->nss - 1) * 8;
-		flags |= RATE_INFO_FLAGS_MCS;
-
-		if (res->gi)
-			flags |= RATE_INFO_FLAGS_SHORT_GI;
-		break;
-	case MT_PHY_TYPE_VHT:
-		flags |= RATE_INFO_FLAGS_VHT_MCS;
-
-		if (res->gi)
-			flags |= RATE_INFO_FLAGS_SHORT_GI;
-		break;
-	case MT_PHY_TYPE_HE_SU:
-	case MT_PHY_TYPE_HE_EXT_SU:
-	case MT_PHY_TYPE_HE_TB:
-	case MT_PHY_TYPE_HE_MU:
-		rate->he_gi = res->gi;
-
-		flags |= RATE_INFO_FLAGS_HE_MCS;
-		break;
-	default:
-		break;
-	}
-	rate->flags = flags;
-
-	switch (res->bw) {
-	case IEEE80211_STA_RX_BW_160:
-		rate->bw = RATE_INFO_BW_160;
-		break;
-	case IEEE80211_STA_RX_BW_80:
-		rate->bw = RATE_INFO_BW_80;
-		break;
-	case IEEE80211_STA_RX_BW_40:
-		rate->bw = RATE_INFO_BW_40;
-		break;
-	default:
-		rate->bw = RATE_INFO_BW_20;
-		break;
-	}
 
 	return 0;
 }
