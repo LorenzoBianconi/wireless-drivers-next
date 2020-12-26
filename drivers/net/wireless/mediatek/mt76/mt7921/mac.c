@@ -1037,7 +1037,7 @@ void mt7921_tx_complete_skb(struct mt76_dev *mdev, struct mt76_queue_entry *e)
 
 		token = le16_to_cpu(txp->hw.msdu_id[0]) & ~MT_MSDU_ID_VALID;
 		spin_lock_bh(&dev->token_lock);
-		t = idr_remove(&dev->token, le16_to_cpu(token));
+		t = idr_remove(&dev->token, token);
 		spin_unlock_bh(&dev->token_lock);
 		e->skb = t ? t->skb : NULL;
 	}
