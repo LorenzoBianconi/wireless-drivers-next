@@ -2504,10 +2504,10 @@ int mt7921_mcu_sched_scan_enable(struct mt7921_phy *phy,
 				 sizeof(req), false);
 }
 
-u32 mt7921_get_wtbl_info(struct mt7921_dev *dev, u16 wlan_idx)
+u32 mt7921_get_wtbl_info(struct mt7921_dev *dev, u32 wlan_idx)
 {
 	struct mt7921_mcu_wlan_info wtbl_info = {
-		.wlan_idx = wlan_idx,
+		.wlan_idx = cpu_to_le32(wlan_idx),
 	};
 	struct sk_buff *skb;
 	int ret;

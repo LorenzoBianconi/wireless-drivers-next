@@ -357,7 +357,7 @@ int mt7921_mcu_sched_scan_enable(struct mt7921_phy *phy,
 				 bool enable);
 int mt7921_mcu_cancel_hw_scan(struct mt7921_phy *phy,
 			      struct ieee80211_vif *vif);
-u32 mt7921_get_wtbl_info(struct mt7921_dev *dev, u16 wlan_idx);
+u32 mt7921_get_wtbl_info(struct mt7921_dev *dev, u32 wlan_idx);
 int mt7921_mcu_set_vif_ps(struct mt7921_dev *dev, struct ieee80211_vif *vif);
 int mt7921_mcu_set_bss_pm(struct mt7921_dev *dev, struct ieee80211_vif *vif,
 			  bool enable);
