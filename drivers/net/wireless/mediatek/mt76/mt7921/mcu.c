@@ -1274,7 +1274,6 @@ mt7921_mcu_sta_tlv(struct mt7921_dev *dev, struct sk_buff *skb,
 	struct sta_rec_ra_info *ra_info;
 	struct cfg80211_chan_def *chandef = &dev->mphy.chandef;
 	enum nl80211_band band = chandef->chan->band;
-	u32 supp_rate = sta->supp_rates[band];
 
 	/* starec ht */
 	if (sta->ht_cap.ht_supported) {
@@ -1309,11 +1308,11 @@ mt7921_mcu_sta_tlv(struct mt7921_dev *dev, struct sk_buff *skb,
 	tlv = mt7921_mcu_add_tlv(skb, STA_REC_PHY, sizeof(*phy));
 	phy = (struct sta_rec_phy *)tlv;
 	phy->phy_type = mt7921_get_phy_mode_v2(dev, vif, band, sta);
-	phy->basic_rate = vif->bss_conf.basic_rates;
+	phy->basic_rate = cpu_to_le16((u16)vif->bss_conf.basic_rates);
 
 	tlv = mt7921_mcu_add_tlv(skb, STA_REC_RA, sizeof(*ra_info));
 	ra_info = (struct sta_rec_ra_info *)tlv;
-	ra_info->legacy = supp_rate;
+	ra_info->legacy = cpu_to_le16((u16)sta->supp_rates[band]);
 
 	if (sta->ht_cap.ht_supported) {
 		memcpy(ra_info->rx_mcs_bitmask, sta->ht_cap.mcs.rx_mask,
