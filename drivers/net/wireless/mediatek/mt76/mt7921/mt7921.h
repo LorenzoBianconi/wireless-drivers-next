@@ -88,11 +88,7 @@ struct mt7921_sta {
 };
 
 struct mt7921_vif {
-	u16 idx;
-	u8 omac_idx;
-	u8 band_idx;
-	u8 wmm_idx;
-	u8 scan_seq_num;
+	struct mt76_vif common; /* must be first */
 
 	struct mt7921_sta sta;
 	struct mt7921_phy *phy;

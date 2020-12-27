@@ -660,7 +660,7 @@ void mt7921_mac_write_txwi(struct mt7921_dev *dev, __le32 *txwi,
 	u32 val;
 
 	if (vif) {
-		struct mt7921_vif *mvif = (struct mt7921_vif *)vif->drv_priv;
+		struct mt76_vif *mvif = (struct mt76_vif *)vif->drv_priv;
 
 		omac_idx = mvif->omac_idx;
 		wmm_idx = mvif->wmm_idx;
