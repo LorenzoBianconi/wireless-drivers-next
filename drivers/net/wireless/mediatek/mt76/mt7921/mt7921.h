@@ -248,11 +248,6 @@ int mt7921_mcu_fw_log_2_host(struct mt7921_dev *dev, u8 ctrl);
 void mt7921_mcu_rx_event(struct mt7921_dev *dev, struct sk_buff *skb);
 void mt7921_mcu_exit(struct mt7921_dev *dev);
 
-static inline bool is_mt7921(struct mt76_dev *dev)
-{
-	return mt76_chip(dev) == 0x7961;
-}
-
 static inline void mt7921_irq_enable(struct mt7921_dev *dev, u32 mask)
 {
 	mt76_set_irq_mask(&dev->mt76, 0, 0, mask);
