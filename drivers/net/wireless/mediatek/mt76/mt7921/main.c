@@ -268,8 +268,8 @@ static int mt7921_add_interface(struct ieee80211_hw *hw,
 	    is_zero_ether_addr(vif->addr))
 		phy->monitor_vif = vif;
 
-	mvif->idx = ffs(~phy->mt76->vif_mask) - 1;
-	if (mvif->idx >= MT7921_MAX_INTERFACES) {
+	mvif->common.idx = ffs(~phy->mt76->vif_mask) - 1;
+	if (mvif->common.idx >= MT7921_MAX_INTERFACES) {
 		ret = -ENOSPC;
 		goto out;
 	}
@@ -279,24 +279,24 @@ static int mt7921_add_interface(struct ieee80211_hw *hw,
 		ret = -ENOSPC;
 		goto out;
 	}
-	mvif->omac_idx = idx;
+	mvif->common.omac_idx = idx;
 	mvif->phy = phy;
-	mvif->band_idx = 0;
-	mvif->wmm_idx = mvif->idx % MT7921_MAX_WMM_SETS;
+	mvif->common.band_idx = 0;
+	mvif->common.wmm_idx = mvif->common.idx % MT7921_MAX_WMM_SETS;
 
 	ret = mt7921_mcu_uni_add_dev(dev, vif, true);
 	if (ret)
 		goto out;
 
-	phy->mt76->vif_mask |= BIT(mvif->idx);
-	phy->omac_mask |= BIT_ULL(mvif->omac_idx);
+	phy->mt76->vif_mask |= BIT(mvif->common.idx);
+	phy->omac_mask |= BIT_ULL(mvif->common.omac_idx);
 
-	idx = MT7921_WTBL_RESERVED - mvif->idx;
+	idx = MT7921_WTBL_RESERVED - mvif->common.idx;
 
 	INIT_LIST_HEAD(&mvif->sta.stats_list);
 	INIT_LIST_HEAD(&mvif->sta.poll_list);
 	mvif->sta.wcid.idx = idx;
-	mvif->sta.wcid.ext_phy = mvif->band_idx;
+	mvif->sta.wcid.ext_phy = mvif->common.band_idx;
 	mvif->sta.wcid.hw_key_idx = -1;
 	mvif->sta.wcid.tx_info |= MT_WCID_TX_INFO_SET;
 	mt7921_mac_wtbl_update(dev, idx,
@@ -309,8 +309,9 @@ static int mt7921_add_interface(struct ieee80211_hw *hw,
 	}
 
 	if (vif->type != NL80211_IFTYPE_AP &&
-	    (!mvif->omac_idx || mvif->omac_idx > 3))
+	    (!mvif->common.omac_idx || mvif->common.omac_idx > 3))
 		vif->offload_flags = 0;
+
 	vif->offload_flags |= IEEE80211_OFFLOAD_ENCAP_4ADDR;
 
 out:
@@ -336,8 +337,8 @@ static void mt7921_remove_interface(struct ieee80211_hw *hw,
 	rcu_assign_pointer(dev->mt76.wcid[idx], NULL);
 
 	mutex_lock(&dev->mt76.mutex);
-	phy->mt76->vif_mask &= ~BIT(mvif->idx);
-	phy->omac_mask &= ~BIT_ULL(mvif->omac_idx);
+	phy->mt76->vif_mask &= ~BIT(mvif->common.idx);
+	phy->omac_mask &= ~BIT_ULL(mvif->common.omac_idx);
 	mutex_unlock(&dev->mt76.mutex);
 
 	spin_lock_bh(&dev->sta_poll_lock);
@@ -582,7 +583,7 @@ int mt7921_mac_sta_add(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 	msta->vif = mvif;
 	msta->wcid.sta = 1;
 	msta->wcid.idx = idx;
-	msta->wcid.ext_phy = mvif->band_idx;
+	msta->wcid.ext_phy = mvif->common.band_idx;
 	msta->wcid.tx_info |= MT_WCID_TX_INFO_SET;
 	msta->stats.jiffies = jiffies;
 
@@ -751,6 +752,7 @@ mt7921_get_tsf(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 	struct mt7921_vif *mvif = (struct mt7921_vif *)vif->drv_priv;
 	struct mt7921_dev *dev = mt7921_hw_dev(hw);
 	struct mt7921_phy *phy = mt7921_hw_phy(hw);
+	u8 omac_idx = mvif->common.omac_idx;
 	bool band = phy != &dev->phy;
 	union {
 		u64 t64;
@@ -760,7 +762,7 @@ mt7921_get_tsf(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 
 	mutex_lock(&dev->mt76.mutex);
 
-	n = mvif->omac_idx > HW_BSSID_MAX ? HW_BSSID_0 : mvif->omac_idx;
+	n = omac_idx > HW_BSSID_MAX ? HW_BSSID_0 : omac_idx;
 	/* TSF software read */
 	mt76_set(dev, MT_LPON_TCR(band, n), MT_LPON_TCR_SW_MODE);
 	tsf.t32[0] = mt76_rr(dev, MT_LPON_UTTR0(band));
@@ -778,6 +780,7 @@ mt7921_set_tsf(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	struct mt7921_vif *mvif = (struct mt7921_vif *)vif->drv_priv;
 	struct mt7921_dev *dev = mt7921_hw_dev(hw);
 	struct mt7921_phy *phy = mt7921_hw_phy(hw);
+	u8 omac_idx = mvif->common.omac_idx;
 	bool band = phy != &dev->phy;
 	union {
 		u64 t64;
@@ -787,7 +790,7 @@ mt7921_set_tsf(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 
 	mutex_lock(&dev->mt76.mutex);
 
-	n = mvif->omac_idx > HW_BSSID_MAX ? HW_BSSID_0 : mvif->omac_idx;
+	n = omac_idx > HW_BSSID_MAX ? HW_BSSID_0 : omac_idx;
 	mt76_wr(dev, MT_LPON_UTTR0(band), tsf.t32[0]);
 	mt76_wr(dev, MT_LPON_UTTR1(band), tsf.t32[1]);
 	/* TSF software overwrite */

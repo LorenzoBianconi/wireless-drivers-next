@@ -549,7 +549,7 @@ mt7921_mcu_beacon_loss_iter(void *priv, u8 *mac, struct ieee80211_vif *vif)
 	struct mt7921_vif *mvif = (struct mt7921_vif *)vif->drv_priv;
 	struct mt7921_beacon_loss_event *event = priv;
 
-	if (mvif->idx != event->bss_idx)
+	if (mvif->common.idx != event->bss_idx)
 		return;
 
 	if (!(vif->driver_flags & IEEE80211_VIF_BEACON_FILTER))
@@ -671,10 +671,10 @@ mt7921_mcu_alloc_sta_req(struct mt7921_dev *dev, struct mt7921_vif *mvif,
 			 struct mt7921_sta *msta, int len)
 {
 	struct sta_req_hdr hdr = {
-		.bss_idx = mvif->idx,
+		.bss_idx = mvif->common.idx,
 		.wlan_idx_lo = msta ? to_wcid_lo(msta->wcid.idx) : 0,
 		.wlan_idx_hi = msta ? to_wcid_hi(msta->wcid.idx) : 0,
-		.muar_idx = msta ? mvif->omac_idx : 0,
+		.muar_idx = msta ? mvif->common.omac_idx : 0,
 		.is_tlv_append = 1,
 	};
 	struct sk_buff *skb;
@@ -980,7 +980,7 @@ mt7921_mcu_wtbl_generic_tlv(struct sk_buff *skb, struct ieee80211_vif *vif,
 		else
 			generic->partial_aid = cpu_to_le16(sta->aid);
 		memcpy(generic->peer_addr, sta->addr, ETH_ALEN);
-		generic->muar_idx = mvif->omac_idx;
+		generic->muar_idx = mvif->common.omac_idx;
 		generic->qos = sta->wme;
 	} else {
 		/* use BSSID in station mode */
@@ -1381,7 +1381,7 @@ mt7921_mcu_wtbl_hdr_trans_tlv(struct sk_buff *skb, struct ieee80211_vif *vif,
 			      struct ieee80211_sta *sta,
 			      void *sta_wtbl, void *wtbl_tlv)
 {
-	struct mt7921_sta *msta;
+	struct mt7921_sta *msta = (struct mt7921_sta *)sta->drv_priv;
 	struct wtbl_hdr_trans *htr = NULL;
 	struct tlv *tlv;
 
@@ -1397,7 +1397,6 @@ mt7921_mcu_wtbl_hdr_trans_tlv(struct sk_buff *skb, struct ieee80211_vif *vif,
 	if (!sta)
 		return;
 
-	msta = (struct mt7921_sta *)sta->drv_priv;
 	if (test_bit(MT_WCID_FLAG_4ADDR, &msta->wcid.flags)) {
 		htr->to_ds = true;
 		htr->from_ds = true;
@@ -1887,7 +1886,7 @@ int mt7921_mcu_set_tx(struct mt7921_dev *dev, struct ieee80211_vif *vif)
 		struct edca *e = &req.edca[ac];
 
 		e->set = WMM_PARAM_SET;
-		e->queue = ac + mvif->wmm_idx * MT7921_MAX_WMM_SETS;
+		e->queue = ac + mvif->common.wmm_idx * MT7921_MAX_WMM_SETS;
 		e->aifs = q->aifs;
 		e->txop = cpu_to_le16(q->txop);
 
@@ -2000,6 +1999,7 @@ mt7921_mcu_uni_add_dev(struct mt7921_dev *dev,
 		       struct ieee80211_vif *vif, bool enable)
 {
 	struct mt7921_vif *mvif = (struct mt7921_vif *)vif->drv_priv;
+	u8 omac_idx = mvif->common.omac_idx;
 	struct {
 		struct {
 			u8 omac_idx;
@@ -2015,8 +2015,8 @@ mt7921_mcu_uni_add_dev(struct mt7921_dev *dev,
 		} __packed tlv;
 	} dev_req = {
 		.hdr = {
-			.omac_idx = mvif->omac_idx,
-			.band_idx = mvif->band_idx,
+			.omac_idx = omac_idx,
+			.band_idx = mvif->common.band_idx,
 		},
 		.tlv = {
 			.tag = cpu_to_le16(DEV_INFO_ACTIVE),
@@ -2032,14 +2032,14 @@ mt7921_mcu_uni_add_dev(struct mt7921_dev *dev,
 		struct mt7921_bss_basic_tlv basic;
 	} basic_req = {
 		.hdr = {
-			.bss_idx = mvif->idx,
+			.bss_idx = mvif->common.idx,
 		},
 		.basic = {
 			.tag = cpu_to_le16(UNI_BSS_INFO_BASIC),
 			.len = cpu_to_le16(sizeof(struct mt7921_bss_basic_tlv)),
-			.omac_idx = mvif->omac_idx,
-			.band_idx = mvif->band_idx,
-			.wmm_idx = mvif->wmm_idx,
+			.omac_idx = omac_idx,
+			.band_idx = mvif->common.band_idx,
+			.wmm_idx = mvif->common.wmm_idx,
 			.active = enable,
 			.bmc_tx_wlan_idx = cpu_to_le16(mvif->sta.wcid.idx),
 			.sta_idx = cpu_to_le16(mvif->sta.wcid.idx),
@@ -2065,7 +2065,7 @@ mt7921_mcu_uni_add_dev(struct mt7921_dev *dev,
 		break;
 	}
 
-	idx = mvif->omac_idx > EXT_BSSID_START ? HW_BSSID_0 : mvif->omac_idx;
+	idx = omac_idx > EXT_BSSID_START ? HW_BSSID_0 : omac_idx;
 	basic_req.basic.hw_bss_idx = idx;
 
 	memcpy(dev_req.tlv.omac_addr, vif->addr, ETH_ALEN);
@@ -2094,7 +2094,7 @@ mt7921_mcu_uni_add_bss(struct mt7921_phy *phy, struct ieee80211_vif *vif,
 	int freq1 = chandef->center_freq1, freq2 = chandef->center_freq2;
 	struct mt7921_dev *dev = phy->dev;
 	enum nl80211_band band = chandef->chan->band;
-
+	u8 omac_idx = mvif->common.omac_idx;
 	struct {
 		struct {
 			u8 bss_idx;
@@ -2104,16 +2104,16 @@ mt7921_mcu_uni_add_bss(struct mt7921_phy *phy, struct ieee80211_vif *vif,
 		struct mt7921_bss_qos_tlv qos;
 	} basic_req = {
 		.hdr = {
-			.bss_idx = mvif->idx,
+			.bss_idx = mvif->common.idx,
 		},
 		.basic = {
 			.tag = cpu_to_le16(UNI_BSS_INFO_BASIC),
 			.len = cpu_to_le16(sizeof(struct mt7921_bss_basic_tlv)),
 			.bcn_interval = cpu_to_le16(vif->bss_conf.beacon_int),
 			.dtim_period = vif->bss_conf.dtim_period,
-			.omac_idx = mvif->omac_idx,
-			.band_idx = mvif->band_idx,
-			.wmm_idx = mvif->wmm_idx,
+			.omac_idx = omac_idx,
+			.band_idx = mvif->common.band_idx,
+			.wmm_idx = mvif->common.wmm_idx,
 			.active = true, /* keep bss deactivated */
 			.phymode = mt7921_get_phy_mode(phy->dev, vif, band, NULL),
 		},
@@ -2132,7 +2132,7 @@ mt7921_mcu_uni_add_bss(struct mt7921_phy *phy, struct ieee80211_vif *vif,
 		struct bss_info_uni_he he;
 	} he_req = {
 		.hdr = {
-			.bss_idx = mvif->idx,
+			.bss_idx = mvif->common.idx,
 		},
 		.he = {
 			.tag = cpu_to_le16(UNI_BSS_INFO_HE_BASIC),
@@ -2161,7 +2161,7 @@ mt7921_mcu_uni_add_bss(struct mt7921_phy *phy, struct ieee80211_vif *vif,
 		} __packed rlm;
 	} __packed rlm_req = {
 		.hdr = {
-			.bss_idx = mvif->idx,
+			.bss_idx = mvif->common.idx,
 		},
 		.rlm = {
 			.tag = cpu_to_le16(UNI_BSS_INFO_RLM),
@@ -2177,7 +2177,7 @@ mt7921_mcu_uni_add_bss(struct mt7921_phy *phy, struct ieee80211_vif *vif,
 	int err, conn_type;
 	u8 idx;
 
-	idx = mvif->omac_idx > EXT_BSSID_START ? HW_BSSID_0 : mvif->omac_idx;
+	idx = omac_idx > EXT_BSSID_START ? HW_BSSID_0 : omac_idx;
 	basic_req.basic.hw_bss_idx = idx;
 
 	switch (vif->type) {
@@ -2377,12 +2377,12 @@ int mt7921_mcu_hw_scan(struct mt7921_phy *phy, struct ieee80211_vif *vif,
 		return -ENOMEM;
 
 	set_bit(MT76_HW_SCANNING, &phy->mt76->state);
-	mvif->scan_seq_num = (mvif->scan_seq_num + 1) & 0x7f;
+	mvif->common.scan_seq_num = (mvif->common.scan_seq_num + 1) & 0x7f;
 
 	req = (struct mt7921_hw_scan_req *)skb_put(skb, sizeof(*req));
 
-	req->seq_num = mvif->scan_seq_num;
-	req->bss_idx = mvif->idx;
+	req->seq_num = mvif->common.scan_seq_num;
+	req->bss_idx = mvif->common.idx;
 	req->scan_type = sreq->n_ssids ? 1 : 0;
 	req->probe_req_num = sreq->n_ssids ? 2 : 0;
 	req->version = 1;
@@ -2450,7 +2450,7 @@ int mt7921_mcu_cancel_hw_scan(struct mt7921_phy *phy,
 		u8 is_ext_channel;
 		u8 rsv[2];
 	} __packed req = {
-		.seq_num = mvif->scan_seq_num,
+		.seq_num = mvif->common.scan_seq_num,
 	};
 
 	if (test_and_clear_bit(MT76_HW_SCANNING, &phy->mt76->state)) {
@@ -2484,11 +2484,11 @@ int mt7921_mcu_sched_scan_req(struct mt7921_phy *phy,
 	if (!skb)
 		return -ENOMEM;
 
-	mvif->scan_seq_num = (mvif->scan_seq_num + 1) & 0x7f;
+	mvif->common.scan_seq_num = (mvif->common.scan_seq_num + 1) & 0x7f;
 
 	req = (struct mt7921_sched_scan_req *)skb_put(skb, sizeof(*req));
 	req->version = 1;
-	req->seq_num = mvif->scan_seq_num;
+	req->seq_num = mvif->common.scan_seq_num;
 
 	if (sreq->flags & NL80211_SCAN_FLAG_RANDOM_ADDR) {
 		get_random_mask_addr(req->random_mac, sreq->mac_addr,
@@ -2584,7 +2584,7 @@ int mt7921_mcu_set_vif_ps(struct mt7921_dev *dev, struct ieee80211_vif *vif)
 			      * 2: dynamic power saving
 			      */
 	} req = {
-		.bss_idx = mvif->idx,
+		.bss_idx = mvif->common.idx,
 		.ps_state = vif->bss_conf.ps ? 2 : 0,
 	};
 
@@ -2610,7 +2610,7 @@ int mt7921_mcu_set_bss_pm(struct mt7921_dev *dev, struct ieee80211_vif *vif,
 		u8 bmc_triggered_ac;
 		u8 pad;
 	} req = {
-		.bss_idx = mvif->idx,
+		.bss_idx = mvif->common.idx,
 		.aid = cpu_to_le16(vif->bss_conf.aid),
 		.dtim_period = vif->bss_conf.dtim_period,
 		.bcn_interval = cpu_to_le16(vif->bss_conf.beacon_int),
@@ -2619,7 +2619,7 @@ int mt7921_mcu_set_bss_pm(struct mt7921_dev *dev, struct ieee80211_vif *vif,
 		u8 bss_idx;
 		u8 pad[3];
 	} req_hdr = {
-		.bss_idx = mvif->idx,
+		.bss_idx = mvif->common.idx,
 	};
 	int err;
 
@@ -2686,7 +2686,7 @@ mt7921_mcu_set_wow_ctrl(struct mt7921_phy *phy, struct ieee80211_vif *vif,
 		struct mt7921_wow_gpio_param_tlv gpio_tlv;
 	} req = {
 		.hdr = {
-			.bss_idx = mvif->idx,
+			.bss_idx = mvif->common.idx,
 		},
 		.wow_ctrl_tlv = {
 			.tag = cpu_to_le16(UNI_SUSPEND_WOW_CTRL),
@@ -2734,7 +2734,7 @@ mt7921_mcu_set_wow_pattern(struct mt7921_dev *dev,
 		u8 bss_idx;
 		u8 pad[3];
 	} __packed hdr = {
-		.bss_idx = mvif->idx,
+		.bss_idx = mvif->common.idx,
 	};
 
 	skb = mt76_mcu_msg_alloc(&dev->mt76, NULL,
@@ -2771,7 +2771,7 @@ mt7921_mcu_set_suspend_mode(struct mt7921_dev *dev,
 		struct mt7921_suspend_tlv suspend_tlv;
 	} req = {
 		.hdr = {
-			.bss_idx = mvif->idx,
+			.bss_idx = mvif->common.idx,
 		},
 		.suspend_tlv = {
 			.tag = cpu_to_le16(UNI_SUSPEND_MODE_SETTING),
@@ -2800,7 +2800,7 @@ mt7921_mcu_set_gtk_rekey(struct mt7921_dev *dev,
 		struct mt7921_gtk_rekey_tlv gtk_tlv;
 	} __packed req = {
 		.hdr = {
-			.bss_idx = mvif->idx,
+			.bss_idx = mvif->common.idx,
 		},
 		.gtk_tlv = {
 			.tag = cpu_to_le16(UNI_OFFLOAD_OFFLOAD_GTK_REKEY),
@@ -2826,7 +2826,7 @@ mt7921_mcu_set_arp_filter(struct mt7921_dev *dev, struct ieee80211_vif *vif,
 		struct mt7921_arpns_tlv arpns;
 	} req = {
 		.hdr = {
-			.bss_idx = mvif->idx,
+			.bss_idx = mvif->common.idx,
 		},
 		.arpns = {
 			.tag = cpu_to_le16(UNI_OFFLOAD_OFFLOAD_ARP),
@@ -2900,7 +2900,7 @@ int mt7921_mcu_update_gtk_rekey(struct ieee80211_hw *hw,
 		u8 bss_idx;
 		u8 pad[3];
 	} __packed hdr = {
-		.bss_idx = mvif->idx,
+		.bss_idx = mvif->common.idx,
 	};
 
 	skb = mt76_mcu_msg_alloc(&dev->mt76, NULL,
