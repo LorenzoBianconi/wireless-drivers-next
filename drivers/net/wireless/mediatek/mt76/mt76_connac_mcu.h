@@ -797,7 +797,7 @@ struct mt76_connac_sched_scan_req {
 	u8 pad2[58];
 } __packed;
 
-struct nt769x_sched_scan_done {
+struct mt76_connac_sched_scan_done {
 	u8 seq_num;
 	u8 status; /* 0: ssid found */
 	__le16 pad;
