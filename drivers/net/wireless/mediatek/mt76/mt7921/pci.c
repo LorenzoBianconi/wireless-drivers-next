@@ -175,8 +175,6 @@ static int mt7921_pci_suspend(struct pci_dev *pdev, pm_message_t state)
 	bool hif_suspend;
 	int i, err;
 
-	/* TODO：set driver own */
-
 	hif_suspend = !test_bit(MT76_STATE_SUSPEND, &dev->mphy.state);
 	if (hif_suspend) {
 		err = mt7921_mcu_set_hif_suspend(dev, true);
@@ -194,14 +192,22 @@ static int mt7921_pci_suspend(struct pci_dev *pdev, pm_message_t state)
 
 	pci_enable_wake(pdev, pci_choose_state(pdev, state), true);
 
-	/* TODO: put WFDMA to inactive */
+	/* wait until dma is idle  */
+	mt76_poll(dev, MT_WFDMA0_GLO_CFG,
+		  MT_WFDMA0_GLO_CFG_TX_DMA_BUSY |
+		  MT_WFDMA0_GLO_CFG_RX_DMA_BUSY, 0, 1000);
+
+	/* put dma disabled */
+	mt76_clear(dev, MT_WFDMA0_GLO_CFG,
+		   MT_WFDMA0_GLO_CFG_TX_DMA_EN | MT_WFDMA0_GLO_CFG_RX_DMA_EN);
+
+	/* disable interrupt */
+	mt76_wr(dev, MT_WFDMA0_HOST_INT_ENA, 0);
 
 	pci_save_state(pdev);
 	err = pci_set_power_state(pdev, pci_choose_state(pdev, state));
 	if (err)
 		goto restore;
-
-	/* TODO：set firmware own */
 
 	return 0;
 
@@ -222,15 +228,20 @@ static int mt7921_pci_resume(struct pci_dev *pdev)
 	struct mt7921_dev *dev = container_of(mdev, struct mt7921_dev, mt76);
 	int i, err;
 
-	/* TODO: set driver own */
-
 	err = pci_set_power_state(pdev, PCI_D0);
 	if (err)
 		return err;
 
 	pci_restore_state(pdev);
 
-	/* TODO: put WFDMA to active */
+	/* enable interrupt */
+	mt7921_l1_wr(dev, MT_PCIE_MAC_INT_ENABLE, 0xff);
+	mt7921_irq_enable(dev, MT_INT_RX_DONE_ALL | MT_INT_TX_DONE_ALL |
+			  MT_INT_MCU_CMD);
+
+	/* put dma enabled */
+	mt76_set(dev, MT_WFDMA0_GLO_CFG,
+		 MT_WFDMA0_GLO_CFG_TX_DMA_EN | MT_WFDMA0_GLO_CFG_RX_DMA_EN);
 
 	mt76_worker_enable(&mdev->tx_worker);
 	mt76_for_each_q_rx(mdev, i) {
