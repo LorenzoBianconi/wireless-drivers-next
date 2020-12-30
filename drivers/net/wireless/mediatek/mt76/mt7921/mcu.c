@@ -2432,12 +2432,6 @@ int mt7921_mcu_sched_scan_req(struct mt7921_phy *phy,
 	req->version = 1;
 	req->seq_num = mvif->scan_seq_num;
 
-	if (sreq->flags & NL80211_SCAN_FLAG_RANDOM_ADDR) {
-		get_random_mask_addr(req->random_mac, sreq->mac_addr,
-				     sreq->mac_addr_mask);
-		req->scan_func = 1;
-	}
-
 	req->ssids_num = sreq->n_ssids;
 	for (i = 0; i < req->ssids_num; i++) {
 		ssid = &sreq->ssids[i];
