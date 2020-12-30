@@ -177,6 +177,7 @@ static int mt7921_start(struct ieee80211_hw *hw)
 	mutex_lock(&dev->mt76.mutex);
 
 	mt7921_mcu_set_mac(dev, 0, true, false);
+	mt7921_mcu_set_channel_domain(phy);
 	mt7921_mcu_set_chan_info(phy, MCU_EXT_CMD_SET_RX_PATH);
 	mt7921_mac_reset_counters(phy);
 	set_bit(MT76_STATE_RUNNING, &phy->mt76->state);
