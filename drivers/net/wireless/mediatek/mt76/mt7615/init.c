@@ -302,8 +302,7 @@ mt7615_regd_notifier(struct wiphy *wiphy,
 	struct mt7615_phy *phy = mphy->priv;
 	struct cfg80211_chan_def *chandef = &mphy->chandef;
 
-	memcpy(dev->mt76.alpha2, request->alpha2, sizeof(dev->mt76.alpha2));
-	dev->mt76.region = request->dfs_region;
+	mt76_connac_mcu_set_regd(wiphy, request);
 
 	mt7615_init_txpower(dev, &mphy->sband_2g.sband);
 	mt7615_init_txpower(dev, &mphy->sband_5g.sband);

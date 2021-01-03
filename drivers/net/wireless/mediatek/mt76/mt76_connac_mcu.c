@@ -72,9 +72,12 @@ int mt76_connac_mcu_init_download(struct mt76_dev *dev, u32 addr, u32 len,
 }
 EXPORT_SYMBOL_GPL(mt76_connac_mcu_init_download);
 
+#define MT76_ALPHA2_TO_CC(alpha2)		\
+	(((u32)alpha2[2] << 16) | ((u32)alpha2[1] << 8) | (u32)alpha2[0])
 int mt76_connac_mcu_set_channel_domain(struct mt76_phy *phy)
 {
 	struct mt76_dev *dev = phy->dev;
+	u32 country_code = MT76_ALPHA2_TO_CC(dev->alpha2);
 	struct mt76_connac_mcu_channel_domain {
 		__le32 country_code; /* regulatory_request.alpha2 */
 		u8 bw_2g; /* BW_20_40M		0
@@ -89,46 +92,75 @@ int mt76_connac_mcu_set_channel_domain(struct mt76_phy *phy)
 		u8 n_5ch;
 		__le16 pad2;
 	} __packed hdr = {
+		.country_code = cpu_to_le32(country_code),
 		.bw_2g = 0,
 		.bw_5g = 3,
-		.n_2ch = phy->sband_2g.sband.n_channels,
-		.n_5ch = phy->sband_5g.sband.n_channels,
 	};
 	struct mt76_connac_mcu_chan {
 		__le16 hw_value;
 		__le16 pad;
 		__le32 flags;
-	} __packed;
-	int i, n_channels = hdr.n_2ch + hdr.n_5ch;
+	} __packed channel;
+	int len, i, n_max_channels, n_2ch = 0, n_5ch = 0;
+	struct ieee80211_channel *chan;
 	struct sk_buff *skb;
-	int len = sizeof(hdr) +
-		  n_channels * sizeof(struct mt76_connac_mcu_chan);
+
+	n_max_channels = phy->sband_2g.sband.n_channels +
+			 phy->sband_5g.sband.n_channels;
+	len = sizeof(hdr) + n_max_channels * sizeof(channel);
 
 	skb = mt76_mcu_msg_alloc(dev, NULL, len);
 	if (!skb)
 		return -ENOMEM;
 
-	skb_put_data(skb, &hdr, sizeof(hdr));
+	skb_reserve(skb, sizeof(hdr));
 
-	for (i = 0; i < n_channels; i++) {
-		struct ieee80211_channel *chan;
-		struct mt76_connac_mcu_chan channel;
-
-		if (i < hdr.n_2ch)
-			chan = &phy->sband_2g.sband.channels[i];
-		else
-			chan = &phy->sband_5g.sband.channels[i - hdr.n_2ch];
+	for (i = 0; i < phy->sband_2g.sband.n_channels; i++) {
+		chan = &phy->sband_2g.sband.channels[i];
+		if (chan->flags & IEEE80211_CHAN_DISABLED)
+			continue;
 
 		channel.hw_value = cpu_to_le16(chan->hw_value);
 		channel.flags = cpu_to_le32(chan->flags);
 		channel.pad = 0;
 
 		skb_put_data(skb, &channel, sizeof(channel));
+		n_2ch++;
 	}
+	for (i = 0; i < phy->sband_5g.sband.n_channels; i++) {
+		chan = &phy->sband_5g.sband.channels[i];
+		if (chan->flags & IEEE80211_CHAN_DISABLED)
+			continue;
+
+		channel.hw_value = cpu_to_le16(chan->hw_value);
+		channel.flags = cpu_to_le32(chan->flags);
+		channel.pad = 0;
+
+		skb_put_data(skb, &channel, sizeof(channel));
+		n_5ch++;
+	}
+
+	hdr.n_2ch = n_2ch;
+	hdr.n_5ch = n_5ch;
+	memcpy(__skb_push(skb, sizeof(hdr)), &hdr, sizeof(hdr));
 
 	return mt76_mcu_skb_send_msg(dev, skb, MCU_CMD_SET_CHAN_DOMAIN, false);
 }
 EXPORT_SYMBOL_GPL(mt76_connac_mcu_set_channel_domain);
+
+void mt76_connac_mcu_set_regd(struct wiphy *wiphy,
+			      struct regulatory_request *request)
+{
+	struct ieee80211_hw *hw = wiphy_to_ieee80211_hw(wiphy);
+	struct mt76_phy *phy = hw->priv;
+	struct mt76_dev *dev = phy->dev;
+
+	memcpy(dev->alpha2, request->alpha2, sizeof(dev->alpha2));
+	dev->region = request->dfs_region;
+
+	mt76_connac_mcu_set_channel_domain(phy);
+}
+EXPORT_SYMBOL_GPL(mt76_connac_mcu_set_regd);
 
 int mt76_connac_mcu_set_mac_enable(struct mt76_dev *dev, int band, bool enable,
 				   bool hdr_trans)

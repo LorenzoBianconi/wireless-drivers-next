@@ -954,6 +954,8 @@ void mt76_connac_mcu_wtbl_generic_tlv(struct mt76_dev *dev, struct sk_buff *skb,
 				      struct ieee80211_sta *sta, void *sta_wtbl,
 				      void *wtbl_tlv);
 int mt76_connac_mcu_set_channel_domain(struct mt76_phy *phy);
+void mt76_connac_mcu_set_regd(struct wiphy *wiphy,
+			      struct regulatory_request *request);
 void mt76_connac_mcu_sta_tlv(struct mt76_phy *mphy, struct sk_buff *skb,
 			     struct ieee80211_sta *sta,
 			     struct ieee80211_vif *vif);
