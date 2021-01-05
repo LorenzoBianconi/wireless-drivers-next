@@ -1015,4 +1015,5 @@ int mt76_connac_mcu_update_gtk_rekey(struct ieee80211_hw *hw,
 int mt76_connac_mcu_set_hif_suspend(struct mt76_dev *dev, bool suspend);
 void mt76_connac_mcu_set_suspend_iter(void *priv, u8 *mac,
 				      struct ieee80211_vif *vif);
+int mt76_connac_mcu_set_rate_txpower(struct mt76_phy *phy);
 #endif /* __MT76_CONNAC_MCU_H */

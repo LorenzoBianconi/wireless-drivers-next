@@ -2145,7 +2145,7 @@ int mt7615_mcu_set_chan_info(struct mt7615_phy *phy, int cmd)
 {
 	struct mt7615_dev *dev = phy->dev;
 	struct cfg80211_chan_def *chandef = &phy->mt76->chandef;
-	int freq1 = chandef->center_freq1, freq2 = chandef->center_freq2;
+	int err, freq1 = chandef->center_freq1, freq2 = chandef->center_freq2;
 	struct {
 		u8 control_chan;
 		u8 center_chan;
@@ -2183,12 +2183,21 @@ int mt7615_mcu_set_chan_info(struct mt7615_phy *phy, int cmd)
 	req.band_idx = phy != &dev->phy;
 	req.bw = mt7615_mcu_chan_bw(chandef);
 
-	if (mt76_testmode_enabled(phy->mt76))
+	if (is_mt7663(&dev->mt76) || mt76_testmode_enabled(phy->mt76))
 		memset(req.txpower_sku, 0x3f, 49);
 	else
 		mt7615_mcu_set_txpower_sku(phy, req.txpower_sku);
 
-	return mt76_mcu_send_msg(&dev->mt76, cmd, &req, sizeof(req), true);
+	err = mt76_mcu_send_msg(&dev->mt76, cmd, &req, sizeof(req), true);
+	if (err < 0)
+		return err;
+
+	if (is_mt7663(&dev->mt76)) {
+		err = mt76_connac_mcu_set_rate_txpower(phy->mt76);
+		if (err < 0)
+			return err;
+	}
+	return 0;
 }
 
 int mt7615_mcu_get_temperature(struct mt7615_dev *dev, int index)

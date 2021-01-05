@@ -1539,6 +1539,23 @@ int mt76_connac_mcu_sched_scan_enable(struct mt76_phy *phy,
 }
 EXPORT_SYMBOL_GPL(mt76_connac_mcu_sched_scan_enable);
 
+int mt76_connac_mcu_set_rate_txpower(struct mt76_phy *phy)
+{
+	struct ieee80211_hw *hw = phy->hw;
+	int tx_power, n_chains = hweight8(phy->antenna_mask);
+	struct mt76_power_limits limits;
+
+	tx_power = hw->conf.power_level * 2 -
+		   mt76_tx_power_nss_delta(n_chains);
+
+	tx_power = mt76_get_rate_power_limits(phy, phy->chandef.chan,
+					      &limits, tx_power);
+	phy->txpower_cur = tx_power;
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(mt76_connac_mcu_set_rate_txpower);
+
 #ifdef CONFIG_PM
 
 const struct wiphy_wowlan_support mt76_connac_wowlan_support = {
