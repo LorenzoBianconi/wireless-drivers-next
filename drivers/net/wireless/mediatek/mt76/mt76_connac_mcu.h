@@ -907,6 +907,28 @@ struct mt76_connac_suspend_tlv {
 	u8 pad[5];
 } __packed;
 
+#define MT_SKU_POWER_LIMIT	161
+
+struct mt76_connac_sku_tlv {
+	u8 channel;
+	s8 pwr_limit[MT_SKU_POWER_LIMIT];
+} __packed;
+
+struct mt76_connac_tx_power_limit_tlv {
+	/* DW0 - common info*/
+	u8 ver;
+	u8 pad0;
+	__le16 len;
+	/* DW1 - cmd hint */
+	u8 n_chan; /* # channel */
+	u8 band; /* 2.4GHz - 5GHz */
+	u8 last_msg;
+	u8 pad1;
+	/* DW3 */
+	u8 alpha2[4]; /* regulatory_request.alpha2 */
+	u8 pad2[32];
+} __packed;
+
 extern const struct wiphy_wowlan_support mt76_connac_wowlan_support;
 
 static inline bool is_mt7921(struct mt76_dev *dev)
@@ -1011,4 +1033,5 @@ int mt76_connac_mcu_update_gtk_rekey(struct ieee80211_hw *hw,
 int mt76_connac_mcu_set_hif_suspend(struct mt76_dev *dev, bool suspend);
 void mt76_connac_mcu_set_suspend_iter(void *priv, u8 *mac,
 				      struct ieee80211_vif *vif);
+int mt76_connac_mcu_set_rate_txpower(struct mt76_phy *phy);
 #endif /* __MT76_CONNAC_MCU_H */

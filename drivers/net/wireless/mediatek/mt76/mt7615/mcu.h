@@ -271,6 +271,15 @@ struct mt7615_roc_tlv {
 	u8 rsv1[8];
 } __packed;
 
+struct mt7615_arpns_tlv {
+	__le16 tag;
+	__le16 len;
+	u8 mode;
+	u8 ips_num;
+	u8 option;
+	u8 pad[1];
+} __packed;
+
 enum {
 	PATCH_NOT_DL_SEM_FAIL	 = 0x0,
 	PATCH_IS_DL		 = 0x1,

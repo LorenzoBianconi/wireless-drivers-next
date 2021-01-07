@@ -1520,6 +1520,128 @@ int mt76_connac_mcu_sched_scan_enable(struct mt76_phy *phy,
 }
 EXPORT_SYMBOL_GPL(mt76_connac_mcu_sched_scan_enable);
 
+static void
+mt76_connac_mcu_build_sku(struct mt76_dev *dev, s8 *sku,
+			  struct mt76_power_limits *limits,
+			  bool offchan)
+{
+	int max_txpower = is_mt7921(dev) ? 127 : 63;
+	int i, offset = sizeof(limits->cck);
+
+	memset(sku, max_txpower, MT_SKU_POWER_LIMIT);
+	if (offchan)
+		return;
+
+	/* cck */
+	memcpy(sku, limits->cck, sizeof(limits->cck));
+
+	/* ofdm */
+	memcpy(&sku[offset], limits->ofdm, sizeof(limits->ofdm));
+	offset += sizeof(limits->ofdm);
+
+	/* ht rates */
+	for (i = 0; i < 2; i++) {
+		memcpy(&sku[offset], limits->mcs[i],
+		       ARRAY_SIZE(limits->mcs[i]));
+		offset += ARRAY_SIZE(limits->mcs[i]);
+	}
+
+	/* vht rates */
+	for (i = 0; i < ARRAY_SIZE(limits->mcs); i++) {
+		memcpy(&sku[offset], limits->mcs[i],
+		       ARRAY_SIZE(limits->mcs[i]));
+		offset += ARRAY_SIZE(limits->mcs[i]);
+	}
+
+	/* he rates */
+	for (i = 0; i < ARRAY_SIZE(limits->ru); i++) {
+		memcpy(&sku[offset], limits->ru[i], ARRAY_SIZE(limits->ru[i]));
+		offset += ARRAY_SIZE(limits->ru[i]);
+	}
+}
+
+int mt76_connac_mcu_set_rate_txpower(struct mt76_phy *phy)
+{
+	struct mt76_dev *dev = phy->dev;
+	int tx_power, n_chains = hweight8(phy->antenna_mask);
+	struct ieee80211_channel *chan = phy->chandef.chan;
+	int sku_len, batch_len = is_mt7921(dev) ? 8 : 16;
+	struct mt76_connac_sku_tlv sku_tlbv;
+	int i, idx = 0, n_chan, batch_size;
+	struct ieee80211_hw *hw = phy->hw;
+	struct mt76_power_limits limits;
+	static const u8 chan_list_2ghz[] = {
+		1, 2,  3,  4,  5,  6,  7,
+		8, 9, 10, 11, 12, 13, 14
+	};
+	static const u8 chan_list_5ghz[] = {
+		 36,  38,  40,  42,  44,  46,  48,
+		 50,  52,  54,  56,  58,  60,  62,
+		 64, 100, 102, 104, 106, 108, 110,
+		112, 114, 116, 118, 120, 122, 124,
+		126, 128, 132, 134, 136, 138, 140,
+		142, 144, 149, 151, 153, 155, 157,
+		159, 161, 165
+	};
+	const u8 *ch_list;
+
+	tx_power = hw->conf.power_level * 2 -
+		   mt76_tx_power_nss_delta(n_chains);
+	tx_power = mt76_get_rate_power_limits(phy, phy->chandef.chan,
+					      &limits, tx_power);
+	phy->txpower_cur = tx_power;
+
+	if (chan->band == NL80211_BAND_2GHZ) {
+		n_chan = ARRAY_SIZE(chan_list_2ghz);
+		ch_list = chan_list_2ghz;
+	} else {
+		n_chan = ARRAY_SIZE(chan_list_5ghz);
+		ch_list = chan_list_5ghz;
+	}
+	batch_size = DIV_ROUND_UP(n_chan, batch_len);
+
+	sku_len = is_mt7921(dev) ? sizeof(sku_tlbv) : sizeof(sku_tlbv) - 92;
+
+	for (i = 0; i < batch_size; i++) {
+		bool last_msg = i == batch_size - 1;
+		int num_ch = last_msg ? n_chan % batch_len : batch_len;
+		struct mt76_connac_tx_power_limit_tlv tx_power_tlv = {
+			.band = chan->band == NL80211_BAND_2GHZ ? 1 : 2,
+			.n_chan = num_ch,
+			.last_msg = last_msg,
+		};
+		struct sk_buff *skb;
+		int err, msg_len;
+
+		msg_len = sizeof(struct mt76_connac_tx_power_limit_tlv) +
+			  num_ch * sizeof(struct mt76_connac_sku_tlv);
+		skb = mt76_mcu_msg_alloc(dev, NULL, msg_len);
+		if (!skb)
+			return -ENOMEM;
+
+		BUILD_BUG_ON(sizeof(dev->alpha2) > sizeof(tx_power_tlv.alpha2));
+		memcpy(tx_power_tlv.alpha2, dev->alpha2, sizeof(dev->alpha2));
+
+		skb_put_data(skb, &tx_power_tlv, sizeof(tx_power_tlv));
+		for (i = 0; i < num_ch; i++, idx++) {
+			bool offchan = chan->hw_value != ch_list[idx];
+
+			sku_tlbv.channel = ch_list[idx];
+			mt76_connac_mcu_build_sku(dev, sku_tlbv.pwr_limit,
+						  &limits, offchan);
+			skb_put_data(skb, &sku_tlbv, sku_len);
+		}
+
+		err = mt76_mcu_skb_send_msg(dev, skb,
+					    MCU_CMD_SET_RATE_TX_POWER, false);
+		if (err < 0)
+			return err;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(mt76_connac_mcu_set_rate_txpower);
+
 #ifdef CONFIG_PM
 
 const struct wiphy_wowlan_support mt76_connac_wowlan_support = {
