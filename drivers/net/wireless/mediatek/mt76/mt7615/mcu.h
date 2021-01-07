@@ -594,6 +594,28 @@ struct mt7615_arpns_tlv {
 	u8 pad[1];
 } __packed;
 
+#define MT_SKU_POWER_LIMIT	69
+
+struct mt7615_sku_tlv {
+	u8 channel;
+	s8 pwr_limit[MT_SKU_POWER_LIMIT];
+} __packed;
+
+struct mt7615_tx_power_limit_tlv {
+	/* DW0 - common info*/
+	u8 ver;
+	u8 pad0;
+	__le16 len;
+	/* DW1 - cmd hint */
+	u8 n_chan; /* # channel */
+	u8 band; /* 2.4GHz - 5GHz */
+	u8 last_msg;
+	u8 pad1;
+	/* DW3 */
+	__le32 country_code;
+	u8 pad2[32];
+} __packed;
+
 /* offload mcu commands */
 enum {
 	MCU_CMD_START_HW_SCAN = MCU_CE_PREFIX | 0x03,
@@ -604,6 +626,7 @@ enum {
 	MCU_CMD_CANCEL_HW_SCAN = MCU_CE_PREFIX | 0x1b,
 	MCU_CMD_SET_ROC = MCU_CE_PREFIX | 0x1c,
 	MCU_CMD_SET_P2P_OPPPS = MCU_CE_PREFIX | 0x33,
+	MCU_CMD_SET_RATE_TX_POWER = MCU_CE_PREFIX | 0x5d,
 	MCU_CMD_SCHED_SCAN_ENABLE = MCU_CE_PREFIX | 0x61,
 	MCU_CMD_SCHED_SCAN_REQ = MCU_CE_PREFIX | 0x62,
 	MCU_CMD_REG_WRITE = MCU_CE_PREFIX | 0xc0,

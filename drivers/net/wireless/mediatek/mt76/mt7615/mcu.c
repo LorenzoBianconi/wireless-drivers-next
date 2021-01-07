@@ -2917,11 +2917,127 @@ static u8 mt7615_mcu_chan_bw(struct cfg80211_chan_def *chandef)
 	return width_to_bw[chandef->width];
 }
 
+static const u8 mt7615_mcu_ch_list_2ghz[] = {
+	1, 2,  3,  4,  5,  6,  7,
+	8, 9, 10, 11, 12, 13, 14
+};
+
+static const u8 mt7615_mcu_ch_list_5ghz[] = {
+	 36,  38,  40,  42,  44,  46,  48,
+	 50,  52,  54,  56,  58,  60,  62,
+	 64, 100, 102, 104, 106, 108, 110,
+	112, 114, 116, 118, 120, 122, 124,
+	126, 128, 132, 134, 136, 138, 140,
+	142, 144, 149, 151, 153, 155, 157,
+	159, 161, 165
+};
+
+#define MT7615_MCU_SKU_BATCH		16
+#define MT7615_MCU_SKU_MAX_TXPOWER	63 /* 0.5 dbm  */
+
+static void mt7615_mcu_build_sku(s8 *sku, struct mt76_power_limits *limits,
+				 bool offchan)
+{
+	int offset = sizeof(limits->cck);
+
+	memset(sku, MT7615_MCU_SKU_MAX_TXPOWER, MT_SKU_POWER_LIMIT);
+	if (offchan)
+		return;
+
+	/* cck */
+	memcpy(sku, limits->cck, sizeof(limits->cck));
+
+	/* ofdm */
+	memcpy(&sku[offset], limits->ofdm, sizeof(limits->ofdm));
+	offset += sizeof(limits->ofdm);
+
+	/* mcs ht20 */
+	memcpy(&sku[offset], limits->mcs[0], ARRAY_SIZE(limits->mcs[0]));
+	offset += ARRAY_SIZE(limits->mcs[0]);
+	/* mcs ht40 */
+	memcpy(&sku[offset], limits->mcs[1], ARRAY_SIZE(limits->mcs[1]));
+	offset += ARRAY_SIZE(limits->mcs[1]);
+
+	/* mcs vht20 */
+	memcpy(&sku[offset], limits->mcs[0], ARRAY_SIZE(limits->mcs[0]));
+	offset += ARRAY_SIZE(limits->mcs[0]);
+	/* mcs vht40 */
+	memcpy(&sku[offset], limits->mcs[1], ARRAY_SIZE(limits->mcs[1]));
+	offset += ARRAY_SIZE(limits->mcs[1]);
+	/* mcs vht80 */
+	memcpy(&sku[offset], limits->mcs[2], ARRAY_SIZE(limits->mcs[2]));
+}
+
+static int mt7615_mcu_set_rate_txpower(struct mt7615_phy *phy)
+{
+	struct mt76_phy *mphy = phy->mt76;
+	u32 country_code = MT76_ALPHA2_TO_CC(mphy->dev->alpha2);
+	int tx_power, n_chains = hweight8(mphy->antenna_mask);
+	struct ieee80211_channel *chan = mphy->chandef.chan;
+	struct ieee80211_hw *hw = mphy->hw;
+	int i, idx = 0, n_chan, batch_size;
+	struct mt76_power_limits limits;
+	const u8 *ch_list;
+
+	tx_power = hw->conf.power_level * 2 -
+		   mt76_tx_power_nss_delta(n_chains);
+	tx_power = mt76_get_rate_power_limits(mphy, mphy->chandef.chan,
+					      &limits, tx_power);
+	mphy->txpower_cur = tx_power;
+
+	if (chan->band == NL80211_BAND_2GHZ) {
+		n_chan = ARRAY_SIZE(mt7615_mcu_ch_list_2ghz);
+		ch_list = mt7615_mcu_ch_list_2ghz;
+	} else {
+		n_chan = ARRAY_SIZE(mt7615_mcu_ch_list_5ghz);
+		ch_list = mt7615_mcu_ch_list_5ghz;
+	}
+	batch_size = DIV_ROUND_UP(n_chan, MT7615_MCU_SKU_BATCH);
+
+	for (i = 0; i < batch_size; i++) {
+		bool last_msg = i == batch_size - 1;
+		int num_ch = last_msg ? n_chan % MT7615_MCU_SKU_BATCH
+				      : MT7615_MCU_SKU_BATCH;
+		struct mt7615_tx_power_limit_tlv tx_power_tlv = {
+			.band = chan->band == NL80211_BAND_2GHZ ? 1 : 2,
+			.n_chan = num_ch,
+			.last_msg = last_msg,
+			.country_code = cpu_to_le32(country_code),
+		};
+		struct sk_buff *skb;
+		int err, len;
+
+		len = sizeof(struct mt7615_tx_power_limit_tlv) +
+		      num_ch * sizeof(struct mt7615_sku_tlv);
+		skb = mt76_mcu_msg_alloc(mphy->dev, NULL, len);
+		if (!skb)
+			return -ENOMEM;
+
+		skb_put_data(skb, &tx_power_tlv, sizeof(tx_power_tlv));
+		for (i = 0; i < num_ch; i++, idx++) {
+			struct mt7615_sku_tlv sku_tlbv = {
+				.channel = ch_list[idx],
+			};
+
+			mt7615_mcu_build_sku(sku_tlbv.pwr_limit, &limits,
+					     chan->hw_value != ch_list[idx]);
+			skb_put_data(skb, &sku_tlbv, sizeof(sku_tlbv));
+		}
+
+		err = mt76_mcu_skb_send_msg(mphy->dev, skb,
+					    MCU_CMD_SET_RATE_TX_POWER, false);
+		if (err < 0)
+			return err;
+	}
+
+	return 0;
+}
+
 int mt7615_mcu_set_chan_info(struct mt7615_phy *phy, int cmd)
 {
 	struct mt7615_dev *dev = phy->dev;
 	struct cfg80211_chan_def *chandef = &phy->mt76->chandef;
-	int freq1 = chandef->center_freq1, freq2 = chandef->center_freq2;
+	int err, freq1 = chandef->center_freq1, freq2 = chandef->center_freq2;
 	struct {
 		u8 control_chan;
 		u8 center_chan;
@@ -2964,7 +3080,14 @@ int mt7615_mcu_set_chan_info(struct mt7615_phy *phy, int cmd)
 	else
 		mt7615_mcu_set_txpower_sku(phy, req.txpower_sku);
 
-	return mt76_mcu_send_msg(&dev->mt76, cmd, &req, sizeof(req), true);
+	err = mt76_mcu_send_msg(&dev->mt76, cmd, &req, sizeof(req), true);
+	if (err < 0)
+		return err;
+
+	if (is_mt7663(&dev->mt76))
+		return mt7615_mcu_set_rate_txpower(phy);
+
+	return 0;
 }
 
 int mt7615_mcu_get_temperature(struct mt7615_dev *dev, int index)
