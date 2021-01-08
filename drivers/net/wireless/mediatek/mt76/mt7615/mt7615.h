@@ -70,6 +70,9 @@
 #define MT7615_MAX_SCHED_SCAN_SSID	10
 #define MT7615_MAX_SCAN_MATCH		16
 
+#define MT76_ALPHA2_TO_CC(alpha2)		\
+	(((u32)alpha2[2] << 16) | ((u32)alpha2[1] << 8) | (u32)alpha2[0])
+
 struct mt7615_vif;
 struct mt7615_sta;
 struct mt7615_dfs_pulse;
