@@ -20,6 +20,7 @@
 #define MT7921_HW_SCAN_TIMEOUT		(HZ / 10)
 #define MT7921_WATCHDOG_TIME		(HZ / 10)
 #define MT7921_RESET_TIMEOUT		(30 * HZ)
+#define MT7921_COREDUMP_TIMEOUT		(HZ / 20)
 
 #define MT7921_TX_RING_SIZE		2048
 #define MT7921_TX_MCU_RING_SIZE		256
@@ -157,6 +158,12 @@ struct mt7921_dev {
 	u8 fw_debug;
 
 	struct mt76_connac_pm pm;
+
+	struct {
+		struct sk_buff_head msg_list;
+		struct delayed_work work;
+		unsigned long last_activity;
+	} cd;
 };
 
 enum {
@@ -329,4 +336,6 @@ int mt7921_mac_set_beacon_filter(struct mt7921_phy *phy,
 				 struct ieee80211_vif *vif,
 				 bool enable);
 void mt7921_pm_interface_iter(void *priv, u8 *mac, struct ieee80211_vif *vif);
+int mt7921_mcu_chip_config(struct mt7921_dev *dev);
+void mt7921_coredump_work(struct work_struct *work);
 #endif

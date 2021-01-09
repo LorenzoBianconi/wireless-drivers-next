@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: ISC
 /* Copyright (C) 2020 MediaTek Inc. */
 
+#include <linux/devcoredump.h>
 #include <linux/etherdevice.h>
 #include <linux/timekeeping.h>
 #include "mt7921.h"
 #include "../dma.h"
 #include "mac.h"
+#include "mcu.h"
 
 #define to_rssi(field, rxv)	((FIELD_GET(field, rxv) - 220) / 2)
 
@@ -1443,4 +1445,46 @@ int mt7921_mac_set_beacon_filter(struct mt7921_phy *phy,
 	}
 
 	return 0;
+}
+
+#define MT_COREDUMP_SZ		(128 * 1024)
+void mt7921_coredump_work(struct work_struct *work)
+{
+	struct mt7921_dev *dev;
+	char *dump, *data;
+
+	dev = (struct mt7921_dev *)container_of(work, struct mt7921_dev,
+						cd.work.work);
+
+	if (time_is_after_jiffies(dev->cd.last_activity +
+				  msecs_to_jiffies(200))) {
+		queue_delayed_work(dev->mt76.wq, &dev->cd.work,
+				   MT7921_COREDUMP_TIMEOUT);
+		return;
+	}
+
+	dump = vzalloc(MT_COREDUMP_SZ);
+	data = dump;
+
+	while (true) {
+		struct mt7921_mcu_rxd *rxd;
+		struct sk_buff *skb;
+
+		spin_lock_bh(&dev->mt76.lock);
+		skb = __skb_dequeue(&dev->cd.msg_list);
+		spin_unlock_bh(&dev->mt76.lock);
+
+		if (!skb ||
+		    data + skb->len - sizeof(*rxd) - dump > MT_COREDUMP_SZ)
+			break;
+
+		rxd = (struct mt7921_mcu_rxd *)skb->data;
+		skb_pull(skb, sizeof(*rxd));
+
+		memcpy(data, skb->data, skb->len);
+		data += skb->len;
+
+		dev_kfree_skb(skb);
+	}
+	dev_coredumpv(dev->mt76.dev, dump, MT_COREDUMP_SZ, GFP_KERNEL);
 }
