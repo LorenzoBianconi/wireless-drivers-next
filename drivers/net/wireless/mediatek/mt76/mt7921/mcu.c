@@ -1073,7 +1073,7 @@ int mt7921_mcu_set_chan_info(struct mt7921_phy *phy, int cmd)
 {
 	struct mt7921_dev *dev = phy->dev;
 	struct cfg80211_chan_def *chandef = &phy->mt76->chandef;
-	int err, freq1 = chandef->center_freq1;
+	int freq1 = chandef->center_freq1;
 	struct {
 		u8 control_ch;
 		u8 center_ch;
@@ -1118,11 +1118,7 @@ int mt7921_mcu_set_chan_info(struct mt7921_phy *phy, int cmd)
 		req.center_ch2 = ieee80211_frequency_to_channel(freq2);
 	}
 
-	err = mt76_mcu_send_msg(&dev->mt76, cmd, &req, sizeof(req), true);
-	if (err < 0)
-		return err;
-
-	return mt76_connac_mcu_set_rate_txpower(phy->mt76);
+	return mt76_mcu_send_msg(&dev->mt76, cmd, &req, sizeof(req), true);
 }
 
 int mt7921_mcu_set_eeprom(struct mt7921_dev *dev)
