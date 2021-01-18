@@ -495,19 +495,6 @@ mt7921_mcu_debug_msg_event(struct mt7921_dev *dev, struct sk_buff *skb)
 }
 
 static void
-mt7921_mcu_coredump_event(struct mt7921_dev *dev, struct sk_buff *skb)
-{
-	spin_lock_bh(&dev->mt76.lock);
-	__skb_queue_tail(&dev->cd.msg_list, skb);
-	spin_unlock_bh(&dev->mt76.lock);
-
-	dev->cd.last_activity = jiffies;
-
-	queue_delayed_work(dev->mt76.wq, &dev->cd.work,
-			   MT7921_COREDUMP_TIMEOUT);
-}
-
-static void
 mt7921_mcu_rx_unsolicited_event(struct mt7921_dev *dev, struct sk_buff *skb)
 {
 	struct mt7921_mcu_rxd *rxd = (struct mt7921_mcu_rxd *)skb->data;
@@ -527,7 +514,8 @@ mt7921_mcu_rx_unsolicited_event(struct mt7921_dev *dev, struct sk_buff *skb)
 		mt7921_mcu_debug_msg_event(dev, skb);
 		break;
 	case MCU_EVENT_COREDUMP:
-		mt7921_mcu_coredump_event(dev, skb);
+		mt76_connac_mcu_coredump_event(&dev->mt76, skb,
+					       &dev->coredump);
 		return;
 	default:
 		break;
@@ -1283,25 +1271,6 @@ mt7921_pm_interface_iter(void *priv, u8 *mac, struct ieee80211_vif *vif)
 		vif->driver_flags &= ~IEEE80211_VIF_BEACON_FILTER;
 		mt76_clear(dev, MT_WF_RFCR(0), MT_WF_RFCR_DROP_OTHER_BEACON);
 	}
-}
-
-int mt7921_mcu_chip_config(struct mt7921_dev *dev)
-{
-	struct {
-		__le16 id;
-		u8 type;
-		u8 resp_type;
-		__le16 data_size;
-		__le16 resv;
-		u8 data[320];
-	} req = {
-		.resp_type = 0,
-	};
-
-	memcpy(req.data, "assert", 7);
-
-	return mt76_mcu_send_msg(&dev->mt76, MCU_CMD_CHIP_CONFIG, &req,
-				 sizeof(req), false);
 }
 
 int mt7921_get_txpwr_info(struct mt7921_dev *dev, struct mt7921_txpwr *txpwr)

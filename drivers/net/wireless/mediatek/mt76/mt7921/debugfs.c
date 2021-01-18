@@ -296,7 +296,7 @@ static int mt7921_config(void *data, u64 val)
 	int ret;
 
 	mt7921_mutex_acquire(dev);
-	ret = mt7921_mcu_chip_config(dev);
+	ret = mt76_connac_mcu_chip_config(&dev->mt76);
 	mt7921_mutex_release(dev);
 
 	return ret;
