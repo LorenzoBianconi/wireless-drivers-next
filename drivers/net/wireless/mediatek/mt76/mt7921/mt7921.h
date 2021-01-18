@@ -6,7 +6,7 @@
 
 #include <linux/interrupt.h>
 #include <linux/ktime.h>
-#include "../mt76.h"
+#include "../mt76_connac.h"
 #include "regs.h"
 
 #define MT7921_MAX_INTERFACES		4
@@ -156,22 +156,7 @@ struct mt7921_dev {
 
 	u8 fw_debug;
 
-	struct {
-		bool enable;
-
-		spinlock_t txq_lock;
-		struct {
-			struct mt7921_sta *msta;
-			struct sk_buff *skb;
-		} tx_q[IEEE80211_NUM_ACS];
-
-		struct work_struct wake_work;
-		struct completion wake_cmpl;
-
-		struct delayed_work ps_work;
-		unsigned long last_activity;
-		unsigned long idle_timeout;
-	} pm;
+	struct mt76_connac_pm pm;
 };
 
 enum {
@@ -200,22 +185,10 @@ mt7921_hw_dev(struct ieee80211_hw *hw)
 	return container_of(phy->dev, struct mt7921_dev, mt76);
 }
 
-int mt7921_pm_wake(struct mt7921_dev *dev);
-void mt7921_pm_power_save_sched(struct mt7921_dev *dev);
-
-static inline void mt7921_mutex_acquire(struct mt7921_dev *dev)
-	 __acquires(&dev->mt76.mutex)
-{
-	mutex_lock(&dev->mt76.mutex);
-	mt7921_pm_wake(dev);
-}
-
-static inline void mt7921_mutex_release(struct mt7921_dev *dev)
-	__releases(&dev->mt76.mutex)
-{
-	mt7921_pm_power_save_sched(dev);
-	mutex_unlock(&dev->mt76.mutex);
-}
+#define mt7921_mutex_acquire(dev)	\
+	mt76_connac_mutex_acquire(&(dev)->mt76, &(dev)->pm)
+#define mt7921_mutex_release(dev)	\
+	mt76_connac_mutex_release(&(dev)->mt76, &(dev)->pm)
 
 static inline u8 mt7921_lmac_mapping(struct mt7921_dev *dev, u8 ac)
 {

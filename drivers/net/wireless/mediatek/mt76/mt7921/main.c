@@ -168,22 +168,6 @@ void mt7921_set_stream_he_caps(struct mt7921_phy *phy)
 	}
 }
 
-static void mt7921_free_pending_tx_skbs(struct mt7921_dev *dev,
-					struct mt7921_sta *msta)
-{
-	int i;
-
-	spin_lock_bh(&dev->pm.txq_lock);
-	for (i = 0; i < IEEE80211_NUM_ACS; i++) {
-		if (msta && dev->pm.tx_q[i].msta != msta)
-			continue;
-
-		dev_kfree_skb(dev->pm.tx_q[i].skb);
-		dev->pm.tx_q[i].skb = NULL;
-	}
-	spin_unlock_bh(&dev->pm.txq_lock);
-}
-
 static int mt7921_start(struct ieee80211_hw *hw)
 {
 	struct mt7921_dev *dev = mt7921_hw_dev(hw);
@@ -216,7 +200,7 @@ static void mt7921_stop(struct ieee80211_hw *hw)
 
 	cancel_delayed_work_sync(&dev->pm.ps_work);
 	cancel_work_sync(&dev->pm.wake_work);
-	mt7921_free_pending_tx_skbs(dev, NULL);
+	mt76_connac_free_pending_tx_skbs(&dev->pm, NULL);
 
 	mt7921_mutex_acquire(dev);
 	clear_bit(MT76_STATE_RUNNING, &phy->mt76->state);
@@ -364,7 +348,7 @@ static void mt7921_remove_interface(struct ieee80211_hw *hw,
 	if (vif == phy->monitor_vif)
 		phy->monitor_vif = NULL;
 
-	mt7921_free_pending_tx_skbs(dev, msta);
+	mt76_connac_free_pending_tx_skbs(&dev->pm, &msta->wcid);
 
 	if (dev->pm.enable) {
 		mt7921_mcu_set_bss_pm(dev, vif, false);
@@ -627,7 +611,7 @@ int mt7921_mac_sta_add(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 	msta->wcid.tx_info |= MT_WCID_TX_INFO_SET;
 	msta->stats.jiffies = jiffies;
 
-	ret = mt7921_pm_wake(dev);
+	ret = mt76_connac_pm_wake(&dev->mphy, &dev->pm);
 	if (ret)
 		return ret;
 
@@ -643,7 +627,7 @@ int mt7921_mac_sta_add(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 	if (ret)
 		return ret;
 
-	mt7921_pm_power_save_sched(dev);
+	mt76_connac_power_save_sched(&dev->mphy, &dev->pm);
 
 	return 0;
 }
@@ -654,8 +638,8 @@ void mt7921_mac_sta_remove(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 	struct mt7921_dev *dev = container_of(mdev, struct mt7921_dev, mt76);
 	struct mt7921_sta *msta = (struct mt7921_sta *)sta->drv_priv;
 
-	mt7921_free_pending_tx_skbs(dev, msta);
-	mt7921_pm_wake(dev);
+	mt76_connac_free_pending_tx_skbs(&dev->pm, &msta->wcid);
+	mt76_connac_pm_wake(&dev->mphy, &dev->pm);
 
 	mt76_connac_mcu_add_sta_cmd(&dev->mphy, vif, sta, &msta->wcid, false,
 				    MCU_UNI_CMD_STA_REC_UPDATE);
@@ -677,7 +661,7 @@ void mt7921_mac_sta_remove(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 		list_del_init(&msta->stats_list);
 	spin_unlock_bh(&dev->sta_poll_lock);
 
-	mt7921_pm_power_save_sched(dev);
+	mt76_connac_power_save_sched(&dev->mphy, &dev->pm);
 }
 
 static void
@@ -708,7 +692,6 @@ static void mt7921_tx(struct ieee80211_hw *hw,
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
 	struct ieee80211_vif *vif = info->control.vif;
 	struct mt76_wcid *wcid = &dev->mt76.global_wcid;
-	struct mt7921_sta *msta = NULL;
 	int qid;
 
 	if (control->sta) {
@@ -737,16 +720,7 @@ static void mt7921_tx(struct ieee80211_hw *hw,
 		skb_set_queue_mapping(skb, qid);
 	}
 
-	spin_lock_bh(&dev->pm.txq_lock);
-	if (!dev->pm.tx_q[qid].skb) {
-		ieee80211_stop_queues(hw);
-		dev->pm.tx_q[qid].msta = msta;
-		dev->pm.tx_q[qid].skb = skb;
-		queue_work(dev->mt76.wq, &dev->pm.wake_work);
-	} else {
-		dev_kfree_skb(skb);
-	}
-	spin_unlock_bh(&dev->pm.txq_lock);
+	mt76_connac_pm_queue_skb(hw, &dev->pm, wcid, skb);
 }
 
 static int mt7921_set_rts_threshold(struct ieee80211_hw *hw, u32 val)
@@ -1054,7 +1028,7 @@ static int mt7921_suspend(struct ieee80211_hw *hw,
 	cancel_delayed_work_sync(&phy->mt76->mac_work);
 
 	cancel_delayed_work_sync(&dev->pm.ps_work);
-	mt7921_free_pending_tx_skbs(dev, NULL);
+	mt76_connac_free_pending_tx_skbs(&dev->pm, NULL);
 
 	mt7921_mutex_acquire(dev);
 
