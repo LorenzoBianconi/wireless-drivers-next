@@ -588,6 +588,10 @@ static void mt7921_bss_info_changed(struct ieee80211_hw *hw,
 	if (changed & BSS_CHANGED_PS)
 		mt7921_mcu_uni_bss_ps(dev, vif);
 
+	if ((changed & BSS_CHANGED_BEACON_ENABLED) &&
+	    vif->p2p && info->enable_beacon)
+		mt76_connac_mcu_set_p2p_oppps(hw, vif);
+
 	mt7921_mutex_release(dev);
 }
 
