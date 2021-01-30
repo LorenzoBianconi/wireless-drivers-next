@@ -1264,6 +1264,7 @@ int mt76_connac_mcu_uni_add_bss(struct mt76_phy *phy,
 			return err;
 	}
 
+	rlm_req.rlm.ht_op_info = 4; /* set HT 40M allowed */
 	switch (chandef->width) {
 	case NL80211_CHAN_WIDTH_40:
 		rlm_req.rlm.bw = CMD_CBW_40MHZ;
@@ -1287,6 +1288,7 @@ int mt76_connac_mcu_uni_add_bss(struct mt76_phy *phy,
 	case NL80211_CHAN_WIDTH_20:
 	default:
 		rlm_req.rlm.bw = CMD_CBW_20MHZ;
+		rlm_req.rlm.ht_op_info = 0;
 		break;
 	}
 
