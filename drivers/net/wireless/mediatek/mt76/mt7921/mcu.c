@@ -222,8 +222,12 @@ mt7921_mcu_send_message(struct mt76_dev *mdev, struct sk_buff *skb,
 	u32 val;
 	u8 seq;
 
-	/* TODO: make dynamic based on msg type */
-	mdev->mcu.timeout = 20 * HZ;
+	if (cmd == MCU_UNI_CMD_SUSPEND ||
+	    cmd == MCU_UNI_CMD_OFFLOAD ||
+	    cmd == MCU_UNI_CMD_HIF_CTRL)
+		mdev->mcu.timeout = msecs_to_jiffies(300);
+	else
+		mdev->mcu.timeout = msecs_to_jiffies(3000);
 
 	seq = ++dev->mt76.mcu.msg_seq & 0xf;
 	if (!seq)
@@ -1271,6 +1275,7 @@ int mt7921_mcu_drv_pmctrl(struct mt7921_dev *dev)
 
 	if (i == MT7921_DRV_OWN_RETRY_COUNT) {
 		dev_err(dev->mt76.dev, "driver own failed\n");
+		mt7921_reset(&dev->mt76);
 		return -EIO;
 	}
 
@@ -1297,6 +1302,7 @@ int mt7921_mcu_fw_pmctrl(struct mt7921_dev *dev)
 
 	if (i == MT7921_DRV_OWN_RETRY_COUNT) {
 		dev_err(dev->mt76.dev, "firmware own failed\n");
+		mt7921_reset(&dev->mt76);
 		return -EIO;
 	}
 

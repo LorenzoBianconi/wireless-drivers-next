@@ -97,6 +97,7 @@ struct mt7921_vif {
 
 	struct mt7921_sta sta;
 	struct mt7921_phy *phy;
+	struct ieee80211_bss_conf *bss_conf;
 
 	struct ieee80211_tx_queue_params queue_params[IEEE80211_NUM_ACS];
 };
@@ -152,8 +153,7 @@ struct mt7921_dev {
 	u16 chainmask;
 
 	struct work_struct init_work;
-	struct work_struct reset_work;
-	wait_queue_head_t reset_wait;
+	struct delayed_work reset_work;
 	u32 reset_state;
 
 	struct list_head sta_poll_list;
@@ -329,7 +329,7 @@ int mt7921_mac_sta_add(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 void mt7921_mac_sta_remove(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 			   struct ieee80211_sta *sta);
 void mt7921_mac_work(struct work_struct *work);
-void mt7921_mac_reset_work(struct work_struct *work);
+void mt7921_reset_work(struct work_struct *work);
 int mt7921_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 			  enum mt76_txq_id qid, struct mt76_wcid *wcid,
 			  struct ieee80211_sta *sta,
@@ -374,4 +374,7 @@ int mt7921_mac_set_beacon_filter(struct mt7921_phy *phy,
 void mt7921_pm_interface_iter(void *priv, u8 *mac, struct ieee80211_vif *vif);
 void mt7921_coredump_work(struct work_struct *work);
 int mt7921_get_txpwr_info(struct mt7921_dev *dev, struct mt7921_txpwr *txpwr);
+int mt7921_poll_tx(struct napi_struct *napi, int budget);
+void mt7921_reset(struct mt76_dev *dev);
+void mt7921_mac_init(struct mt7921_dev *dev);
 #endif

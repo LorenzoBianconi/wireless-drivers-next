@@ -99,6 +99,8 @@ int mt76_mcu_skb_send_and_get_msg(struct mt76_dev *dev, struct sk_buff *skb,
 			dev_kfree_skb(skb);
 	} while (ret == -EAGAIN);
 
+	if (ret == -ETIMEDOUT && dev->drv->reset)
+		dev->drv->reset(dev);
 out:
 	mutex_unlock(&dev->mcu.mutex);
 

@@ -151,7 +151,7 @@ mt7921_mac_init_band(struct mt7921_dev *dev, u8 band)
 	mt76_clear(dev, MT_DMA_DCR0(band), MT_DMA_DCR0_RXD_G5_EN);
 }
 
-static void mt7921_mac_init(struct mt7921_dev *dev)
+void mt7921_mac_init(struct mt7921_dev *dev)
 {
 	int i;
 
@@ -236,13 +236,11 @@ int mt7921_register_device(struct mt7921_dev *dev)
 	INIT_DELAYED_WORK(&dev->mphy.mac_work, mt7921_mac_work);
 	INIT_DELAYED_WORK(&dev->phy.scan_work, mt7921_scan_work);
 	INIT_DELAYED_WORK(&dev->coredump.work, mt7921_coredump_work);
+	INIT_DELAYED_WORK(&dev->reset_work, mt7921_reset_work);
 	skb_queue_head_init(&dev->phy.scan_event_list);
 	skb_queue_head_init(&dev->coredump.msg_list);
 	INIT_LIST_HEAD(&dev->sta_poll_list);
 	spin_lock_init(&dev->sta_poll_lock);
-
-	init_waitqueue_head(&dev->reset_wait);
-	INIT_WORK(&dev->reset_work, mt7921_mac_reset_work);
 
 	INIT_WORK(&dev->phy.roc.work, mt7921_roc_work);
 	timer_setup(&dev->phy.roc.timer, mt7921_roc_timer, 0);

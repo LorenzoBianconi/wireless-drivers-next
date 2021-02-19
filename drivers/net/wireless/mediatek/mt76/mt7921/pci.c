@@ -95,6 +95,7 @@ static int mt7921_pci_probe(struct pci_dev *pdev,
 		.sta_add = mt7921_mac_sta_add,
 		.sta_remove = mt7921_mac_sta_remove,
 		.update_survey = mt7921_update_channel,
+		.reset = mt7921_reset,
 	};
 	struct mt7921_dev *dev;
 	struct mt76_dev *mdev;

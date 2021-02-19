@@ -2,6 +2,7 @@
 /* Copyright (C) 2020 MediaTek Inc. */
 
 #include "mt76_connac_mcu.h"
+#include "mt7921/mt7921.h"
 
 int mt76_connac_mcu_start_firmware(struct mt76_dev *dev, u32 addr, u32 option)
 {
@@ -1325,6 +1326,26 @@ int mt76_connac_mcu_hw_scan(struct mt76_phy *phy, struct ieee80211_vif *vif,
 		return -ENOMEM;
 
 	set_bit(MT76_HW_SCANNING, &phy->state);
+
+	if (is_mt7921(mdev)) {
+		struct mt7921_vif *mt7921_vif = (struct mt7921_vif *)vif->drv_priv;
+		if (mt7921_vif->bss_conf) {
+			sreq->n_ssids = 1;
+			sreq->n_channels = 1;
+			ext_channels_num = 0;
+
+			sreq->ssids[0].ssid_len = mt7921_vif->bss_conf->ssid_len;
+			memcpy(sreq->ssids[0].ssid, mt7921_vif->bss_conf->ssid,
+			       mt7921_vif->bss_conf->ssid_len);
+			memcpy(sreq->bssid, mt7921_vif->bss_conf->bssid, ETH_ALEN);
+			scan_list[0]->band = mt7921_vif->bss_conf->chandef.chan->band;
+			scan_list[0]->hw_value = mt7921_vif->bss_conf->chandef.chan->hw_value;
+
+			kfree(mt7921_vif->bss_conf);
+			mt7921_vif->bss_conf = NULL;
+		}
+	}
+
 	mvif->scan_seq_num = (mvif->scan_seq_num + 1) & 0x7f;
 
 	req = (struct mt76_connac_hw_scan_req *)skb_put(skb, sizeof(*req));

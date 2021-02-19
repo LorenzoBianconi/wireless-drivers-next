@@ -67,7 +67,7 @@ mt76_put_txwi(struct mt76_dev *dev, struct mt76_txwi_cache *t)
 }
 EXPORT_SYMBOL_GPL(mt76_put_txwi);
 
-static void
+void
 mt76_free_pending_txwi(struct mt76_dev *dev)
 {
 	struct mt76_txwi_cache *t;
@@ -78,6 +78,7 @@ mt76_free_pending_txwi(struct mt76_dev *dev)
 				 DMA_TO_DEVICE);
 	local_bh_enable();
 }
+EXPORT_SYMBOL_GPL(mt76_free_pending_txwi);
 
 static int
 mt76_dma_alloc_queue(struct mt76_dev *dev, struct mt76_queue *q,
@@ -426,7 +427,7 @@ free:
 	return ret;
 }
 
-static int
+int
 mt76_dma_rx_fill(struct mt76_dev *dev, struct mt76_queue *q)
 {
 	dma_addr_t addr;
@@ -463,8 +464,9 @@ mt76_dma_rx_fill(struct mt76_dev *dev, struct mt76_queue *q)
 
 	return frames;
 }
+EXPORT_SYMBOL_GPL(mt76_dma_rx_fill);
 
-static void
+void
 mt76_dma_rx_cleanup(struct mt76_dev *dev, struct mt76_queue *q)
 {
 	struct page *page;
@@ -488,6 +490,7 @@ mt76_dma_rx_cleanup(struct mt76_dev *dev, struct mt76_queue *q)
 	__page_frag_cache_drain(page, q->rx_page.pagecnt_bias);
 	memset(&q->rx_page, 0, sizeof(q->rx_page));
 }
+EXPORT_SYMBOL_GPL(mt76_dma_rx_cleanup);
 
 static void
 mt76_dma_rx_reset(struct mt76_dev *dev, enum mt76_rxq_id qid)

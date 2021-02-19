@@ -301,6 +301,7 @@ enum {
 	MT76_HW_SCHED_SCANNING,
 	MT76_RESTART,
 	MT76_RESET,
+	MT76_DEV_RESET,
 	MT76_MCU_RESET,
 	MT76_REMOVED,
 	MT76_READING_STATS,
@@ -328,6 +329,7 @@ struct mt76_driver_ops {
 	u16 txwi_size;
 	u8 mcs_rates;
 
+	void (*reset)(struct mt76_dev *dev);
 	void (*update_survey)(struct mt76_dev *dev);
 
 	int (*tx_prepare_skb)(struct mt76_dev *dev, void *txwi_ptr,
@@ -1196,5 +1198,12 @@ s8 mt76_get_rate_power_limits(struct mt76_phy *phy,
 			      struct ieee80211_channel *chan,
 			      struct mt76_power_limits *dest,
 			      s8 target_power);
+
+int
+mt76_dma_rx_fill(struct mt76_dev *dev, struct mt76_queue *q);
+void
+mt76_dma_rx_cleanup(struct mt76_dev *dev, struct mt76_queue *q);
+void
+mt76_free_pending_txwi(struct mt76_dev *dev);
 
 #endif

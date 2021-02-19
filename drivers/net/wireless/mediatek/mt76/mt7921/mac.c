@@ -1184,45 +1184,6 @@ void mt7921_update_channel(struct mt76_dev *mdev)
 	mt76_connac_power_save_sched(&dev->mphy, &dev->pm);
 }
 
-static bool
-mt7921_wait_reset_state(struct mt7921_dev *dev, u32 state)
-{
-	bool ret;
-
-	ret = wait_event_timeout(dev->reset_wait,
-				 (READ_ONCE(dev->reset_state) & state),
-				 MT7921_RESET_TIMEOUT);
-
-	WARN(!ret, "Timeout waiting for MCU reset state %x\n", state);
-	return ret;
-}
-
-static void
-mt7921_dma_reset(struct mt7921_phy *phy)
-{
-	struct mt7921_dev *dev = phy->dev;
-	int i;
-
-	mt76_clear(dev, MT_WFDMA0_GLO_CFG,
-		   MT_WFDMA0_GLO_CFG_TX_DMA_EN | MT_WFDMA0_GLO_CFG_RX_DMA_EN);
-
-	usleep_range(1000, 2000);
-
-	mt76_queue_tx_cleanup(dev, dev->mt76.q_mcu[MT_MCUQ_WA], true);
-	for (i = 0; i < __MT_TXQ_MAX; i++)
-		mt76_queue_tx_cleanup(dev, phy->mt76->q_tx[i], true);
-
-	mt76_for_each_q_rx(&dev->mt76, i) {
-		mt76_queue_rx_reset(dev, i);
-	}
-
-	/* re-init prefetch settings after reset */
-	mt7921_dma_prefetch(dev);
-
-	mt76_set(dev, MT_WFDMA0_GLO_CFG,
-		 MT_WFDMA0_GLO_CFG_TX_DMA_EN | MT_WFDMA0_GLO_CFG_RX_DMA_EN);
-}
-
 void mt7921_tx_token_put(struct mt7921_dev *dev)
 {
 	struct mt76_txwi_cache *txwi;
@@ -1244,27 +1205,203 @@ void mt7921_tx_token_put(struct mt7921_dev *dev)
 	idr_destroy(&dev->token);
 }
 
-/* system error recovery */
-void mt7921_mac_reset_work(struct work_struct *work)
+static int mt7921_queue_reset(struct mt7921_dev *dev, struct mt76_queue *q)
 {
-	struct mt7921_dev *dev;
+	int i;
 
-	dev = container_of(work, struct mt7921_dev, reset_work);
+	if (!q)
+		return 0;
 
-	if (!(READ_ONCE(dev->reset_state) & MT_MCU_CMD_STOP_DMA))
-		return;
+	/* clear descriptors */
+	for (i = 0; i < q->ndesc; i++)
+		q->desc[i].ctrl = cpu_to_le32(MT_DMA_CTL_DMA_DONE);
 
+	writel(q->desc_dma, &q->regs->desc_base);
+	writel(0, &q->regs->cpu_idx);
+	writel(0, &q->regs->dma_idx);
+	writel(q->ndesc, &q->regs->ring_size);
+
+	/* sync hardware index with mt76 queue */
+	q->head = readl(&q->regs->dma_idx);
+	q->tail = q->head;
+
+	return 0;
+}
+
+static int mt7921_wfsys_reset(struct mt7921_dev *dev)
+{
+	mt76_set(dev, 0x70002600, BIT(0));
+	msleep(200);
+	mt76_clear(dev, 0x70002600, BIT(0));
+
+	return __mt76_poll_msec(&dev->mt76, MT_WFSYS_SW_RST_B,
+				WFSYS_SW_INIT_DONE,
+			        WFSYS_SW_INIT_DONE, 500);
+}
+
+static int mt7921_dma_reset(struct mt7921_dev *dev) {
+	int i;
+
+	/* reset */
+	mt76_clear(dev, MT_WFDMA0_RST,
+		   MT_WFDMA0_RST_DMASHDL_ALL_RST |
+		   MT_WFDMA0_RST_LOGIC_RST);
+
+	mt76_set(dev, MT_WFDMA0_RST,
+		 MT_WFDMA0_RST_DMASHDL_ALL_RST |
+		 MT_WFDMA0_RST_LOGIC_RST);
+
+	/* disable WFDMA0 */
+	mt76_clear(dev, MT_WFDMA0_GLO_CFG,
+		   MT_WFDMA0_GLO_CFG_TX_DMA_EN |
+		   MT_WFDMA0_GLO_CFG_RX_DMA_EN |
+		   MT_WFDMA0_GLO_CFG_CSR_DISP_BASE_PTR_CHAIN_EN |
+		   MT_WFDMA0_GLO_CFG_OMIT_TX_INFO |
+		   MT_WFDMA0_GLO_CFG_OMIT_RX_INFO |
+		   MT_WFDMA0_GLO_CFG_OMIT_RX_INFO_PFET2);
+
+	mt76_poll(dev, MT_WFDMA0_GLO_CFG,
+		  MT_WFDMA0_GLO_CFG_TX_DMA_BUSY |
+		  MT_WFDMA0_GLO_CFG_RX_DMA_BUSY, 0, 1000);
+
+	for (i = 0; i < __MT_TXQ_MAX; i++)
+		mt7921_queue_reset(dev, dev->mphy.q_tx[i]);
+
+	for (i = 0; i < __MT_MCUQ_MAX; i++)
+		mt7921_queue_reset(dev, dev->mt76.q_mcu[i]);
+
+	for (i = 0; i < ARRAY_SIZE(dev->mt76.q_rx) &&
+			dev->mt76.q_rx[i].ndesc; i++)
+		mt7921_queue_reset(dev, &dev->mt76.q_rx[i]);
+
+	/* configure perfetch settings */
+	mt7921_dma_prefetch(dev);
+
+	/* reset dma idx */
+	mt76_wr(dev, MT_WFDMA0_RST_DTX_PTR, ~0);
+
+	/* configure delay interrupt */
+	mt76_wr(dev, MT_WFDMA0_PRI_DLY_INT_CFG0, 0);
+
+	mt76_set(dev, MT_WFDMA0_GLO_CFG,
+		 MT_WFDMA0_GLO_CFG_TX_WB_DDONE |
+		 MT_WFDMA0_GLO_CFG_FIFO_LITTLE_ENDIAN |
+		 MT_WFDMA0_GLO_CFG_CLK_GAT_DIS |
+		 MT_WFDMA0_GLO_CFG_OMIT_TX_INFO |
+		 MT_WFDMA0_GLO_CFG_CSR_DISP_BASE_PTR_CHAIN_EN |
+		 MT_WFDMA0_GLO_CFG_OMIT_RX_INFO_PFET2);
+
+	mt76_set(dev, MT_WFDMA0_GLO_CFG,
+		 MT_WFDMA0_GLO_CFG_TX_DMA_EN | MT_WFDMA0_GLO_CFG_RX_DMA_EN);
+
+	mt76_set(dev, 0x54000120, BIT(1));
+
+	/* enable interrupts for TX/RX rings */
+	mt7921_irq_enable(dev, MT_INT_RX_DONE_ALL | MT_INT_TX_DONE_ALL |
+			  MT_INT_MCU_CMD);
+
+	return 0;
+}
+
+static void mt7921_vif_restart_iter(void *priv, u8 *mac,
+				    struct ieee80211_vif *vif)
+{
+	struct mt7921_vif *mvif = (struct mt7921_vif *)vif->drv_priv;
+	struct mt7921_dev *dev = mvif->phy->dev;
+
+	mt76_connac_mcu_uni_add_dev(&dev->mphy, vif, &mvif->sta.wcid, true);
+
+	mt7921_mcu_set_tx(dev, vif);
+
+	/* fast reconnection */
+	if (vif->bss_conf.assoc) {
+		mvif->bss_conf = kzalloc(sizeof(struct ieee80211_bss_conf),
+					 GFP_KERNEL);
+		memcpy(mvif->bss_conf, &vif->bss_conf,
+		       sizeof(struct ieee80211_bss_conf));
+	}
+}
+
+static void mt7921_vif_reconnect_iter(void *priv, u8 *mac,
+				    struct ieee80211_vif *vif)
+{
+	ieee80211_disconnect(vif, true);
+}
+
+static int mt7921_restart(struct mt7921_dev *dev)
+{
+	struct mt7921_phy *phy = &dev->phy;
+	int ret;
+
+	ret = mt76_connac_mcu_set_mac_enable(&dev->mt76, 0, true, false);
+	if (ret)
+		return ret;
+
+	ret = mt76_connac_mcu_set_channel_domain(phy->mt76);
+	if (ret)
+		return ret;
+
+	ret = mt76_connac_mcu_set_rate_txpower(phy->mt76);
+	if (ret)
+		return ret;
+
+	ret = mt7921_mcu_set_chan_info(phy, MCU_EXT_CMD_SET_RX_PATH);
+	if (ret)
+		return ret;
+
+	mt7921_mac_reset_counters(phy);
+	set_bit(MT76_STATE_RUNNING, &phy->mt76->state);
+
+	ieee80211_iterate_active_interfaces(mt76_hw(dev),
+					IEEE80211_IFACE_ITER_RESUME_ALL,
+					mt7921_vif_restart_iter, 0);
+
+	ieee80211_queue_delayed_work(mt76_hw(dev), &phy->mt76->mac_work,
+				     MT7921_WATCHDOG_TIME);
+	return 0;
+}
+
+void mt7921_reset(struct mt76_dev *mdev)
+{
+	struct mt7921_dev *dev = container_of(mdev, struct mt7921_dev, mt76);
+
+	if (!test_bit(MT76_DEV_RESET, &dev->mphy.state))
+		queue_delayed_work(dev->mt76.wq, &dev->reset_work, 0);
+}
+
+/* system error recovery */
+void mt7921_reset_work(struct work_struct *work)
+{
+	struct mt7921_dev *dev = container_of(work, struct mt7921_dev,
+					      reset_work.work);
+	struct mt7921_phy *phy = &dev->phy;
+	struct cfg80211_scan_info info = {
+		.aborted = true,
+	};
+	int i;
+
+	set_bit(MT76_DEV_RESET, &dev->mphy.state);
+retry:
+	dev_err(dev->mt76.dev, "reset start!\n");
 	ieee80211_stop_queues(mt76_hw(dev));
 
-	set_bit(MT76_RESET, &dev->mphy.state);
+	mt76_wr(dev, MT_WFDMA0_HOST_INT_ENA, 0);
+	mt7921_l1_wr(dev, MT_PCIE_MAC_INT_ENABLE, 0x0);
+
 	set_bit(MT76_MCU_RESET, &dev->mphy.state);
 	wake_up(&dev->mt76.mcu.wait);
+
+	skb_queue_purge(&dev->mt76.mcu.res_q);
+
 	cancel_delayed_work_sync(&dev->mphy.mac_work);
+
+	mt76_txq_schedule_all(&dev->mphy);
+
 	del_timer_sync(&dev->phy.roc.timer);
 	cancel_work_sync(&dev->phy.roc.work);
-
-	/* lock/unlock all queues to ensure that no tx is pending */
-	mt76_txq_schedule_all(&dev->mphy);
+	cancel_delayed_work_sync(&dev->pm.ps_work);
+	cancel_work_sync(&dev->pm.wake_work);
+	mt76_connac_free_pending_tx_skbs(&dev->pm, NULL);
 
 	mt76_worker_disable(&dev->mt76.tx_worker);
 	napi_disable(&dev->mt76.napi[0]);
@@ -1272,45 +1409,64 @@ void mt7921_mac_reset_work(struct work_struct *work)
 	napi_disable(&dev->mt76.napi[2]);
 	napi_disable(&dev->mt76.tx_napi);
 
-	mt7921_mutex_acquire(dev);
-
-	mt76_wr(dev, MT_MCU_INT_EVENT, MT_MCU_INT_EVENT_DMA_STOPPED);
-
 	mt7921_tx_token_put(dev);
 	idr_init(&dev->token);
 
-	if (mt7921_wait_reset_state(dev, MT_MCU_CMD_RESET_DONE)) {
-		mt7921_dma_reset(&dev->phy);
+	for (i = 0; i < ARRAY_SIZE(dev->mt76.phy.q_tx); i++)
+		mt76_queue_tx_cleanup(dev, dev->mphy.q_tx[i], true);
 
-		mt76_wr(dev, MT_MCU_INT_EVENT, MT_MCU_INT_EVENT_DMA_INIT);
-		mt7921_wait_reset_state(dev, MT_MCU_CMD_RECOVERY_DONE);
+	for (i = 0; i < ARRAY_SIZE(dev->mt76.q_mcu); i++)
+		mt76_queue_tx_cleanup(dev, dev->mt76.q_mcu[i], true);
+
+	mt76_free_pending_txwi(&dev->mt76);
+
+	mt76_for_each_q_rx(&dev->mt76, i)
+		mt76_dma_rx_cleanup(&dev->mt76, &dev->mt76.q_rx[i]);
+
+	mt7921_wfsys_reset(dev);
+	mt7921_dma_reset(dev);
+
+	mt76_for_each_q_rx(&dev->mt76, i) {
+		mt76_dma_rx_fill(&dev->mt76, &dev->mt76.q_rx[i]);
+		napi_enable(&dev->mt76.napi[i]);
+		napi_schedule(&dev->mt76.napi[i]);
 	}
 
-	clear_bit(MT76_MCU_RESET, &dev->mphy.state);
-	clear_bit(MT76_RESET, &dev->mphy.state);
-
-	mt76_worker_enable(&dev->mt76.tx_worker);
 	napi_enable(&dev->mt76.tx_napi);
 	napi_schedule(&dev->mt76.tx_napi);
+	mt76_worker_enable(&dev->mt76.tx_worker);
 
-	napi_enable(&dev->mt76.napi[0]);
-	napi_schedule(&dev->mt76.napi[0]);
+	clear_bit(MT76_STATE_SUSPEND, &phy->mt76->state);
+	clear_bit(MT76_MCU_RESET, &dev->mphy.state);
+	set_bit(MT76_STATE_INITIALIZED, &dev->mphy.state);
 
-	napi_enable(&dev->mt76.napi[1]);
-	napi_schedule(&dev->mt76.napi[1]);
+	mt76_wr(dev, MT_WFDMA0_HOST_INT_ENA, 0);
+	mt7921_l1_wr(dev, MT_PCIE_MAC_INT_ENABLE, 0xff);
+	mt7921_irq_enable(dev, MT_INT_RX_DONE_ALL | MT_INT_TX_DONE_ALL |
+			  MT_INT_MCU_CMD);
 
-	napi_enable(&dev->mt76.napi[2]);
-	napi_schedule(&dev->mt76.napi[2]);
+	if (mt7921_mcu_init(dev))
+		goto retry;
+
+	if (mt7921_mcu_set_eeprom(dev))
+		goto retry;
+
+	mt7921_mac_init(dev);
+
+	if (mt7921_restart(dev))
+		goto retry;
 
 	ieee80211_wake_queues(mt76_hw(dev));
 
-	mt76_wr(dev, MT_MCU_INT_EVENT, MT_MCU_INT_EVENT_RESET_DONE);
-	mt7921_wait_reset_state(dev, MT_MCU_CMD_NORMAL_STATE);
+	dev_err(dev->mt76.dev, "reset end!\n");
+	clear_bit(MT76_DEV_RESET, &dev->mphy.state);
 
-	mt7921_mutex_release(dev);
+	if (test_bit(MT76_HW_SCANNING, &phy->mt76->state))
+		ieee80211_scan_completed(phy->mt76->hw, &info);
 
-	ieee80211_queue_delayed_work(mt76_hw(dev), &dev->mphy.mac_work,
-				     MT7921_WATCHDOG_TIME);
+	ieee80211_iterate_active_interfaces(mt76_hw(dev),
+					IEEE80211_IFACE_ITER_RESUME_ALL,
+					mt7921_vif_reconnect_iter, 0);
 }
 
 static void
@@ -1518,4 +1674,6 @@ void mt7921_coredump_work(struct work_struct *work)
 	}
 	dev_coredumpv(dev->mt76.dev, dump, MT76_CONNAC_COREDUMP_SZ,
 		      GFP_KERNEL);
+
+	mt7921_reset(&dev->mt76);
 }
