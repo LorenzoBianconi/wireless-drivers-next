@@ -431,6 +431,20 @@ sar_policy[NL80211_SAR_ATTR_MAX + 1] = {
 	[NL80211_SAR_ATTR_SPECS] = NLA_POLICY_NESTED_ARRAY(sar_specs_policy),
 };
 
+static const struct nla_policy
+nl80211_multiple_bssid_elems_policy[NL80211_MULTIPLE_BSSID_ELEMS_ATTR_MAX + 1] = {
+	[NL80211_MULTIPLE_BSSID_ELEMS_ATTR_COUNT] = { .type = NLA_U8 },
+	[NL80211_MULTIPLE_BSSID_ELEMS_ATTR_DATA] = { .type = NLA_NESTED },
+};
+
+static const struct nla_policy
+nl80211_multiple_bssid_policy[NL80211_MULTIPLE_BSSID_CONFIG_ATTR_MAX + 1] = {
+	[NL80211_MULTIPLE_BSSID_CONFIG_ATTR_PARENT] = { .type = NLA_U32 },
+	[NL80211_MULTIPLE_BSSID_CONFIG_ATTR_INDEX] = { .type = NLA_U8 },
+	[NL80211_MULTIPLE_BSSID_CONFIG_ATTR_COUNT] = { .type = NLA_U8 },
+	[NL80211_MULTIPLE_BSSID_CONFIG_ATTR_EMA] = { .type = NLA_FLAG },
+};
+
 static const struct nla_policy nl80211_policy[NUM_NL80211_ATTR] = {
 	[0] = { .strict_start_type = NL80211_ATTR_HE_OBSS_PD },
 	[NL80211_ATTR_WIPHY] = { .type = NLA_U32 },
@@ -753,6 +767,10 @@ static const struct nla_policy nl80211_policy[NUM_NL80211_ATTR] = {
 	[NL80211_ATTR_RECONNECT_REQUESTED] = { .type = NLA_REJECT },
 	[NL80211_ATTR_SAR_SPEC] = NLA_POLICY_NESTED(sar_policy),
 	[NL80211_ATTR_DISABLE_HE] = { .type = NLA_FLAG },
+	[NL80211_ATTR_MULTIPLE_BSSID_CONFIG] =
+			NLA_POLICY_NESTED(nl80211_multiple_bssid_policy),
+	[NL80211_ATTR_MULTIPLE_BSSID_ELEMS] =
+			NLA_POLICY_NESTED(nl80211_multiple_bssid_elems_policy),
 };
 
 /* policy for the key attributes */
@@ -2192,6 +2210,49 @@ fail:
 	return -ENOBUFS;
 }
 
+static int
+nl80211_put_multiple_bssid_support(struct wiphy *wiphy, struct sk_buff *msg)
+{
+	struct nlattr *config = NULL, *elems = NULL;
+
+	if (!wiphy_ext_feature_isset(wiphy,
+				     NL80211_EXT_FEATURE_MULTIPLE_BSSID_AP))
+		return 0;
+
+	if (wiphy->multiple_bssid.max_num_vaps) {
+		config = nla_nest_start(msg,
+					NL80211_ATTR_MULTIPLE_BSSID_CONFIG);
+		if (!config)
+			return -ENOSPC;
+
+		if (nla_put_u8(msg, NL80211_MULTIPLE_BSSID_CONFIG_ATTR_COUNT,
+			       wiphy->multiple_bssid.max_num_vaps))
+			goto fail_config;
+
+		nla_nest_end(msg, config);
+	}
+
+	if (wiphy_ext_feature_isset(wiphy, NL80211_EXT_FEATURE_EMA_AP) &&
+	    wiphy->multiple_bssid.max_profile_periodicity) {
+		elems = nla_nest_start(msg, NL80211_ATTR_MULTIPLE_BSSID_ELEMS);
+		if (!elems)
+			goto fail_config;
+
+		if (nla_put_u8(msg, NL80211_MULTIPLE_BSSID_ELEMS_ATTR_COUNT,
+			       wiphy->multiple_bssid.max_profile_periodicity))
+			goto fail_elems;
+
+		nla_nest_end(msg, elems);
+	}
+	return 0;
+
+fail_elems:
+	nla_nest_cancel(msg, elems);
+fail_config:
+	nla_nest_cancel(msg, config);
+	return -ENOBUFS;
+}
+
 struct nl80211_dump_wiphy_state {
 	s64 filter_wiphy;
 	long start;
@@ -2772,6 +2833,9 @@ static int nl80211_send_wiphy(struct cfg80211_registered_device *rdev,
 		break;
 	case 16:
 		if (nl80211_put_sar_specs(rdev, msg))
+			goto nla_put_failure;
+
+		if (nl80211_put_multiple_bssid_support(&rdev->wiphy, msg))
 			goto nla_put_failure;
 
 		/* done */
@@ -4952,6 +5016,90 @@ static int validate_beacon_tx_rate(struct cfg80211_registered_device *rdev,
 	return 0;
 }
 
+static int
+nl80211_parse_multiple_bssid_config(struct wiphy *wiphy,
+				    struct nlattr *attrs,
+				    struct cfg80211_ap_settings *params)
+{
+	struct nlattr *tb[NL80211_MULTIPLE_BSSID_CONFIG_ATTR_MAX + 1];
+	int ret;
+	struct cfg80211_multiple_bssid *config = &params->multiple_bssid;
+
+	if (!wiphy_ext_feature_isset(wiphy,
+				     NL80211_EXT_FEATURE_MULTIPLE_BSSID_AP))
+		return -EINVAL;
+
+	ret = nla_parse_nested(tb, NL80211_MULTIPLE_BSSID_CONFIG_ATTR_MAX, attrs, NULL,
+			       NULL);
+	if (ret)
+		return ret;
+
+	config->ema = nla_get_flag(tb[NL80211_MULTIPLE_BSSID_CONFIG_ATTR_EMA]);
+	if (config->ema &&
+	    (!wiphy_ext_feature_isset(wiphy,
+				      NL80211_EXT_FEATURE_EMA_AP) ||
+	     (wiphy->multiple_bssid.max_profile_periodicity &&
+	      params->beacon.multiple_bssid->cnt >
+	      wiphy->multiple_bssid.max_profile_periodicity)))
+		return -EINVAL;
+
+	if (!tb[NL80211_MULTIPLE_BSSID_CONFIG_ATTR_COUNT])
+		return -EINVAL;
+
+	config->count = nla_get_u8(tb[NL80211_MULTIPLE_BSSID_CONFIG_ATTR_COUNT]);
+	if (config->count < 1 ||
+	    (wiphy->multiple_bssid.max_num_vaps &&
+	     config->count > wiphy->multiple_bssid.max_num_vaps))
+		return -EINVAL;
+
+	if (tb[NL80211_MULTIPLE_BSSID_CONFIG_ATTR_PARENT])
+		config->parent = nla_get_u32(tb[NL80211_MULTIPLE_BSSID_CONFIG_ATTR_PARENT]);
+
+	if (tb[NL80211_MULTIPLE_BSSID_CONFIG_ATTR_INDEX])
+		config->index = nla_get_u8(tb[NL80211_MULTIPLE_BSSID_CONFIG_ATTR_INDEX]);
+
+	return 0;
+}
+
+static struct cfg80211_multiple_bssid_data *
+nl80211_parse_multiple_bssid_elems(struct wiphy *wiphy, struct nlattr *attrs)
+{
+	struct cfg80211_multiple_bssid_data *multiple_bssid;
+	struct nlattr *nl_ie;
+	struct nlattr *tb[NL80211_MULTIPLE_BSSID_ELEMS_ATTR_MAX + 1];
+	int rem_ie;
+	u8 i = 0, err, num_elems;
+
+	if (!wiphy_ext_feature_isset(wiphy,
+				     NL80211_EXT_FEATURE_MULTIPLE_BSSID_AP))
+		return NULL;
+
+	err = nla_parse_nested(tb, NL80211_MULTIPLE_BSSID_ELEMS_ATTR_MAX,
+			       attrs, NULL, NULL);
+	if (err)
+		return NULL;
+
+	if (!tb[NL80211_MULTIPLE_BSSID_ELEMS_ATTR_COUNT] ||
+	    !tb[NL80211_MULTIPLE_BSSID_ELEMS_ATTR_DATA])
+		return NULL;
+
+	num_elems = nla_get_u8(tb[NL80211_MULTIPLE_BSSID_ELEMS_ATTR_COUNT]);
+	multiple_bssid = kzalloc(struct_size(multiple_bssid, elems, num_elems),
+				 GFP_KERNEL);
+	if (!multiple_bssid)
+		return NULL;
+
+	multiple_bssid->cnt = num_elems;
+	nla_for_each_nested(nl_ie, tb[NL80211_MULTIPLE_BSSID_ELEMS_ATTR_DATA],
+			    rem_ie) {
+		multiple_bssid->elems[i].data = nla_data(nl_ie);
+		multiple_bssid->elems[i].len = nla_len(nl_ie);
+		i++;
+	}
+
+	return multiple_bssid;
+}
+
 static int nl80211_parse_beacon(struct cfg80211_registered_device *rdev,
 				struct nlattr *attrs[],
 				struct cfg80211_beacon_data *bcn)
@@ -5030,6 +5178,14 @@ static int nl80211_parse_beacon(struct cfg80211_registered_device *rdev,
 		}
 	} else {
 		bcn->ftm_responder = -1;
+	}
+
+	if (attrs[NL80211_ATTR_MULTIPLE_BSSID_ELEMS]) {
+		bcn->multiple_bssid = nl80211_parse_multiple_bssid_elems(
+				&rdev->wiphy,
+				attrs[NL80211_ATTR_MULTIPLE_BSSID_ELEMS]);
+		if (!bcn->multiple_bssid)
+			return -EINVAL;
 	}
 
 	return 0;
@@ -5317,7 +5473,7 @@ static int nl80211_start_ap(struct sk_buff *skb, struct genl_info *info)
 
 	err = nl80211_parse_beacon(rdev, info->attrs, &params.beacon);
 	if (err)
-		return err;
+		goto out;
 
 	params.beacon_interval =
 		nla_get_u32(info->attrs[NL80211_ATTR_BEACON_INTERVAL]);
@@ -5327,7 +5483,7 @@ static int nl80211_start_ap(struct sk_buff *skb, struct genl_info *info)
 	err = cfg80211_validate_beacon_int(rdev, dev->ieee80211_ptr->iftype,
 					   params.beacon_interval);
 	if (err)
-		return err;
+		goto out;
 
 	/*
 	 * In theory, some of these attributes should be required here
@@ -5340,8 +5496,10 @@ static int nl80211_start_ap(struct sk_buff *skb, struct genl_info *info)
 		params.ssid = nla_data(info->attrs[NL80211_ATTR_SSID]);
 		params.ssid_len =
 			nla_len(info->attrs[NL80211_ATTR_SSID]);
-		if (params.ssid_len == 0)
-			return -EINVAL;
+		if (params.ssid_len == 0) {
+			err = -EINVAL;
+			goto out;
+		}
 	}
 
 	if (info->attrs[NL80211_ATTR_HIDDEN_SSID])
@@ -5354,57 +5512,74 @@ static int nl80211_start_ap(struct sk_buff *skb, struct genl_info *info)
 		params.auth_type = nla_get_u32(
 			info->attrs[NL80211_ATTR_AUTH_TYPE]);
 		if (!nl80211_valid_auth_type(rdev, params.auth_type,
-					     NL80211_CMD_START_AP))
-			return -EINVAL;
+					     NL80211_CMD_START_AP)) {
+			err = -EINVAL;
+			goto out;
+		}
 	} else
 		params.auth_type = NL80211_AUTHTYPE_AUTOMATIC;
 
 	err = nl80211_crypto_settings(rdev, info, &params.crypto,
 				      NL80211_MAX_NR_CIPHER_SUITES);
 	if (err)
-		return err;
+		goto out;
 
 	if (info->attrs[NL80211_ATTR_INACTIVITY_TIMEOUT]) {
-		if (!(rdev->wiphy.features & NL80211_FEATURE_INACTIVITY_TIMER))
-			return -EOPNOTSUPP;
+		if (!(rdev->wiphy.features &
+		      NL80211_FEATURE_INACTIVITY_TIMER)) {
+			err = -EOPNOTSUPP;
+			goto out;
+		}
 		params.inactivity_timeout = nla_get_u16(
 			info->attrs[NL80211_ATTR_INACTIVITY_TIMEOUT]);
 	}
 
 	if (info->attrs[NL80211_ATTR_P2P_CTWINDOW]) {
-		if (dev->ieee80211_ptr->iftype != NL80211_IFTYPE_P2P_GO)
-			return -EINVAL;
+		if (dev->ieee80211_ptr->iftype != NL80211_IFTYPE_P2P_GO) {
+			err = -EINVAL;
+			goto out;
+		}
 		params.p2p_ctwindow =
 			nla_get_u8(info->attrs[NL80211_ATTR_P2P_CTWINDOW]);
 		if (params.p2p_ctwindow != 0 &&
-		    !(rdev->wiphy.features & NL80211_FEATURE_P2P_GO_CTWIN))
-			return -EINVAL;
+		    !(rdev->wiphy.features & NL80211_FEATURE_P2P_GO_CTWIN)) {
+			err = -EINVAL;
+			goto out;
+		}
 	}
 
 	if (info->attrs[NL80211_ATTR_P2P_OPPPS]) {
 		u8 tmp;
 
-		if (dev->ieee80211_ptr->iftype != NL80211_IFTYPE_P2P_GO)
-			return -EINVAL;
+		if (dev->ieee80211_ptr->iftype != NL80211_IFTYPE_P2P_GO) {
+			err = -EINVAL;
+			goto out;
+		}
 		tmp = nla_get_u8(info->attrs[NL80211_ATTR_P2P_OPPPS]);
 		params.p2p_opp_ps = tmp;
 		if (params.p2p_opp_ps != 0 &&
-		    !(rdev->wiphy.features & NL80211_FEATURE_P2P_GO_OPPPS))
-			return -EINVAL;
+		    !(rdev->wiphy.features & NL80211_FEATURE_P2P_GO_OPPPS)) {
+			err = -EINVAL;
+			goto out;
+		}
 	}
 
 	if (info->attrs[NL80211_ATTR_WIPHY_FREQ]) {
 		err = nl80211_parse_chandef(rdev, info, &params.chandef);
 		if (err)
-			return err;
+			goto out;
 	} else if (wdev->preset_chandef.chan) {
 		params.chandef = wdev->preset_chandef;
-	} else if (!nl80211_get_ap_channel(rdev, &params))
-		return -EINVAL;
+	} else if (!nl80211_get_ap_channel(rdev, &params)) {
+		err = -EINVAL;
+		goto out;
+	}
 
 	if (!cfg80211_reg_can_beacon_relax(&rdev->wiphy, &params.chandef,
-					   wdev->iftype))
-		return -EINVAL;
+					   wdev->iftype)) {
+		err = -EINVAL;
+		goto out;
+	}
 
 	if (info->attrs[NL80211_ATTR_TX_RATES]) {
 		err = nl80211_parse_tx_bitrate_mask(info, info->attrs,
@@ -5412,12 +5587,12 @@ static int nl80211_start_ap(struct sk_buff *skb, struct genl_info *info)
 						    &params.beacon_rate,
 						    dev, false);
 		if (err)
-			return err;
+			goto out;
 
 		err = validate_beacon_tx_rate(rdev, params.chandef.chan->band,
 					      &params.beacon_rate);
 		if (err)
-			return err;
+			goto out;
 	}
 
 	if (info->attrs[NL80211_ATTR_SMPS_MODE]) {
@@ -5428,29 +5603,38 @@ static int nl80211_start_ap(struct sk_buff *skb, struct genl_info *info)
 			break;
 		case NL80211_SMPS_STATIC:
 			if (!(rdev->wiphy.features &
-			      NL80211_FEATURE_STATIC_SMPS))
-				return -EINVAL;
+			      NL80211_FEATURE_STATIC_SMPS)) {
+				err = -EINVAL;
+				goto out;
+			}
 			break;
 		case NL80211_SMPS_DYNAMIC:
 			if (!(rdev->wiphy.features &
-			      NL80211_FEATURE_DYNAMIC_SMPS))
-				return -EINVAL;
+			      NL80211_FEATURE_DYNAMIC_SMPS)) {
+				err = -EINVAL;
+				goto out;
+			}
 			break;
 		default:
-			return -EINVAL;
+			err = -EINVAL;
+			goto out;
 		}
 	} else {
 		params.smps_mode = NL80211_SMPS_OFF;
 	}
 
 	params.pbss = nla_get_flag(info->attrs[NL80211_ATTR_PBSS]);
-	if (params.pbss && !rdev->wiphy.bands[NL80211_BAND_60GHZ])
-		return -EOPNOTSUPP;
+	if (params.pbss && !rdev->wiphy.bands[NL80211_BAND_60GHZ]) {
+		err = -EOPNOTSUPP;
+		goto out;
+	}
 
 	if (info->attrs[NL80211_ATTR_ACL_POLICY]) {
 		params.acl = parse_acl_data(&rdev->wiphy, info);
-		if (IS_ERR(params.acl))
-			return PTR_ERR(params.acl);
+		if (IS_ERR(params.acl)) {
+			err = PTR_ERR(params.acl);
+			goto out;
+		}
 	}
 
 	params.twt_responder =
@@ -5485,7 +5669,16 @@ static int nl80211_start_ap(struct sk_buff *skb, struct genl_info *info)
 			rdev, info->attrs[NL80211_ATTR_UNSOL_BCAST_PROBE_RESP],
 			&params);
 		if (err)
-			return err;
+			goto out;
+	}
+
+	if (info->attrs[NL80211_ATTR_MULTIPLE_BSSID_CONFIG]) {
+		err = nl80211_parse_multiple_bssid_config(
+			&rdev->wiphy,
+			info->attrs[NL80211_ATTR_MULTIPLE_BSSID_CONFIG],
+			&params);
+		if (err)
+			goto out;
 	}
 
 	nl80211_calculate_ap_params(&params);
@@ -5509,7 +5702,7 @@ static int nl80211_start_ap(struct sk_buff *skb, struct genl_info *info)
 
 out:
 	kfree(params.acl);
-
+	kfree(params.beacon.multiple_bssid);
 	return err;
 }
 
@@ -5533,12 +5726,14 @@ static int nl80211_set_beacon(struct sk_buff *skb, struct genl_info *info)
 
 	err = nl80211_parse_beacon(rdev, info->attrs, &params);
 	if (err)
-		return err;
+		goto out;
 
 	wdev_lock(wdev);
 	err = rdev_change_beacon(rdev, dev, &params);
 	wdev_unlock(wdev);
 
+out:
+	kfree(params.multiple_bssid);
 	return err;
 }
 
@@ -9218,12 +9413,14 @@ static int nl80211_channel_switch(struct sk_buff *skb, struct genl_info *info)
 
 	err = nl80211_parse_beacon(rdev, info->attrs, &params.beacon_after);
 	if (err)
-		return err;
+		goto free;
 
 	csa_attrs = kcalloc(NL80211_ATTR_MAX + 1, sizeof(*csa_attrs),
 			    GFP_KERNEL);
-	if (!csa_attrs)
-		return -ENOMEM;
+	if (!csa_attrs) {
+		err = -ENOMEM;
+		goto free;
+	}
 
 	err = nla_parse_nested_deprecated(csa_attrs, NL80211_ATTR_MAX,
 					  info->attrs[NL80211_ATTR_CSA_IES],
@@ -9341,6 +9538,8 @@ skip_beacons:
 	wdev_unlock(wdev);
 
 free:
+	kfree(params.beacon_after.multiple_bssid);
+	kfree(params.beacon_csa.multiple_bssid);
 	kfree(csa_attrs);
 	return err;
 }

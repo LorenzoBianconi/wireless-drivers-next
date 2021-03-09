@@ -2557,6 +2557,19 @@ enum nl80211_commands {
  *	disassoc events to indicate that an immediate reconnect to the AP
  *	is desired.
  *
+ * @NL80211_ATTR_MULTIPLE_BSSID_CONFIG: Optional parameter to configure
+ *	multiple BSSID and enhanced multi-BSSID advertisements.
+ *	This attribute is also used to advertise the maximum number of VAPs
+ *	supported by the driver to the application. It is a nested attribute,
+ *	see &enum nl80211_multiple_bssid_config_attributes.
+ *
+ * @NL80211_ATTR_MULTIPLE_BSSID_ELEMS: Optional parameter for multiple BSSID
+ *	elements data. This attribute is also used to advertise the maximum
+ *	profile periodicity supported by the driver to the application, if
+ *	enhanced multi-BSS advertisements (EMA) feature is enabled.
+ *	It is a nested attribute, see
+ *	&enum nl80211_multiple_bssid_elems_attributes.
+ *
  * @NUM_NL80211_ATTR: total number of nl80211_attrs available
  * @NL80211_ATTR_MAX: highest attribute number currently defined
  * @__NL80211_ATTR_AFTER_LAST: internal use
@@ -3053,6 +3066,9 @@ enum nl80211_attrs {
 	NL80211_ATTR_SAR_SPEC,
 
 	NL80211_ATTR_DISABLE_HE,
+
+	NL80211_ATTR_MULTIPLE_BSSID_CONFIG,
+	NL80211_ATTR_MULTIPLE_BSSID_ELEMS,
 
 	/* add attributes here, update the policy in nl80211.c */
 
@@ -5937,6 +5953,11 @@ enum nl80211_feature_flags {
  * @NL80211_EXT_FEATURE_BEACON_RATE_HE: Driver supports beacon rate
  *	configuration (AP/mesh) with HE rates.
  *
+ * @NL80211_EXT_FEATURE_MULTIPLE_BSSID: Driver/device supports multiple BSSID
+ *	advertisements.
+ * @NL80211_EXT_FEATURE_EMA_AP: Driver/device supports enhanced multiple BSSID
+ *	advertisements (EMA).
+ *
  * @NUM_NL80211_EXT_FEATURES: number of extended features.
  * @MAX_NL80211_EXT_FEATURES: highest extended feature index.
  */
@@ -5998,6 +6019,8 @@ enum nl80211_ext_feature_index {
 	NL80211_EXT_FEATURE_FILS_DISCOVERY,
 	NL80211_EXT_FEATURE_UNSOL_BCAST_PROBE_RESP,
 	NL80211_EXT_FEATURE_BEACON_RATE_HE,
+	NL80211_EXT_FEATURE_MULTIPLE_BSSID_AP,
+	NL80211_EXT_FEATURE_EMA_AP,
 
 	/* add new features before the definition below */
 	NUM_NL80211_EXT_FEATURES,
@@ -7275,6 +7298,67 @@ enum nl80211_sar_specs_attrs {
 
 	__NL80211_SAR_ATTR_SPECS_LAST,
 	NL80211_SAR_ATTR_SPECS_MAX = __NL80211_SAR_ATTR_SPECS_LAST - 1,
+};
+
+/**
+ * enum nl80211_multiple_bssid_config_attributes - Attributes to configure
+ *	multiple BSSID and enhanced multi-BSSID advertisements.
+ *
+ * @__NL80211_MULTIPLE_BSSID_CONFIG_ATTR_INVALID: Invalid
+ *
+ * @NL80211_MULTIPLE_BSSID_CONFIG_ATTR_PARENT: For a non-transmitted BSSID, this
+ *	attribute provides the interface index (u32) of the transmitted profile
+ *	in the multiple BSSID set.
+ *
+ * @NL80211_MULTIPLE_BSSID_CONFIG_ATTR_INDEX: The index of this BSS (u8) inside
+ *	multiple BSSID set.
+ *
+ * @NL80211_MULTIPLE_BSSID_CONFIG_ATTR_COUNT: Total number of BSSs (u8) in the
+ *	multiple BSSID set.
+ *
+ * @NL80211_MULTIPLE_BSSID_CONFIG_ATTR_EMA: Flag to indicate if enhanced multi-BSSID
+ *	advertisements (EMA) feature is enabled.
+ *	If set to 1, elements provided through attribute
+ *	%NL80211_ATTR_MULTIPLE_BSSID_ELEMS are split into multiple beacons.
+ *	Otherwise, all elements will be included in every beacon.
+ *
+ * @__NL80211_MULTIPLE_BSSID_CONFIG_ATTR_LAST: Internal
+ * @NL80211_MULTIPLE_BSSID_CONFIG_ATTR_MAX: highest attribute
+ */
+enum nl80211_multiple_bssid_config_attributes {
+	__NL80211_MULTIPLE_BSSID_CONFIG_ATTR_INVALID,
+
+	NL80211_MULTIPLE_BSSID_CONFIG_ATTR_PARENT,
+	NL80211_MULTIPLE_BSSID_CONFIG_ATTR_INDEX,
+	NL80211_MULTIPLE_BSSID_CONFIG_ATTR_COUNT,
+	NL80211_MULTIPLE_BSSID_CONFIG_ATTR_EMA,
+
+	/* keep last */
+	__NL80211_MULTIPLE_BSSID_CONFIG_ATTR_LAST,
+	NL80211_MULTIPLE_BSSID_CONFIG_ATTR_MAX =
+		__NL80211_MULTIPLE_BSSID_CONFIG_ATTR_LAST - 1,
+};
+
+/**
+ * enum nl80211_multiple_bssid_elems_attributes - Attributes used to pass
+ *	multiple BSSID elements data.
+ *
+ * @__NL80211_MULTIPLE_BSSID_ELEMS_ATTR_INVALID: Invalid
+ *
+ * @NL80211_MULTIPLE_BSSID_ELEMS_ATTR_COUNT: Number of multiple BSSID
+ *	elements (u8).
+ *
+ * @NL80211_MULTIPLE_BSSID_ELEMS_ATTR_DATA: Array of multiple BSSID elements.
+ */
+enum nl80211_multiple_bssid_elems_attributes {
+	__NL80211_MULTIPLE_BSSID_ELEMS_ATTR_INVALID,
+
+	NL80211_MULTIPLE_BSSID_ELEMS_ATTR_COUNT,
+	NL80211_MULTIPLE_BSSID_ELEMS_ATTR_DATA,
+
+	__NL80211_MULTIPLE_BSSID_ELEMS_ATTR_LAST,
+	NL80211_MULTIPLE_BSSID_ELEMS_ATTR_MAX =
+		__NL80211_MULTIPLE_BSSID_ELEMS_ATTR_LAST - 1,
 };
 
 #endif /* __LINUX_NL80211_H */

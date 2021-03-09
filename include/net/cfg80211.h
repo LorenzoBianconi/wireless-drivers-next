@@ -486,6 +486,21 @@ struct ieee80211_supported_band {
 };
 
 /**
+ * struct cfg80211_multiple_bssid - AP settings for multi bssid
+ *
+ * @index: the index of this AP in the multi bssid group.
+ * @count: the total number of multi bssid peer APs.
+ * @parent: non-transmitted BSSs transmitted parents index
+ * @ema: Shall the beacons be sent out in EMA mode.
+ */
+struct cfg80211_multiple_bssid {
+	u8 index;
+	u8 count;
+	u32 parent;
+	bool ema;
+};
+
+/**
  * ieee80211_get_sband_iftype_data - return sband data for a given iftype
  * @sband: the sband to search for the STA on
  * @iftype: enum nl80211_iftype
@@ -1033,6 +1048,23 @@ struct cfg80211_crypto_settings {
 };
 
 /**
+ * struct cfg80211_multiple_bssid_data - Multiple BSSID elements
+ *
+ * @cnt: Number of elements in array %elems.
+ *
+ * @elems: Array of multiple BSSID element(s) to be added into Beacon frames.
+ * @elems.data: Data for multiple BSSID elements.
+ * @elems.len: Length of data.
+ */
+struct cfg80211_multiple_bssid_data {
+	u8 cnt;
+	struct {
+		u8 *data;
+		size_t len;
+	} elems[];
+};
+
+/**
  * struct cfg80211_beacon_data - beacon data
  * @head: head portion of beacon (before TIM IE)
  *	or %NULL if not changed
@@ -1058,6 +1090,7 @@ struct cfg80211_crypto_settings {
  *	Token (measurement type 11)
  * @lci_len: LCI data length
  * @civicloc_len: Civic location data length
+ * @multiple_bssid: multiple_bssid elements
  */
 struct cfg80211_beacon_data {
 	const u8 *head, *tail;
@@ -1076,6 +1109,8 @@ struct cfg80211_beacon_data {
 	size_t probe_resp_len;
 	size_t lci_len;
 	size_t civicloc_len;
+
+	struct cfg80211_multiple_bssid_data *multiple_bssid;
 };
 
 struct mac_address {
@@ -1181,6 +1216,7 @@ enum cfg80211_ap_settings_flags {
  * @he_oper: HE operation IE (or %NULL if HE isn't enabled)
  * @fils_discovery: FILS discovery transmission parameters
  * @unsol_bcast_probe_resp: Unsolicited broadcast probe response parameters
+ * @multiple_bssid: AP settings for multiple bssid.
  */
 struct cfg80211_ap_settings {
 	struct cfg80211_chan_def chandef;
@@ -1213,6 +1249,7 @@ struct cfg80211_ap_settings {
 	struct cfg80211_he_bss_color he_bss_color;
 	struct cfg80211_fils_discovery fils_discovery;
 	struct cfg80211_unsol_bcast_probe_resp unsol_bcast_probe_resp;
+	struct cfg80211_multiple_bssid multiple_bssid;
 };
 
 /**
@@ -4941,6 +4978,11 @@ struct wiphy_iftype_akm_suites {
  *	configuration through the %NL80211_TID_CONFIG_ATTR_RETRY_SHORT and
  *	%NL80211_TID_CONFIG_ATTR_RETRY_LONG attributes
  * @sar_capa: SAR control capabilities
+ *
+ * @multiple_bssid: Describes device's multiple BSSID config support
+ * @multiple_bssid.max_num_vaps: Maximum number of VAPS supported by the driver
+ * @multiple_bssid.max_num_elems: Maximum number of multiple BSSID elements
+ *	supported by the driver
  */
 struct wiphy {
 	struct mutex mtx;
@@ -5082,6 +5124,11 @@ struct wiphy {
 	u8 max_data_retry_count;
 
 	const struct cfg80211_sar_capa *sar_capa;
+
+	struct {
+		u8 max_num_vaps;
+		u8 max_profile_periodicity;
+	} multiple_bssid;
 
 	char priv[] __aligned(NETDEV_ALIGN);
 };
