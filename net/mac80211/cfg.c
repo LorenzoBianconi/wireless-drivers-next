@@ -111,6 +111,39 @@ static int ieee80211_set_mon_options(struct ieee80211_sub_if_data *sdata,
 	return 0;
 }
 
+static void ieee80211_set_multiple_bssid_options(struct ieee80211_sub_if_data *sdata,
+						 struct cfg80211_ap_settings *params)
+{
+	struct ieee80211_local *local = sdata->local;
+	struct wiphy *wiphy = local->hw.wiphy;
+	struct net_device *parent;
+	struct ieee80211_sub_if_data *psdata;
+
+	if (!ieee80211_hw_check(&local->hw, SUPPORTS_MULTI_BSSID_AP))
+		return;
+
+	if (!params->multiple_bssid.count)
+		return;
+
+	if (params->multiple_bssid.parent) {
+		parent = __dev_get_by_index(wiphy_net(wiphy),
+					    params->multiple_bssid.parent);
+		if (!parent || !parent->ieee80211_ptr)
+			return;
+		psdata = IEEE80211_WDEV_TO_SUB_IF(parent->ieee80211_ptr);
+		if (psdata->vif.multiple_bssid.parent)
+			return;
+		sdata->vif.multiple_bssid.parent = &psdata->vif;
+		sdata->vif.multiple_bssid.flags |= IEEE80211_VIF_MBSS_NON_TRANSMITTING;
+	} else {
+		sdata->vif.multiple_bssid.flags |= IEEE80211_VIF_MBSS_TRANSMITTING;
+	}
+
+	if (params->multiple_bssid.ema)
+		sdata->vif.multiple_bssid.flags |= IEEE80211_VIF_MBSS_EMA_BEACON;
+	sdata->vif.bss_conf.multiple_bssid = params->multiple_bssid;
+}
+
 static struct wireless_dev *ieee80211_add_iface(struct wiphy *wiphy,
 						const char *name,
 						unsigned char name_assign_type,
@@ -141,6 +174,23 @@ static struct wireless_dev *ieee80211_add_iface(struct wiphy *wiphy,
 
 static int ieee80211_del_iface(struct wiphy *wiphy, struct wireless_dev *wdev)
 {
+	struct ieee80211_sub_if_data *sdata;
+
+	sdata = IEEE80211_WDEV_TO_SUB_IF(wdev);
+	if (sdata && sdata->vif.type == NL80211_IFTYPE_AP) {
+		if (sdata->vif.multiple_bssid.flags & IEEE80211_VIF_MBSS_TRANSMITTING) {
+			struct ieee80211_sub_if_data *child;
+
+			rcu_read_lock();
+			list_for_each_entry_rcu(child, &sdata->local->interfaces, list)
+				if (child->vif.multiple_bssid.parent == &sdata->vif)
+					dev_close(child->wdev.netdev);
+			rcu_read_unlock();
+		} else {
+			sdata->vif.multiple_bssid.parent = NULL;
+		}
+	}
+
 	ieee80211_if_remove(IEEE80211_WDEV_TO_SUB_IF(wdev));
 
 	return 0;
@@ -1077,6 +1127,9 @@ static int ieee80211_start_ap(struct wiphy *wiphy, struct net_device *dev,
 		if (params->he_bss_color.enabled)
 			changed |= BSS_CHANGED_HE_BSS_COLOR;
 	}
+
+	if (sdata->vif.type == NL80211_IFTYPE_AP)
+		ieee80211_set_multiple_bssid_options(sdata, params);
 
 	mutex_lock(&local->mtx);
 	err = ieee80211_vif_use_channel(sdata, &params->chandef,

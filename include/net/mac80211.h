@@ -631,6 +631,7 @@ struct ieee80211_fils_discovery {
  * @s1g: BSS is S1G BSS (affects Association Request format).
  * @beacon_tx_rate: The configured beacon transmit rate that needs to be passed
  *	to driver when rate control is offloaded to firmware.
+ * @multiple_bssid: the multiple bssid settings of the AP.
  */
 struct ieee80211_bss_conf {
 	const u8 *bssid;
@@ -700,6 +701,7 @@ struct ieee80211_bss_conf {
 	u32 unsol_bcast_probe_resp_interval;
 	bool s1g;
 	struct cfg80211_bitrate_mask beacon_tx_rate;
+	struct cfg80211_multiple_bssid multiple_bssid;
 };
 
 /**
@@ -1664,6 +1666,19 @@ enum ieee80211_offload_flags {
 };
 
 /**
+ * enum ieee80211_vif_multiple_bssid_flags - virtual interface multiple bssid flags
+ *
+ * @IEEE80211_VIF_MBSS_TRANSMITTING: this BSS is transmitting beacons
+ * @IEEE80211_VIF_MBSS_NON_TRANSMITTING: this BSS is not transmitting beacons
+ * @IEEE80211_VIF_MBSS_EMA_BEACON: beacons should be send out in EMA mode
+ */
+enum ieee80211_vif_multiple_bssid_flags {
+	IEEE80211_VIF_MBSS_TRANSMITTING         = BIT(1),
+	IEEE80211_VIF_MBSS_NON_TRANSMITTING     = BIT(2),
+	IEEE80211_VIF_MBSS_EMA_BEACON           = BIT(3),
+};
+
+/**
  * struct ieee80211_vif - per-interface data
  *
  * Data in this structure is continually present for driver
@@ -1709,6 +1724,11 @@ enum ieee80211_offload_flags {
  *	protected by fq->lock.
  * @offload_flags: 802.3 -> 802.11 enapsulation offload flags, see
  *	&enum ieee80211_offload_flags.
+ *
+ * @multiple_bssid: Multiple BSSID configurations.
+ * @multiple_bssid.parent: Interface index of the transmitted BSS.
+ * @multiple_bssid.flags: multiple bssid flags, see
+ *	enum ieee80211_vif_multiple_bssid_flags.
  */
 struct ieee80211_vif {
 	enum nl80211_iftype type;
@@ -1736,6 +1756,11 @@ struct ieee80211_vif {
 	bool rx_mcast_action_reg;
 
 	bool txqs_stopped[IEEE80211_NUM_ACS];
+
+	struct {
+		struct ieee80211_vif *parent;
+		u32 flags;
+	} multiple_bssid;
 
 	/* must be last */
 	u8 drv_priv[] __aligned(sizeof(void *));
@@ -2384,7 +2409,7 @@ struct ieee80211_txq {
  * @IEEE80211_HW_TX_STATUS_NO_AMPDU_LEN: Driver does not report accurate A-MPDU
  *	length in tx status information
  *
- * @IEEE80211_HW_SUPPORTS_MULTI_BSSID: Hardware supports multi BSSID
+ * @IEEE80211_HW_SUPPORTS_MULTI_BSSID: Hardware supports multi BSSID in STA mode
  *
  * @IEEE80211_HW_SUPPORTS_ONLY_HE_MULTI_BSSID: Hardware supports multi BSSID
  *	only for HE APs. Applies if @IEEE80211_HW_SUPPORTS_MULTI_BSSID is set.
@@ -2399,6 +2424,8 @@ struct ieee80211_txq {
  * @IEEE80211_HW_SUPPORTS_RX_DECAP_OFFLOAD: Hardware supports rx decapsulation
  *	offload
  *
+ * @IEEE80211_HW_SUPPORTS_MULTI_BSSID_AP: Hardware supports multi BSSID in
+ *	AP mode
  * @NUM_IEEE80211_HW_FLAGS: number of hardware flags, used for sizing arrays
  */
 enum ieee80211_hw_flags {
@@ -2453,6 +2480,7 @@ enum ieee80211_hw_flags {
 	IEEE80211_HW_AMPDU_KEYBORDER_SUPPORT,
 	IEEE80211_HW_SUPPORTS_TX_ENCAP_OFFLOAD,
 	IEEE80211_HW_SUPPORTS_RX_DECAP_OFFLOAD,
+	IEEE80211_HW_SUPPORTS_MULTI_BSSID_AP,
 
 	/* keep last, obviously */
 	NUM_IEEE80211_HW_FLAGS
