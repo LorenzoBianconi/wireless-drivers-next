@@ -4724,11 +4724,71 @@ static int ieee80211_beacon_protect(struct sk_buff *skb,
 	return 0;
 }
 
+static int ieee80211_beacon_multiple_bssid_len(struct beacon_data *beacon,
+					       int index)
+{
+	int len = 0, i;
+
+	if (index == IEEE80211_BCN_EMA_NEXT) {
+		index = beacon->ema_index;
+		beacon->ema_index++;
+		beacon->ema_index %= beacon->multiple_bssid->cnt;
+	}
+
+	if (index != IEEE80211_BCN_EMA_NONE &&
+	    index >= beacon->multiple_bssid->cnt)
+		return -1;
+
+	if (beacon->multiple_bssid->cnt) {
+		if (index >= IEEE80211_BCN_EMA_INDEX) {
+			len = beacon->multiple_bssid->elems[index].len;
+		} else {
+			for (i = 0; i < beacon->multiple_bssid->cnt; i++)
+				len += beacon->multiple_bssid->elems[i].len;
+		}
+	}
+	return len;
+}
+
+static void
+ieee80211_beacon_add_multiple_bssid_config(struct ieee80211_vif *vif,
+					   struct sk_buff *skb,
+					   struct cfg80211_multiple_bssid_data *config)
+{
+	u8 *pos = skb_put(skb, 5);
+
+	*pos++ = WLAN_EID_EXTENSION;
+	*pos++ = 3;
+	*pos++ = WLAN_EID_EXT_MULTIPLE_BSSID_CONFIGURATION;
+	*pos++ = vif->bss_conf.multiple_bssid.count;
+	*pos++ = config->cnt;
+}
+
+static void
+ieee80211_beacon_add_multiple_bssid(struct ieee80211_vif *vif,
+				    struct sk_buff *skb,
+				    struct cfg80211_multiple_bssid_data *config,
+				    int index)
+{
+	if (index >= IEEE80211_BCN_EMA_INDEX) {
+		ieee80211_beacon_add_multiple_bssid_config(vif, skb, config);
+		skb_put_data(skb, config->elems[index].data,
+			     config->elems[index].len);
+	} else {
+		int i;
+
+		for (i = 0; i < config->cnt; i++)
+			skb_put_data(skb, config->elems[i].data,
+				     config->elems[i].len);
+	}
+}
+
 static struct sk_buff *
 __ieee80211_beacon_get(struct ieee80211_hw *hw,
 		       struct ieee80211_vif *vif,
 		       struct ieee80211_mutable_offsets *offs,
-		       bool is_template)
+		       bool is_template,
+		       int ema_index)
 {
 	struct ieee80211_local *local = hw_to_local(hw);
 	struct beacon_data *beacon = NULL;
@@ -4740,13 +4800,11 @@ __ieee80211_beacon_get(struct ieee80211_hw *hw,
 	struct ieee80211_chanctx_conf *chanctx_conf;
 	int csa_off_base = 0;
 
-	rcu_read_lock();
-
 	sdata = vif_to_sdata(vif);
 	chanctx_conf = rcu_dereference(sdata->vif.chanctx_conf);
 
 	if (!ieee80211_sdata_running(sdata) || !chanctx_conf)
-		goto out;
+		return NULL;
 
 	if (offs)
 		memset(offs, 0, sizeof(*offs));
@@ -4756,11 +4814,22 @@ __ieee80211_beacon_get(struct ieee80211_hw *hw,
 
 		beacon = rcu_dereference(ap->beacon);
 		if (beacon) {
+			int multiple_bssid_elems_len = 0;
+			int multiple_bssid_config_len = 5;
+
 			if (beacon->cntdwn_counter_offsets[0]) {
 				if (!is_template)
 					ieee80211_beacon_update_cntdwn(vif);
 
 				ieee80211_set_beacon_cntdwn(sdata, beacon);
+			}
+
+			if (beacon->multiple_bssid) {
+				multiple_bssid_elems_len =
+					ieee80211_beacon_multiple_bssid_len(beacon,
+									    ema_index);
+				if (multiple_bssid_elems_len == -1)
+					return NULL;
 			}
 
 			/*
@@ -4770,9 +4839,11 @@ __ieee80211_beacon_get(struct ieee80211_hw *hw,
 			skb = dev_alloc_skb(local->tx_headroom +
 					    beacon->head_len +
 					    beacon->tail_len + 256 +
-					    local->hw.extra_beacon_tailroom);
+					    local->hw.extra_beacon_tailroom +
+					    multiple_bssid_config_len +
+					    multiple_bssid_elems_len);
 			if (!skb)
-				goto out;
+				return NULL;
 
 			skb_reserve(skb, local->tx_headroom);
 			skb_put_data(skb, beacon->head, beacon->head_len);
@@ -4788,21 +4859,32 @@ __ieee80211_beacon_get(struct ieee80211_hw *hw,
 				csa_off_base = skb->len;
 			}
 
+			if (multiple_bssid_elems_len) {
+				ieee80211_beacon_add_multiple_bssid(vif, skb,
+								    beacon->multiple_bssid,
+								    ema_index);
+				if (offs) {
+					offs->multiple_bssid_offset = skb->len -
+								      multiple_bssid_elems_len;
+					csa_off_base = skb->len;
+				}
+			}
+
 			if (beacon->tail)
 				skb_put_data(skb, beacon->tail,
 					     beacon->tail_len);
 
 			if (ieee80211_beacon_protect(skb, local, sdata) < 0)
-				goto out;
+				return NULL;
 		} else
-			goto out;
+			return NULL;
 	} else if (sdata->vif.type == NL80211_IFTYPE_ADHOC) {
 		struct ieee80211_if_ibss *ifibss = &sdata->u.ibss;
 		struct ieee80211_hdr *hdr;
 
 		beacon = rcu_dereference(ifibss->presp);
 		if (!beacon)
-			goto out;
+			return NULL;
 
 		if (beacon->cntdwn_counter_offsets[0]) {
 			if (!is_template)
@@ -4814,7 +4896,7 @@ __ieee80211_beacon_get(struct ieee80211_hw *hw,
 		skb = dev_alloc_skb(local->tx_headroom + beacon->head_len +
 				    local->hw.extra_beacon_tailroom);
 		if (!skb)
-			goto out;
+			return NULL;
 		skb_reserve(skb, local->tx_headroom);
 		skb_put_data(skb, beacon->head, beacon->head_len);
 
@@ -4826,7 +4908,7 @@ __ieee80211_beacon_get(struct ieee80211_hw *hw,
 
 		beacon = rcu_dereference(ifmsh->beacon);
 		if (!beacon)
-			goto out;
+			return NULL;
 
 		if (beacon->cntdwn_counter_offsets[0]) {
 			if (!is_template)
@@ -4849,7 +4931,7 @@ __ieee80211_beacon_get(struct ieee80211_hw *hw,
 				    beacon->tail_len +
 				    local->hw.extra_beacon_tailroom);
 		if (!skb)
-			goto out;
+			return NULL;
 		skb_reserve(skb, local->tx_headroom);
 		skb_put_data(skb, beacon->head, beacon->head_len);
 		ieee80211_beacon_add_tim(sdata, &ifmsh->ps, skb, is_template);
@@ -4862,7 +4944,7 @@ __ieee80211_beacon_get(struct ieee80211_hw *hw,
 		skb_put_data(skb, beacon->tail, beacon->tail_len);
 	} else {
 		WARN_ON(1);
-		goto out;
+		return NULL;
 	}
 
 	/* CSA offsets */
@@ -4905,27 +4987,92 @@ __ieee80211_beacon_get(struct ieee80211_hw *hw,
 	info->flags |= IEEE80211_TX_CTL_CLEAR_PS_FILT |
 			IEEE80211_TX_CTL_ASSIGN_SEQ |
 			IEEE80211_TX_CTL_FIRST_FRAGMENT;
- out:
-	rcu_read_unlock();
 	return skb;
 
 }
 
-struct sk_buff *
-ieee80211_beacon_get_template(struct ieee80211_hw *hw,
-			      struct ieee80211_vif *vif,
-			      struct ieee80211_mutable_offsets *offs)
+struct sk_buff *ieee80211_beacon_get_template(struct ieee80211_hw *hw,
+					      struct ieee80211_vif *vif,
+					      struct ieee80211_mutable_offsets *offs)
 {
-	return __ieee80211_beacon_get(hw, vif, offs, true);
+	struct sk_buff *bcn;
+
+	rcu_read_lock();
+	bcn = __ieee80211_beacon_get(hw, vif, offs, true,
+				     IEEE80211_BCN_EMA_NONE);
+	rcu_read_unlock();
+
+	return bcn;
 }
 EXPORT_SYMBOL(ieee80211_beacon_get_template);
+
+struct sk_buff *ieee80211_beacon_get_template_ema_next(struct ieee80211_hw *hw,
+						       struct ieee80211_vif *vif,
+						       struct ieee80211_mutable_offsets *offs)
+{
+	struct sk_buff *bcn;
+
+	rcu_read_lock();
+	bcn = __ieee80211_beacon_get(hw, vif, offs, true,
+				     IEEE80211_BCN_EMA_NEXT);
+	rcu_read_unlock();
+
+	return bcn;
+}
+EXPORT_SYMBOL(ieee80211_beacon_get_template_ema_next);
+
+void ieee80211_beacon_free_ema_list(struct list_head *head)
+{
+	struct ieee80211_ema_bcn_list *ema, *tmp;
+
+	list_for_each_entry_safe(ema, tmp, head, list) {
+		kfree_skb(ema->skb);
+		kfree(ema);
+	}
+}
+EXPORT_SYMBOL(ieee80211_beacon_free_ema_list);
+
+int
+ieee80211_beacon_get_template_ema_list(struct ieee80211_hw *hw,
+				       struct ieee80211_vif *vif,
+				       struct list_head *head)
+{
+	int cnt = 0;
+
+	rcu_read_lock();
+	while (true) {
+		struct ieee80211_ema_bcn_list *ema;
+
+		ema = kmalloc(sizeof(*ema), GFP_KERNEL);
+		if (!ema) {
+			ieee80211_beacon_free_ema_list(head);
+			cnt = 0;
+			goto out;
+		}
+
+		ema->skb = __ieee80211_beacon_get(hw, vif, &ema->offs, true,
+						  cnt);
+		if (!ema->skb) {
+			kfree(ema);
+			break;
+		}
+		list_add_tail(&ema->list, head);
+		cnt++;
+	}
+out:
+	rcu_read_unlock();
+
+	return cnt;
+}
+EXPORT_SYMBOL(ieee80211_beacon_get_template_ema_list);
 
 struct sk_buff *ieee80211_beacon_get_tim(struct ieee80211_hw *hw,
 					 struct ieee80211_vif *vif,
 					 u16 *tim_offset, u16 *tim_length)
 {
 	struct ieee80211_mutable_offsets offs = {};
-	struct sk_buff *bcn = __ieee80211_beacon_get(hw, vif, &offs, false);
+	struct sk_buff *bcn = __ieee80211_beacon_get(hw, vif, &offs, false,
+						     IEEE80211_BCN_EMA_NONE);
 	struct sk_buff *copy;
 	struct ieee80211_supported_band *sband;
 	int shift;

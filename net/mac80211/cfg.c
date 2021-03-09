@@ -984,14 +984,49 @@ static int ieee80211_set_ftm_responder_params(
 	return 0;
 }
 
+static int ieee80211_get_multiple_bssid_beacon_len(struct cfg80211_multiple_bssid_data *data)
+{
+	int i, len = 0;
+
+	if (!data)
+		return 0;
+
+	for (i = 0; i < data->cnt; i++)
+		len += data->elems[i].len;
+
+	return len;
+}
+
+static u8 *ieee80211_copy_multiple_bssid_beacon(u8 *offset,
+						struct cfg80211_multiple_bssid_data *dest,
+						struct cfg80211_multiple_bssid_data *src)
+{
+	int i;
+
+	if (!dest || !src)
+		return offset;
+
+	dest->cnt = src->cnt;
+	for (i = 0; i < dest->cnt; i++) {
+		dest->elems[i].len = src->elems[i].len;
+		dest->elems[i].data = offset;
+		memcpy(dest->elems[i].data, src->elems[i].data,
+		       dest->elems[i].len);
+		offset += dest->elems[i].len;
+	}
+
+	return offset;
+}
+
 static int ieee80211_assign_beacon(struct ieee80211_sub_if_data *sdata,
 				   struct cfg80211_beacon_data *params,
 				   const struct ieee80211_csa_settings *csa)
 {
 	struct beacon_data *new, *old;
-	int new_head_len, new_tail_len;
+	int new_head_len, new_tail_len, new_multiple_bssid_len = 0;
 	int size, err;
 	u32 changed = BSS_CHANGED_BEACON;
+	u8 *new_multiple_bssid_offset;
 
 	old = sdata_dereference(sdata->u.ap.beacon, sdata);
 
@@ -1013,11 +1048,29 @@ static int ieee80211_assign_beacon(struct ieee80211_sub_if_data *sdata,
 	else
 		new_tail_len = old->tail_len;
 
-	size = sizeof(*new) + new_head_len + new_tail_len;
+	/* new or old multiple_bssid? */
+	if (params->multiple_bssid)
+		new_multiple_bssid_len =
+			ieee80211_get_multiple_bssid_beacon_len(params->multiple_bssid);
+	else if (old && old->multiple_bssid)
+		new_multiple_bssid_len =
+			ieee80211_get_multiple_bssid_beacon_len(old->multiple_bssid);
+
+	size = sizeof(*new) + new_head_len + new_tail_len +
+	       new_multiple_bssid_len;
 
 	new = kzalloc(size, GFP_KERNEL);
 	if (!new)
 		return -ENOMEM;
+
+	if (new_multiple_bssid_len) {
+		new->multiple_bssid = kzalloc(sizeof(*params->multiple_bssid),
+					      GFP_KERNEL);
+		if (!new->multiple_bssid) {
+			kfree(new);
+			return -ENOMEM;
+		}
+	}
 
 	/* start filling the new info now */
 
@@ -1029,6 +1082,17 @@ static int ieee80211_assign_beacon(struct ieee80211_sub_if_data *sdata,
 	new->tail = new->head + new_head_len;
 	new->head_len = new_head_len;
 	new->tail_len = new_tail_len;
+
+	/* copy in optional multiple_bssid_ies */
+	new_multiple_bssid_offset = new->tail + new_tail_len;
+	if (params->multiple_bssid)
+		ieee80211_copy_multiple_bssid_beacon(new_multiple_bssid_offset,
+						     new->multiple_bssid,
+						     params->multiple_bssid);
+	else if (old && old->multiple_bssid)
+		ieee80211_copy_multiple_bssid_beacon(new_multiple_bssid_offset,
+						     new->multiple_bssid,
+						     old->multiple_bssid);
 
 	if (csa) {
 		new->cntdwn_current_counter = csa->count;
@@ -1053,6 +1117,7 @@ static int ieee80211_assign_beacon(struct ieee80211_sub_if_data *sdata,
 	err = ieee80211_set_probe_resp(sdata, params->probe_resp,
 				       params->probe_resp_len, csa);
 	if (err < 0) {
+		kfree(new->multiple_bssid);
 		kfree(new);
 		return err;
 	}
@@ -1068,6 +1133,7 @@ static int ieee80211_assign_beacon(struct ieee80211_sub_if_data *sdata,
 							 params->civicloc_len);
 
 		if (err < 0) {
+			kfree(new->multiple_bssid);
 			kfree(new);
 			return err;
 		}
@@ -1077,9 +1143,10 @@ static int ieee80211_assign_beacon(struct ieee80211_sub_if_data *sdata,
 
 	rcu_assign_pointer(sdata->u.ap.beacon, new);
 
-	if (old)
+	if (old) {
+		kfree(old->multiple_bssid);
 		kfree_rcu(old, rcu_head);
-
+	}
 	return changed;
 }
 
@@ -1234,8 +1301,10 @@ static int ieee80211_start_ap(struct wiphy *wiphy, struct net_device *dev,
 	if (err) {
 		old = sdata_dereference(sdata->u.ap.beacon, sdata);
 
-		if (old)
+		if (old) {
+			kfree(old->multiple_bssid);
 			kfree_rcu(old, rcu_head);
+		}
 		RCU_INIT_POINTER(sdata->u.ap.beacon, NULL);
 		goto error;
 	}
@@ -1315,8 +1384,11 @@ static int ieee80211_stop_ap(struct wiphy *wiphy, struct net_device *dev)
 
 	mutex_unlock(&local->mtx);
 
-	kfree(sdata->u.ap.next_beacon);
-	sdata->u.ap.next_beacon = NULL;
+	if (sdata->u.ap.next_beacon) {
+		kfree(sdata->u.ap.next_beacon->multiple_bssid);
+		kfree(sdata->u.ap.next_beacon);
+		sdata->u.ap.next_beacon = NULL;
+	}
 
 	/* turn off carrier for this interface and dependent VLANs */
 	list_for_each_entry(vlan, &sdata->u.ap.vlans, u.vlan.list)
@@ -1328,6 +1400,7 @@ static int ieee80211_stop_ap(struct wiphy *wiphy, struct net_device *dev)
 	RCU_INIT_POINTER(sdata->u.ap.probe_resp, NULL);
 	RCU_INIT_POINTER(sdata->u.ap.fils_discovery, NULL);
 	RCU_INIT_POINTER(sdata->u.ap.unsol_bcast_probe_resp, NULL);
+	kfree(old_beacon->multiple_bssid);
 	kfree_rcu(old_beacon, rcu_head);
 	if (old_probe_resp)
 		kfree_rcu(old_probe_resp, rcu_head);
@@ -3084,13 +3157,24 @@ cfg80211_beacon_dup(struct cfg80211_beacon_data *beacon)
 
 	len = beacon->head_len + beacon->tail_len + beacon->beacon_ies_len +
 	      beacon->proberesp_ies_len + beacon->assocresp_ies_len +
-	      beacon->probe_resp_len + beacon->lci_len + beacon->civicloc_len;
+	      beacon->probe_resp_len + beacon->lci_len + beacon->civicloc_len +
+	      ieee80211_get_multiple_bssid_beacon_len(beacon->multiple_bssid);
 
 	new_beacon = kzalloc(sizeof(*new_beacon) + len, GFP_KERNEL);
 	if (!new_beacon)
 		return NULL;
 
+	if (beacon->multiple_bssid) {
+		new_beacon->multiple_bssid = kzalloc(sizeof(*beacon->multiple_bssid),
+						     GFP_KERNEL);
+		if (!new_beacon->multiple_bssid) {
+			kfree(new_beacon);
+			return NULL;
+		}
+	}
+
 	pos = (u8 *)(new_beacon + 1);
+
 	if (beacon->head_len) {
 		new_beacon->head_len = beacon->head_len;
 		new_beacon->head = pos;
@@ -3127,6 +3211,10 @@ cfg80211_beacon_dup(struct cfg80211_beacon_data *beacon)
 		memcpy(pos, beacon->probe_resp, beacon->probe_resp_len);
 		pos += beacon->probe_resp_len;
 	}
+	if (beacon->multiple_bssid && beacon->multiple_bssid->cnt)
+		pos = ieee80211_copy_multiple_bssid_beacon(pos,
+							   new_beacon->multiple_bssid,
+							   beacon->multiple_bssid);
 
 	/* might copy -1, meaning no changes requested */
 	new_beacon->ftm_responder = beacon->ftm_responder;
@@ -3164,8 +3252,11 @@ static int ieee80211_set_after_csa_beacon(struct ieee80211_sub_if_data *sdata,
 	case NL80211_IFTYPE_AP:
 		err = ieee80211_assign_beacon(sdata, sdata->u.ap.next_beacon,
 					      NULL);
-		kfree(sdata->u.ap.next_beacon);
-		sdata->u.ap.next_beacon = NULL;
+		if (sdata->u.ap.next_beacon) {
+			kfree(sdata->u.ap.next_beacon->multiple_bssid);
+			kfree(sdata->u.ap.next_beacon);
+			sdata->u.ap.next_beacon = NULL;
+		}
 
 		if (err < 0)
 			return err;
@@ -3330,7 +3421,8 @@ static int ieee80211_set_csa_beacon(struct ieee80211_sub_if_data *sdata,
 		csa.count = params->count;
 
 		err = ieee80211_assign_beacon(sdata, &params->beacon_csa, &csa);
-		if (err < 0) {
+		if (err < 0 && sdata->u.ap.next_beacon) {
+			kfree(sdata->u.ap.next_beacon->multiple_bssid);
 			kfree(sdata->u.ap.next_beacon);
 			return err;
 		}
