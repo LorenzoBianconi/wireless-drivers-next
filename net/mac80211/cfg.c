@@ -3238,6 +3238,17 @@ void ieee80211_csa_finish(struct ieee80211_vif *vif)
 {
 	struct ieee80211_sub_if_data *sdata = vif_to_sdata(vif);
 
+	if (sdata->vif.multiple_bssid.flags & IEEE80211_VIF_MBSS_TRANSMITTING) {
+		struct ieee80211_sub_if_data *child;
+
+		rcu_read_lock();
+		list_for_each_entry_rcu(child, &sdata->local->interfaces, list)
+			if (child->vif.multiple_bssid.parent == &sdata->vif)
+				ieee80211_queue_work(&child->local->hw,
+						     &child->csa_finalize_work);
+		rcu_read_unlock();
+	}
+
 	ieee80211_queue_work(&sdata->local->hw,
 			     &sdata->csa_finalize_work);
 }
