@@ -30,6 +30,15 @@ properties:
       different 5 GHz subbands. Using them incorrectly could not work or
       decrease performance noticeably
 
+  regdomain:
+    minItems: 1
+    maxItems: 1
+    contains:
+      enum:
+        - FCC
+        - ETSI
+        - JP
+
 additionalProperties: true
 
 examples:
