@@ -58,6 +58,7 @@ struct mt76_connac_pm {
 	struct delayed_work ps_work;
 	unsigned long last_activity;
 	unsigned long idle_timeout;
+	unsigned lp_wake;
 };
 
 struct mt76_connac_coredump {

@@ -322,6 +322,7 @@ int mt7921_init_debugfs(struct mt7921_dev *dev)
 	debugfs_create_file("idle-timeout", 0600, dir, dev,
 			    &fops_pm_idle_timeout);
 	debugfs_create_file("chip_config", 0600, dir, dev, &fops_config);
+	debugfs_create_u32("lp_wake", 0600, dir, &dev->pm.lp_wake);
 
 	return 0;
 }
