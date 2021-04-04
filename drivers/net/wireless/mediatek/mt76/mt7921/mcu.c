@@ -1277,7 +1277,7 @@ int mt7921_mcu_set_bss_pm(struct mt7921_dev *dev, struct ieee80211_vif *vif,
 int mt7921_mcu_drv_pmctrl(struct mt7921_dev *dev)
 {
 	struct mt76_phy *mphy = &dev->mt76.phy;
-	int i;
+	int i, err = 0;
 
 	if (!test_and_clear_bit(MT76_STATE_PM, &mphy->state))
 		goto out;
@@ -1291,14 +1291,32 @@ int mt7921_mcu_drv_pmctrl(struct mt7921_dev *dev)
 
 	if (i == MT7921_DRV_OWN_RETRY_COUNT) {
 		dev_err(dev->mt76.dev, "driver own failed\n");
-		mt7921_reset(&dev->mt76);
-		return -EIO;
+		err = -EIO;
+		goto out;
+	}
+
+	/* check if the wpdma must be reinitialized */
+	if (mt7921_dma_need_reinit(dev)) {
+		/* disable interrutpts */
+		mt76_wr(dev, MT_WFDMA0_HOST_INT_ENA, 0);
+		mt7921_l1_wr(dev, MT_PCIE_MAC_INT_ENABLE, 0x0);
+
+		err = mt7921_wpdma_reset(dev, false);
+		if (err) {
+			dev_err(dev->mt76.dev, "wpdma reset failed\n");
+			goto out;
+		}
+		/* enable interrutpts */
+		mt76_wr(dev, MT_PCIE_MAC_INT_ENABLE, 0xff);
+		dev->pm.lp_wake++;
 	}
 
 out:
 	dev->pm.last_activity = jiffies;
+	if (err)
+		mt7921_reset(&dev->mt76);
 
-	return 0;
+	return err;
 }
 
 int mt7921_mcu_fw_pmctrl(struct mt7921_dev *dev)
