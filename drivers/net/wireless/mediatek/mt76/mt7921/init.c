@@ -169,20 +169,10 @@ void mt7921_mac_init(struct mt7921_dev *dev)
 	mt76_connac_mcu_set_rts_thresh(&dev->mt76, 0x92b, 0);
 }
 
-static void mt7921_init_work(struct work_struct *work)
-{
-	struct mt7921_dev *dev = container_of(work, struct mt7921_dev,
-				 init_work);
-
-	mt7921_mcu_set_eeprom(dev);
-	mt7921_mac_init(dev);
-}
-
 static int mt7921_init_hardware(struct mt7921_dev *dev)
 {
 	int ret, idx;
 
-	INIT_WORK(&dev->init_work, mt7921_init_work);
 	spin_lock_init(&dev->token_lock);
 	idr_init(&dev->token);
 
@@ -205,6 +195,10 @@ static int mt7921_init_hardware(struct mt7921_dev *dev)
 	if (ret < 0)
 		return ret;
 
+	ret = mt7921_mcu_set_eeprom(dev);
+	if (ret)
+		return ret;
+
 	/* Beacon and mgmt frames should occupy wcid 0 */
 	idx = mt76_wcid_alloc(dev->mt76.wcid_mask, MT7921_WTBL_STA - 1);
 	if (idx)
@@ -216,6 +210,7 @@ static int mt7921_init_hardware(struct mt7921_dev *dev)
 	rcu_assign_pointer(dev->mt76.wcid[idx], &dev->mt76.global_wcid);
 
 	mt76_clear(dev, MT_WF_PFCR, MT_PF_TDLS_EN);
+	mt7921_mac_init(dev);
 
 	return 0;
 }
@@ -277,8 +272,6 @@ int mt7921_register_device(struct mt7921_dev *dev)
 				   ARRAY_SIZE(mt7921_rates));
 	if (ret)
 		return ret;
-
-	ieee80211_queue_work(mt76_hw(dev), &dev->init_work);
 
 	return mt7921_init_debugfs(dev);
 }
