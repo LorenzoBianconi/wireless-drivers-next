@@ -20,6 +20,7 @@ int mt76_connac_pm_wake(struct mt76_phy *phy, struct mt76_connac_pm *pm)
 	    test_bit(MT76_HW_SCHED_SCANNING, &phy->state))
 		return 0;
 
+	cancel_delayed_work_sync(&pm->ps_work);
 	if (queue_work(dev->wq, &pm->wake_work))
 		reinit_completion(&pm->wake_cmpl);
 
