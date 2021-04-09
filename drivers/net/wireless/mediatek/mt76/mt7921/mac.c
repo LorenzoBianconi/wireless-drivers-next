@@ -1437,10 +1437,16 @@ void mt7921_pm_wake_work(struct work_struct *work)
 						pm.wake_work);
 	mphy = dev->phy.mt76;
 
-	if (!mt7921_mcu_drv_pmctrl(dev))
+	if (!mt7921_mcu_drv_pmctrl(dev)) {
+		int i;
+
+		mt76_for_each_q_rx(&dev->mt76, i)
+			napi_schedule(&dev->mt76.napi[i]);
 		mt76_connac_pm_dequeue_skbs(mphy, &dev->pm);
-	else
+		napi_schedule(&dev->mt76.tx_napi);
+	} else {
 		dev_err(mphy->dev->dev, "failed to wake device\n");
+	}
 
 	ieee80211_wake_queues(mphy->hw);
 	complete_all(&dev->pm.wake_cmpl);
