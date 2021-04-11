@@ -270,6 +270,8 @@ int mt7921_register_device(struct mt7921_dev *dev)
 	mt7921_set_stream_he_caps(&dev->phy);
 
 	dev->pm.idle_timeout = MT7921_PM_TIMEOUT;
+	dev->pm.stats.last_wake_event = jiffies;
+	dev->pm.stats.last_doze_event = jiffies;
 	dev->pm.enable = true;
 	ret = mt7921_mcu_fw_pmctrl(dev);
 	if (ret)

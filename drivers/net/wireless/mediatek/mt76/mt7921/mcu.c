@@ -1275,9 +1275,10 @@ int mt7921_mcu_set_bss_pm(struct mt7921_dev *dev, struct ieee80211_vif *vif,
 int mt7921_mcu_drv_pmctrl(struct mt7921_dev *dev)
 {
 	struct mt76_phy *mphy = &dev->mt76.phy;
+	struct mt76_connac_pm *pm = &dev->pm;
 	int i, err = 0;
 
-	mutex_lock(&dev->pm.mutex);
+	mutex_lock(&pm->mutex);
 
 	if (!test_bit(MT76_STATE_PM, &mphy->state))
 		goto out;
@@ -1296,6 +1297,10 @@ int mt7921_mcu_drv_pmctrl(struct mt7921_dev *dev)
 	}
 	clear_bit(MT76_STATE_PM, &mphy->state);
 
+	pm->stats.last_wake_event = jiffies;
+	pm->stats.doze_time += pm->stats.last_wake_event -
+			       pm->stats.last_doze_event;
+
 	/* check if the wpdma must be reinitialized */
 	if (mt7921_dma_need_reinit(dev)) {
 		/* disable interrutpts */
@@ -1309,11 +1314,11 @@ int mt7921_mcu_drv_pmctrl(struct mt7921_dev *dev)
 		}
 		/* enable interrutpts */
 		mt76_wr(dev, MT_PCIE_MAC_INT_ENABLE, 0xff);
-		dev->pm.lp_wake++;
+		pm->stats.lp_wake++;
 	}
 
 out:
-	mutex_unlock(&dev->pm.mutex);
+	mutex_unlock(&pm->mutex);
 
 	if (err)
 		mt7921_reset(&dev->mt76);
@@ -1324,11 +1329,12 @@ out:
 int mt7921_mcu_fw_pmctrl(struct mt7921_dev *dev)
 {
 	struct mt76_phy *mphy = &dev->mt76.phy;
+	struct mt76_connac_pm *pm = &dev->pm;
 	int i, err = 0;
 
-	mutex_lock(&dev->pm.mutex);
+	mutex_lock(&pm->mutex);
 
-	if (mt76_connac_skip_fw_pmctrl(mphy, &dev->pm))
+	if (mt76_connac_skip_fw_pmctrl(mphy, pm))
 		goto out;
 
 	for (i = 0; i < MT7921_DRV_OWN_RETRY_COUNT; i++) {
@@ -1343,8 +1349,12 @@ int mt7921_mcu_fw_pmctrl(struct mt7921_dev *dev)
 		clear_bit(MT76_STATE_PM, &mphy->state);
 		err = -EIO;
 	}
+
+	pm->stats.last_doze_event = jiffies;
+	pm->stats.awake_time += pm->stats.last_doze_event -
+				pm->stats.last_wake_event;
 out:
-	mutex_unlock(&dev->pm.mutex);
+	mutex_unlock(&pm->mutex);
 
 	if (err)
 		mt7921_reset(&dev->mt76);
