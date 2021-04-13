@@ -55,10 +55,13 @@ static int mt7663s_mcu_drv_pmctrl(struct mt7615_dev *dev)
 {
 	struct sdio_func *func = dev->mt76.sdio.func;
 	struct mt76_phy *mphy = &dev->mt76.phy;
+	struct mt76_connac_pm *pm = &dev->pm;
+	int ret = 0;
 	u32 status;
-	int ret;
 
-	if (!test_and_clear_bit(MT76_STATE_PM, &mphy->state))
+	mutex_lock(&pm->mutex);
+
+	if (!test_bit(MT76_STATE_PM, &mphy->state))
 		goto out;
 
 	sdio_claim_host(func);
@@ -67,31 +70,31 @@ static int mt7663s_mcu_drv_pmctrl(struct mt7615_dev *dev)
 
 	ret = readx_poll_timeout(mt7663s_read_pcr, dev, status,
 				 status & WHLPCR_IS_DRIVER_OWN, 2000, 1000000);
-	if (ret < 0) {
+	if (ret < 0)
 		dev_err(dev->mt76.dev, "Cannot get ownership from device");
-		set_bit(MT76_STATE_PM, &mphy->state);
-		sdio_release_host(func);
-
-		return ret;
-	}
+	else
+		clear_bit(MT76_STATE_PM, &mphy->state);
 
 	sdio_release_host(func);
-
 out:
-	dev->pm.last_activity = jiffies;
+	pm->last_activity = jiffies;
+	mutex_unlock(&pm->mutex);
 
-	return 0;
+	return ret;
 }
 
 static int mt7663s_mcu_fw_pmctrl(struct mt7615_dev *dev)
 {
 	struct sdio_func *func = dev->mt76.sdio.func;
 	struct mt76_phy *mphy = &dev->mt76.phy;
+	struct mt76_connac_pm *pm = &dev->pm;
+	int ret = 0;
 	u32 status;
-	int ret;
 
-	if (test_and_set_bit(MT76_STATE_PM, &mphy->state))
-		return 0;
+	mutex_lock(&pm->mutex);
+
+	if (mt76_connac_skip_fw_pmctrl(mphy, pm))
+		goto out;
 
 	sdio_claim_host(func);
 
@@ -105,6 +108,8 @@ static int mt7663s_mcu_fw_pmctrl(struct mt7615_dev *dev)
 	}
 
 	sdio_release_host(func);
+out:
+	mutex_unlock(&pm->mutex);
 
 	return ret;
 }
