@@ -236,6 +236,19 @@ mt7921_pm_set(void *data, u64 val)
 	if (val == pm->enable)
 		return 0;
 
+	if (val == 100) {
+		mt7921_mutex_acquire(dev);
+		mt76_connac_mcu_set_deep_sleep(&dev->mt76, 0);
+		mt7921_mutex_release(dev);
+		return 0;
+	}
+	else if(val == 101) {
+		mt7921_mutex_acquire(dev);
+		mt76_connac_mcu_set_deep_sleep(&dev->mt76, 1);
+		mt7921_mutex_release(dev);
+		return 0;
+	}
+
 	mt7921_mutex_acquire(dev);
 
 	if (!pm->enable) {
@@ -247,6 +260,9 @@ mt7921_pm_set(void *data, u64 val)
 	ieee80211_iterate_active_interfaces(mphy->hw,
 					    IEEE80211_IFACE_ITER_RESUME_ALL,
 					    mt7921_pm_interface_iter, mphy->priv);
+
+	mt76_connac_mcu_set_deep_sleep(&dev->mt76, !!pm->enable);
+
 	mt7921_mutex_release(dev);
 
 	return 0;
