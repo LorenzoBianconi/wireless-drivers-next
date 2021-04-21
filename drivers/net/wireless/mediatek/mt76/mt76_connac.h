@@ -134,11 +134,15 @@ mt76_connac_pm_unref(struct mt76_connac_pm *pm)
 static inline bool
 mt76_connac_skip_fw_pmctrl(struct mt76_phy *phy, struct mt76_connac_pm *pm)
 {
+	struct mt76_dev *dev = phy->dev;
 	bool ret;
 
 	spin_lock_bh(&pm->wake.lock);
 	ret = pm->wake.count || test_and_set_bit(MT76_STATE_PM, &phy->state);
 	spin_unlock_bh(&pm->wake.lock);
+
+	if (mt76_is_mmio(dev) && dev->token_count)
+		return true;
 
 	return ret;
 }
