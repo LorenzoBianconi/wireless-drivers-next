@@ -36,18 +36,6 @@
 #define MT_MDP_DCR1			MT_MDP(0x004)
 #define MT_MDP_DCR1_MAX_RX_LEN		GENMASK(15, 3)
 
-#define MT_MDP_BNRCFR0(_band)		MT_MDP(0x070 + ((_band) << 8))
-#define MT_MDP_RCFR0_MCU_RX_MGMT	GENMASK(5, 4)
-#define MT_MDP_RCFR0_MCU_RX_CTL_NON_BAR	GENMASK(7, 6)
-#define MT_MDP_RCFR0_MCU_RX_CTL_BAR	GENMASK(9, 8)
-
-#define MT_MDP_BNRCFR1(_band)		MT_MDP(0x074 + ((_band) << 8))
-#define MT_MDP_RCFR1_MCU_RX_BYPASS	GENMASK(23, 22)
-#define MT_MDP_RCFR1_RX_DROPPED_UCAST	GENMASK(28, 27)
-#define MT_MDP_RCFR1_RX_DROPPED_MCAST	GENMASK(30, 29)
-#define MT_MDP_TO_HIF			0
-#define MT_MDP_TO_WM			1
-
 /* TMAC: band 0(0x21000), band 1(0xa1000) */
 #define MT_WF_TMAC_BASE(_band)		((_band) ? 0xa1000 : 0x21000)
 #define MT_WF_TMAC(_band, ofs)		(MT_WF_TMAC_BASE(_band) + (ofs))
