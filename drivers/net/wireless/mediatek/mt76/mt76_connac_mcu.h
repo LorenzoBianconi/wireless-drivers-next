@@ -1090,5 +1090,7 @@ int mt76_connac_mcu_set_roc(struct mt76_dev *dev, struct ieee80211_vif *vif,
 void mt76_connac_mcu_roc_event(struct mt76_phy *phy,
 			       struct mt76_connac_roc *roc,
 			       struct mt76_connac_roc_tlv *event);
-
+int mt76_connac_sta_state_dp(struct mt76_dev *dev,
+			     enum ieee80211_sta_state old_state,
+			     enum ieee80211_sta_state new_state);
 #endif /* __MT76_CONNAC_MCU_H */

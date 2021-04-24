@@ -981,6 +981,7 @@ int mt7921_run_firmware(struct mt7921_dev *dev)
 
 	set_bit(MT76_STATE_MCU_RUNNING, &dev->mphy.state);
 	mt7921_mcu_fw_log_2_host(dev, 1);
+	mt76_connac_mcu_set_deep_sleep(&dev->mt76, dev->pm.enable);
 
 	return 0;
 }
