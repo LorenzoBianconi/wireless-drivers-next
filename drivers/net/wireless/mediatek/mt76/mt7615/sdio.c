@@ -410,7 +410,7 @@ static int mt7663s_suspend(struct device *dev)
 	struct mt7615_dev *mdev = sdio_get_drvdata(func);
 	int err;
 
-	if (!test_bit(MT76_STATE_SUSPEND, &mdev->mphy.state) &&
+	if (!test_bit(MT76_STATE_WOW, &mdev->mphy.state) &&
 	    mt7615_firmware_offload(mdev)) {
 		int err;
 
@@ -451,7 +451,7 @@ static int mt7663s_resume(struct device *dev)
 	if (err)
 		return err;
 
-	if (!test_bit(MT76_STATE_SUSPEND, &mdev->mphy.state) &&
+	if (!test_bit(MT76_STATE_WOW, &mdev->mphy.state) &&
 	    mt7615_firmware_offload(mdev))
 		err = mt76_connac_mcu_set_hif_suspend(&mdev->mt76, false);
 

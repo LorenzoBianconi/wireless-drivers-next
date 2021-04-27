@@ -195,7 +195,7 @@ static int mt7921_pci_suspend(struct pci_dev *pdev, pm_message_t state)
 	if (err < 0)
 		return err;
 
-	hif_suspend = !test_bit(MT76_STATE_SUSPEND, &dev->mphy.state);
+	hif_suspend = !test_bit(MT76_STATE_WOW, &dev->mphy.state);
 	if (hif_suspend) {
 		err = mt76_connac_mcu_set_hif_suspend(mdev, true);
 		if (err)
@@ -294,7 +294,7 @@ static int mt7921_pci_resume(struct pci_dev *pdev)
 	if (!dev->pm.enable)
 		mt76_connac_mcu_set_deep_sleep(&dev->mt76, false);
 
-	if (!test_bit(MT76_STATE_SUSPEND, &dev->mphy.state))
+	if (!test_bit(MT76_STATE_WOW, &dev->mphy.state))
 		err = mt76_connac_mcu_set_hif_suspend(mdev, false);
 
 	return err;

@@ -2140,7 +2140,7 @@ void mt76_connac_mcu_set_suspend_iter(void *priv, u8 *mac,
 				      struct ieee80211_vif *vif)
 {
 	struct mt76_phy *phy = priv;
-	bool suspend = test_bit(MT76_STATE_SUSPEND, &phy->state);
+	bool suspend = test_bit(MT76_STATE_WOW, &phy->state);
 	struct ieee80211_hw *hw = phy->hw;
 	struct cfg80211_wowlan *wowlan = hw->wiphy->wowlan_config;
 	int i;
