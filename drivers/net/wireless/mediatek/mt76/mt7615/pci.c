@@ -80,7 +80,7 @@ static int mt7615_pci_suspend(struct pci_dev *pdev, pm_message_t state)
 	if (err < 0)
 		return err;
 
-	hif_suspend = !test_bit(MT76_STATE_SUSPEND, &dev->mphy.state) &&
+	hif_suspend = !test_bit(MT76_STATE_WOW, &dev->mphy.state) &&
 		      mt7615_firmware_offload(dev);
 	if (hif_suspend) {
 		err = mt76_connac_mcu_set_hif_suspend(mdev, true);
@@ -171,7 +171,7 @@ static int mt7615_pci_resume(struct pci_dev *pdev)
 	napi_enable(&mdev->tx_napi);
 	napi_schedule(&mdev->tx_napi);
 
-	if (!test_bit(MT76_STATE_SUSPEND, &dev->mphy.state) &&
+	if (!test_bit(MT76_STATE_WOW, &dev->mphy.state) &&
 	    mt7615_firmware_offload(dev))
 		err = mt76_connac_mcu_set_hif_suspend(mdev, false);
 

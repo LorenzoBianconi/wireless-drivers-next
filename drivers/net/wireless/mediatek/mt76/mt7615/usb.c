@@ -165,7 +165,7 @@ static int mt7663u_suspend(struct usb_interface *intf, pm_message_t state)
 {
 	struct mt7615_dev *dev = usb_get_intfdata(intf);
 
-	if (!test_bit(MT76_STATE_SUSPEND, &dev->mphy.state) &&
+	if (!test_bit(MT76_STATE_WOW, &dev->mphy.state) &&
 	    mt7615_firmware_offload(dev)) {
 		int err;
 
@@ -195,7 +195,7 @@ static int mt7663u_resume(struct usb_interface *intf)
 	if (err < 0)
 		return err;
 
-	if (!test_bit(MT76_STATE_SUSPEND, &dev->mphy.state) &&
+	if (!test_bit(MT76_STATE_WOW, &dev->mphy.state) &&
 	    mt7615_firmware_offload(dev))
 		err = mt76_connac_mcu_set_hif_suspend(&dev->mt76, false);
 

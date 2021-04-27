@@ -1173,7 +1173,7 @@ static int mt7921_suspend(struct ieee80211_hw *hw,
 
 	clear_bit(MT76_STATE_RUNNING, &phy->mt76->state);
 
-	set_bit(MT76_STATE_SUSPEND, &phy->mt76->state);
+	set_bit(MT76_STATE_WOW, &phy->mt76->state);
 	ieee80211_iterate_active_interfaces(hw,
 					    IEEE80211_IFACE_ITER_RESUME_ALL,
 					    mt76_connac_mcu_set_suspend_iter,
@@ -1199,7 +1199,7 @@ static int mt7921_resume(struct ieee80211_hw *hw)
 		goto out;
 
 	set_bit(MT76_STATE_RUNNING, &phy->mt76->state);
-	clear_bit(MT76_STATE_SUSPEND, &phy->mt76->state);
+	clear_bit(MT76_STATE_WOW, &phy->mt76->state);
 	ieee80211_iterate_active_interfaces(hw,
 					    IEEE80211_IFACE_ITER_RESUME_ALL,
 					    mt76_connac_mcu_set_suspend_iter,
