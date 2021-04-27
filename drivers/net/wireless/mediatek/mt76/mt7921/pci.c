@@ -188,10 +188,15 @@ static int mt7921_pci_suspend(struct pci_dev *pdev, pm_message_t state)
 {
 	struct mt76_dev *mdev = pci_get_drvdata(pdev);
 	struct mt7921_dev *dev = container_of(mdev, struct mt7921_dev, mt76);
+	struct mt76_connac_pm *pm = &dev->pm;
 	bool hif_suspend;
 	int i, err;
 
-	err = mt76_connac_pm_wake(&dev->mphy, &dev->pm);
+	set_bit(MT76_STATE_SUSPEND, &dev->mphy.state);
+	cancel_delayed_work_sync(&pm->ps_work);
+	cancel_work_sync(&pm->wake_work);
+
+	err = mt7921_mcu_drv_pmctrl(dev);
 	if (err < 0)
 		return err;
 
@@ -267,6 +272,7 @@ static int mt7921_pci_resume(struct pci_dev *pdev)
 
 	pci_restore_state(pdev);
 
+	clear_bit(MT76_STATE_SUSPEND, &dev->mphy.state);
 	err = mt7921_mcu_drv_pmctrl(dev);
 	if (err < 0)
 		return err;
