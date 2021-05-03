@@ -218,7 +218,7 @@ void mt76_connac_mcu_beacon_loss_iter(void *priv, u8 *mac,
 	if (!(vif->driver_flags & IEEE80211_VIF_BEACON_FILTER))
 		return;
 
-	ieee80211_beacon_loss(vif);
+	ieee80211_connection_loss(vif);
 }
 EXPORT_SYMBOL_GPL(mt76_connac_mcu_beacon_loss_iter);
 
