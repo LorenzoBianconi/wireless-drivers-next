@@ -346,11 +346,17 @@ mt7921_mcu_tx_rate_parse(struct mt76_phy *mphy,
 	switch (txmode) {
 	case MT_PHY_TYPE_CCK:
 	case MT_PHY_TYPE_OFDM:
-		if (mphy->chandef.chan->band == NL80211_BAND_5GHZ)
+		switch (mphy->chandef.chan->band) {
+		case NL80211_BAND_5GHZ:
 			sband = &mphy->sband_5g.sband;
-		else
+			break;
+		case NL80211_BAND_6GHZ:
+			sband = &mphy->sband_6g.sband;
+			break;
+		default:
 			sband = &mphy->sband_2g.sband;
-
+			break;
+		}
 		rate->legacy = sband->bitrates[rate->mcs].bitrate;
 		break;
 	case MT_PHY_TYPE_HT:
@@ -973,6 +979,55 @@ int mt7921_mcu_fw_log_2_host(struct mt7921_dev *dev, u8 ctrl)
 				 sizeof(data), false);
 }
 
+static int mt7921_get_nic_capability(struct mt7921_dev *dev)
+{
+	struct mt7921_cap_hdr {
+		__le16 n_element;
+		u8 rsv[2];
+	} __packed * hdr;
+	struct sk_buff *skb;
+	int ret, i;
+
+	ret = mt76_mcu_send_and_get_msg(&dev->mt76, MCU_CMD_GET_NIC_CAPAB,
+					NULL, 0, true, &skb);
+	if (ret)
+		return ret;
+
+	hdr = (struct mt7921_cap_hdr *)skb->data;
+	if (skb->len < sizeof(*hdr))
+		return -EINVAL;
+
+	skb_pull(skb, sizeof(*hdr));
+
+	for (i = 0; i < le16_to_cpu(hdr->n_element); i++) {
+		struct tlv_hdr {
+			__le32 type;
+			__le32 len;
+		} __packed * tlv = (struct tlv_hdr *)skb->data;
+		int len;
+
+		if (skb->len < sizeof(*tlv))
+			break;
+
+		skb_pull(skb, sizeof(*tlv));
+
+		len = le32_to_cpu(tlv->len);
+		if (skb->len < len)
+			break;
+
+		switch (le32_to_cpu(tlv->type)) {
+		case MT_NIC_CAP_6G:
+			dev->mphy.cap.has_6ghz = skb->data[0];
+			break;
+		default:
+			break;
+		}
+		skb_pull(skb, len);
+	}
+
+	return 0;
+}
+
 int mt7921_run_firmware(struct mt7921_dev *dev)
 {
 	int err;
@@ -988,7 +1043,7 @@ int mt7921_run_firmware(struct mt7921_dev *dev)
 	set_bit(MT76_STATE_MCU_RUNNING, &dev->mphy.state);
 	mt7921_mcu_fw_log_2_host(dev, 1);
 
-	return 0;
+	return mt7921_get_nic_capability(dev);
 }
 
 int mt7921_mcu_init(struct mt7921_dev *dev)
