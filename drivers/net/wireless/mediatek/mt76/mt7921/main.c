@@ -171,6 +171,15 @@ void mt7921_set_stream_he_caps(struct mt7921_phy *phy)
 		band->iftype_data = data;
 		band->n_iftype_data = n;
 	}
+
+	if (phy->mt76->cap.has_6ghz) {
+		data = phy->iftype[NL80211_BAND_6GHZ];
+		n = mt7921_init_he_caps(phy, NL80211_BAND_6GHZ, data);
+
+		band = &phy->mt76->sband_6g.sband;
+		band->iftype_data = data;
+		band->n_iftype_data = n;
+	}
 }
 
 int __mt7921_start(struct mt7921_phy *phy)

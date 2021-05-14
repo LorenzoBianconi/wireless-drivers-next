@@ -346,11 +346,17 @@ mt7921_mcu_tx_rate_parse(struct mt76_phy *mphy,
 	switch (txmode) {
 	case MT_PHY_TYPE_CCK:
 	case MT_PHY_TYPE_OFDM:
-		if (mphy->chandef.chan->band == NL80211_BAND_5GHZ)
+		switch (mphy->chandef.chan->band) {
+		case NL80211_BAND_5GHZ:
 			sband = &mphy->sband_5g.sband;
-		else
+			break;
+		case NL80211_BAND_6GHZ:
+			sband = &mphy->sband_6g.sband;
+			break;
+		default:
 			sband = &mphy->sband_2g.sband;
-
+			break;
+		}
 		rate->legacy = sband->bitrates[rate->mcs].bitrate;
 		break;
 	case MT_PHY_TYPE_HT:

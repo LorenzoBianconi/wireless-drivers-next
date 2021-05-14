@@ -271,7 +271,14 @@ mt7921_get_status_freq_info(struct mt7921_dev *dev, struct mt76_phy *mphy,
 		return;
 	}
 
-	status->band = chfreq <= 14 ? NL80211_BAND_2GHZ : NL80211_BAND_5GHZ;
+	if (chfreq > 180) {
+		status->band = NL80211_BAND_6GHZ;
+		chfreq = (chfreq - 181) * 4 + 1;
+	} else if (chfreq > 14) {
+		status->band = NL80211_BAND_5GHZ;
+	} else {
+		status->band = NL80211_BAND_2GHZ;
+	}
 	status->freq = ieee80211_channel_to_frequency(chfreq, status->band);
 }
 
@@ -356,10 +363,17 @@ int mt7921_mac_fill_rx(struct mt7921_dev *dev, struct sk_buff *skb)
 
 	mt7921_get_status_freq_info(dev, mphy, status, chfreq);
 
-	if (status->band == NL80211_BAND_5GHZ)
+	switch (status->band) {
+	case NL80211_BAND_5GHZ:
 		sband = &mphy->sband_5g.sband;
-	else
+		break;
+	case NL80211_BAND_6GHZ:
+		sband = &mphy->sband_6g.sband;
+		break;
+	default:
 		sband = &mphy->sband_2g.sband;
+		break;
+	}
 
 	if (!sband->channels)
 		return -EINVAL;
