@@ -320,6 +320,7 @@ enum {
 struct mt76_hw_cap {
 	bool has_2ghz;
 	bool has_5ghz;
+	bool has_6ghz;
 };
 
 #define MT_DRV_TXWI_NO_FREE		BIT(0)
@@ -600,6 +601,7 @@ struct mt76_phy {
 	struct mt76_hw_cap cap;
 	struct mt76_sband sband_2g;
 	struct mt76_sband sband_5g;
+	struct mt76_sband sband_6g;
 
 	u8 macaddr[ETH_ALEN];
 
