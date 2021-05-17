@@ -1748,6 +1748,24 @@ mt76_connac_mcu_rate_txpower_band(struct mt76_phy *phy,
 		142, 144, 149, 151, 153, 155, 157,
 		159, 161, 165
 	};
+	static const u8 chan_list_6ghz[] = {
+		  1,   3,   5,   7,   9,  11,  13,
+		 15,  17,  19,  21,  23,  25,  27,
+		 29,  33,  35,  37,  39,  41,  43,
+		 45,  47,  49,  51,  53,  55,  57,
+		 59,  61,  65,  67,  69,  71,  73,
+		 75,  77,  79,  81,  83,  85,  87,
+		 89,  91,  93,  97,  99, 101, 103,
+		105, 107, 109, 111, 113, 115, 117,
+		119, 121, 123, 125, 129, 131, 133,
+		135, 137, 139, 141, 143, 145, 147,
+		149, 151, 153, 155, 157, 161, 163,
+		165, 167, 169, 171, 173, 175, 177,
+		179, 181, 183, 185, 187, 189, 193,
+		195, 197, 199, 201, 203, 205, 207,
+		209, 211, 213, 215, 217, 219, 221,
+		225, 227, 229, 233
+	};
 	struct mt76_connac_sku_tlv sku_tlbv;
 	int i, n_chan, batch_size, idx = 0;
 	struct mt76_power_limits limits;
@@ -1758,6 +1776,9 @@ mt76_connac_mcu_rate_txpower_band(struct mt76_phy *phy,
 	if (band == NL80211_BAND_2GHZ) {
 		n_chan = ARRAY_SIZE(chan_list_2ghz);
 		ch_list = chan_list_2ghz;
+	} else if (band == NL80211_BAND_6GHZ) {
+		n_chan = ARRAY_SIZE(chan_list_6ghz);
+		ch_list = chan_list_6ghz;
 	} else {
 		n_chan = ARRAY_SIZE(chan_list_5ghz);
 		ch_list = chan_list_5ghz;
@@ -1768,12 +1789,23 @@ mt76_connac_mcu_rate_txpower_band(struct mt76_phy *phy,
 		bool last_msg = i == batch_size - 1;
 		int num_ch = last_msg ? n_chan % batch_len : batch_len;
 		struct mt76_connac_tx_power_limit_tlv tx_power_tlv = {
-			.band = band == NL80211_BAND_2GHZ ? 1 : 2,
 			.n_chan = num_ch,
 			.last_msg = last_msg,
 		};
 		struct sk_buff *skb;
 		int j, err, msg_len;
+
+		switch (band) {
+		case NL80211_BAND_2GHZ:
+			tx_power_tlv.band = 1;
+			break;
+		case NL80211_BAND_6GHZ:
+			tx_power_tlv.band = 3;
+			break;
+		default:
+			tx_power_tlv.band = 2;
+			break;
+		}
 
 		msg_len = sizeof(tx_power_tlv) + num_ch * sizeof(sku_tlbv);
 		skb = mt76_mcu_msg_alloc(dev, NULL, msg_len);
