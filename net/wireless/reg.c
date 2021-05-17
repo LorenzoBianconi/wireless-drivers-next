@@ -262,7 +262,7 @@ static const struct ieee80211_regdomain world_regdom = {
 			NL80211_RRF_DFS),
 
 		/* IEEE 802.11a, channel 149..165 */
-		REG_RULE(5745-10, 5825+10, 80, 6, 20,
+		REG_RULE(5745-10, 7200+10, 80, 6, 20,
 			NL80211_RRF_NO_IR),
 
 		/* IEEE 802.11ad (60GHz), channels 1..3 */
@@ -331,7 +331,8 @@ static void reset_regdomains(bool full_reset,
 	rcu_free_regdom(cfg80211_world_regdom);
 
 	cfg80211_world_regdom = &world_regdom;
-	rcu_assign_pointer(cfg80211_regdomain, new_regdom);
+	//rcu_assign_pointer(cfg80211_regdomain, new_regdom);
+	rcu_assign_pointer(cfg80211_regdomain, cfg80211_world_regdom);
 
 	if (!full_reset)
 		return;
