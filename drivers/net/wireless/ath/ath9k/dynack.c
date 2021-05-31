@@ -136,6 +136,7 @@ static void ath_dynack_compute_ackto(struct ath_hw *ah)
 	}
 }
 
+#define ATH_ACK_DUR	16 /* us */
 /**
  * ath_dynack_compute_to - compute STA ACK timeout
  * @ah: ath hw
@@ -166,8 +167,9 @@ static void ath_dynack_compute_to(struct ath_hw *ah)
 			ack_ts, st_ts->tstamp, st_ts->dur,
 			da->ack_rbf.h_rb, da->st_rbf.h_rb);
 
-		if (ack_ts > st_ts->tstamp + st_ts->dur) {
-			ackto = ack_ts - st_ts->tstamp - st_ts->dur;
+		if (ack_ts > st_ts->tstamp + st_ts->dur + ATH_ACK_DUR) {
+			ackto = ack_ts - st_ts->tstamp - st_ts->dur -
+				ATH_ACK_DUR;
 
 			if (ackto < max_to) {
 				sta = ieee80211_find_sta_by_ifaddr(ah->hw, dst,
@@ -211,8 +213,6 @@ void ath_dynack_sample_tx_ts(struct ath_hw *ah, struct sk_buff *skb,
 	struct ath_dynack *da = &ah->dynack;
 	struct ath_common *common = ath9k_hw_common(ah);
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
-	u32 dur = ts->duration;
-	u8 ridx;
 
 	if (!da->enabled || (info->flags & IEEE80211_TX_CTL_NO_ACK))
 		return;
@@ -243,9 +243,8 @@ void ath_dynack_sample_tx_ts(struct ath_hw *ah, struct sk_buff *skb,
 		return;
 	}
 
-	ridx = ts->ts_rateindex;
-
 	da->st_rbf.ts[da->st_rbf.t_rb].tstamp = ts->ts_tstamp;
+	da->st_rbf.ts[da->st_rbf.t_rb].dur = ts->duration;
 
 	/* ether_addr_copy() gives a false warning on gcc-10 so use memcpy()
 	 * https://gcc.gnu.org/bugzilla/show_bug.cgi?id=97490
@@ -253,28 +252,12 @@ void ath_dynack_sample_tx_ts(struct ath_hw *ah, struct sk_buff *skb,
 	memcpy(da->st_rbf.addr[da->st_rbf.t_rb].h_dest, hdr->addr1, ETH_ALEN);
 	memcpy(da->st_rbf.addr[da->st_rbf.t_rb].h_src, hdr->addr2, ETH_ALEN);
 
-	if (!(info->status.rates[ridx].flags & IEEE80211_TX_RC_MCS)) {
-		const struct ieee80211_rate *rate;
-		struct ieee80211_tx_rate *rates = info->status.rates;
-		u32 phy;
-
-		rate = &common->sbands[info->band].bitrates[rates[ridx].idx];
-		if (info->band == NL80211_BAND_2GHZ &&
-		    !(rate->flags & IEEE80211_RATE_ERP_G))
-			phy = WLAN_RC_PHY_CCK;
-		else
-			phy = WLAN_RC_PHY_OFDM;
-
-		dur -= ath_dynack_get_sifs(ah, phy);
-	}
-	da->st_rbf.ts[da->st_rbf.t_rb].dur = dur;
-
 	INCR(da->st_rbf.t_rb, ATH_DYN_BUF);
 	if (da->st_rbf.t_rb == da->st_rbf.h_rb)
 		INCR(da->st_rbf.h_rb, ATH_DYN_BUF);
 
 	ath_dbg(common, DYNACK, "{%pM} tx sample %u [dur %u][h %u-t %u]\n",
-		hdr->addr1, ts->ts_tstamp, dur, da->st_rbf.h_rb,
+		hdr->addr1, ts->ts_tstamp, ts->duration, da->st_rbf.h_rb,
 		da->st_rbf.t_rb);
 
 	ath_dynack_compute_to(ah);
