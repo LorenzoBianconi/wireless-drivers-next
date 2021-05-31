@@ -1388,6 +1388,8 @@ int __mt7921_mcu_drv_pmctrl(struct mt7921_dev *dev)
 	pm->stats.last_wake_event = jiffies;
 	pm->stats.doze_time += pm->stats.last_wake_event -
 			       pm->stats.last_doze_event;
+
+	mt76_connac_power_save_sched(mphy, pm);
 out:
 	return err;
 }
@@ -1421,8 +1423,10 @@ int mt7921_mcu_fw_pmctrl(struct mt7921_dev *dev)
 
 	mutex_lock(&pm->mutex);
 
-	if (mt76_connac_skip_fw_pmctrl(mphy, pm))
+	if (mt76_connac_skip_fw_pmctrl(mphy, pm)) {
+		mt76_connac_power_save_sched(mphy, pm);
 		goto out;
+	}
 
 	for (i = 0; i < MT7921_DRV_OWN_RETRY_COUNT; i++) {
 		mt76_wr(dev, MT_CONN_ON_LPCTL, PCIE_LPCR_HOST_SET_OWN);
@@ -1436,6 +1440,8 @@ int mt7921_mcu_fw_pmctrl(struct mt7921_dev *dev)
 		clear_bit(MT76_STATE_PM, &mphy->state);
 		err = -EIO;
 	}
+
+	set_bit(MT76_STATE_PM, &mphy->state);
 
 	pm->stats.last_doze_event = jiffies;
 	pm->stats.awake_time += pm->stats.last_doze_event -
