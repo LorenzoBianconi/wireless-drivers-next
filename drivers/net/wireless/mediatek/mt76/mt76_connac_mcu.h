@@ -905,6 +905,14 @@ struct mt76_connac_suspend_tlv {
 	u8 pad[5];
 } __packed;
 
+ /* 0: state 1 - unauthenticated & unassociated
+  * 1: state 2 - authenticated & unassociated
+  * 2: state 3 - authenticated & associated
+  */
+#define MT76_STA_INFO_STATE_1	0
+#define MT76_STA_INFO_STATE_2	1
+#define MT76_STA_INFO_STATE_3	2
+
 struct mt76_sta_cmd_info {
 	struct ieee80211_sta *sta;
 	struct mt76_wcid *wcid;
@@ -915,6 +923,7 @@ struct mt76_sta_cmd_info {
 	bool enable;
 	int cmd;
 	u8 rcpi;
+	u8 state;
 };
 
 #define MT_SKU_POWER_LIMIT	161
@@ -984,7 +993,8 @@ int mt76_connac_mcu_set_channel_domain(struct mt76_phy *phy);
 int mt76_connac_mcu_set_vif_ps(struct mt76_dev *dev, struct ieee80211_vif *vif);
 void mt76_connac_mcu_sta_basic_tlv(struct sk_buff *skb,
 				   struct ieee80211_vif *vif,
-				   struct ieee80211_sta *sta, bool enable);
+				   struct ieee80211_sta *sta, bool enable,
+				   bool newly);
 void mt76_connac_mcu_wtbl_generic_tlv(struct mt76_dev *dev, struct sk_buff *skb,
 				      struct ieee80211_vif *vif,
 				      struct ieee80211_sta *sta, void *sta_wtbl,
@@ -999,7 +1009,7 @@ int mt76_connac_mcu_sta_update_hdr_trans(struct mt76_dev *dev,
 void mt76_connac_mcu_sta_tlv(struct mt76_phy *mphy, struct sk_buff *skb,
 			     struct ieee80211_sta *sta,
 			     struct ieee80211_vif *vif,
-			     u8 rcpi);
+			     u8 rcpi, u8 state);
 void mt76_connac_mcu_wtbl_ht_tlv(struct mt76_dev *dev, struct sk_buff *skb,
 				 struct ieee80211_sta *sta, void *sta_wtbl,
 				 void *wtbl_tlv);
@@ -1022,6 +1032,8 @@ int mt76_connac_mcu_uni_add_bss(struct mt76_phy *phy,
 				struct mt76_wcid *wcid,
 				bool enable);
 int mt76_connac_mcu_add_sta_cmd(struct mt76_phy *phy,
+				struct mt76_sta_cmd_info *info);
+int mt76_connac_mcu_update_sta_cmd(struct mt76_phy *phy,
 				struct mt76_sta_cmd_info *info);
 void mt76_connac_mcu_beacon_loss_iter(void *priv, u8 *mac,
 				      struct ieee80211_vif *vif);
