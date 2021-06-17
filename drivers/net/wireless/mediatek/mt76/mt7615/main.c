@@ -241,6 +241,9 @@ static int mt7615_add_interface(struct ieee80211_hw *hw,
 	}
 
 	ret = mt7615_mcu_add_dev_info(phy, vif, true);
+
+	if (vif->type != NL80211_IFTYPE_AP)
+		vif->offload_flags = 0;
 out:
 	mt7615_mutex_release(dev);
 

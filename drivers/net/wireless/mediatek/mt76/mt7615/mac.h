@@ -186,6 +186,7 @@ enum tx_phy_bandwidth {
 #define MT_TXD1_LONG_FORMAT		BIT(15)
 #define MT_TXD1_HDR_FORMAT		GENMASK(14, 13)
 #define MT_TXD1_HDR_INFO		GENMASK(12, 8)
+#define MT_TXD1_ETH_802_3		BIT(12)
 #define MT_TXD1_WLAN_IDX		GENMASK(7, 0)
 
 #define MT_TXD2_FIX_RATE		BIT(31)

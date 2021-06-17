@@ -197,6 +197,9 @@ int mt7663_usb_sdio_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 	struct mt7615_sta *msta;
 	int pad;
 
+	if (unlikely(skb->len <= ETH_HLEN))
+		return -EINVAL;
+
 	msta = wcid ? container_of(wcid, struct mt7615_sta, wcid) : NULL;
 	if ((info->flags & IEEE80211_TX_CTL_RATE_CTRL_PROBE) &&
 	    msta && !msta->rate_probe) {

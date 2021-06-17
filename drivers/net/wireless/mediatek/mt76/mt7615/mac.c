@@ -607,24 +607,128 @@ mt7615_mac_tx_rate_val(struct mt7615_dev *dev,
 	return rateval;
 }
 
+static void
+mt7615_mac_write_txwi_8023(struct mt7615_dev *dev, __le32 *txwi,
+			   struct sk_buff *skb, struct mt76_wcid *wcid)
+{
+
+	bool is_mmio = mt76_is_mmio(&dev->mt76);
+	u8 fc_type, fc_stype;
+	bool wmm = false;
+	u32 val;
+
+	if (wcid->sta) {
+		struct ieee80211_sta *sta;
+
+		sta = container_of((void *)wcid, struct ieee80211_sta, drv_priv);
+		wmm = sta->wme;
+	}
+
+	val = FIELD_PREP(MT_TXD1_HDR_FORMAT, MT_HDR_FORMAT_802_3);
+	if (be16_to_cpu(skb->protocol) >= ETH_P_802_3_MIN)
+		val |= MT_TXD1_ETH_802_3;
+
+	txwi[1] |= cpu_to_le32(val);
+
+	fc_type = IEEE80211_FTYPE_DATA >> 2;
+	fc_stype = wmm ? IEEE80211_STYPE_QOS_DATA >> 4 : 0;
+
+	val = FIELD_PREP(MT_TXD2_FRAME_TYPE, fc_type) |
+	      FIELD_PREP(MT_TXD2_SUB_TYPE, fc_stype);
+	txwi[2] |= cpu_to_le32(val);
+
+	val = FIELD_PREP(MT_TXD7_TYPE, fc_type) |
+	      FIELD_PREP(MT_TXD7_SUB_TYPE, fc_stype);
+	txwi[7] |= cpu_to_le32(val);
+
+	if (!is_mmio) {
+		val = FIELD_PREP(MT_TXD8_L_TYPE, fc_type) |
+		      FIELD_PREP(MT_TXD8_L_SUB_TYPE, fc_stype);
+		txwi[8] |= cpu_to_le32(val);
+	}
+}
+
+static void
+mt7615_mac_write_txwi_80211(struct mt7615_dev *dev, __le32 *txwi,
+			    struct sk_buff *skb, struct ieee80211_key_conf *key)
+{
+	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)skb->data;
+	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
+	bool multicast = is_multicast_ether_addr(hdr->addr1);
+	bool is_mmio = mt76_is_mmio(&dev->mt76);
+	__le16 fc = hdr->frame_control;
+	u8 fc_type, fc_stype;
+	u32 val;
+
+	val = FIELD_PREP(MT_TXD1_HDR_FORMAT, MT_HDR_FORMAT_802_11) |
+	      FIELD_PREP(MT_TXD1_HDR_INFO,
+			 ieee80211_get_hdrlen_from_skb(skb) / 2);
+	txwi[1] |= cpu_to_le32(val);
+
+	fc_type = (le16_to_cpu(fc) & IEEE80211_FCTL_FTYPE) >> 2;
+	fc_stype = (le16_to_cpu(fc) & IEEE80211_FCTL_STYPE) >> 4;
+
+	val = FIELD_PREP(MT_TXD2_FRAME_TYPE, fc_type) |
+	      FIELD_PREP(MT_TXD2_SUB_TYPE, fc_stype) |
+	      FIELD_PREP(MT_TXD2_MULTICAST, multicast);
+
+	if (key && multicast && ieee80211_is_robust_mgmt_frame(skb) &&
+	    key->cipher == WLAN_CIPHER_SUITE_AES_CMAC) {
+		val |= MT_TXD2_BIP;
+		txwi[3] &= ~cpu_to_le32(MT_TXD3_PROTECT_FRAME);
+	}
+
+	txwi[2] |= cpu_to_le32(val);
+
+	if (ieee80211_is_beacon(fc)) {
+		val = MT_TXD5_TX_STATUS_HOST | MT_TXD5_SW_POWER_MGMT |
+		      MT_TXD5_PID;
+		txwi[5] &= ~cpu_to_le32(val);
+		txwi[3] |= cpu_to_le32(MT_TXD3_REM_TX_COUNT);
+	}
+
+	if (info->flags & IEEE80211_TX_CTL_INJECTED) {
+		u16 seqno = le16_to_cpu(hdr->seq_ctrl);
+
+		if (ieee80211_is_back_req(hdr->frame_control)) {
+			struct ieee80211_bar *bar;
+
+			bar = (struct ieee80211_bar *)skb->data;
+			seqno = le16_to_cpu(bar->start_seq_num);
+		}
+
+		val = MT_TXD3_SN_VALID |
+		      FIELD_PREP(MT_TXD3_SEQ, IEEE80211_SEQ_TO_SN(seqno));
+		txwi[3] |= cpu_to_le32(val);
+	}
+
+	val = FIELD_PREP(MT_TXD7_TYPE, fc_type) |
+	      FIELD_PREP(MT_TXD7_SUB_TYPE, fc_stype);
+	txwi[7] |= cpu_to_le32(val);
+
+	if (!is_mmio) {
+		val = FIELD_PREP(MT_TXD8_L_TYPE, fc_type) |
+		      FIELD_PREP(MT_TXD8_L_SUB_TYPE, fc_stype);
+		txwi[8] |= cpu_to_le32(val);
+	}
+}
+
 int mt7615_mac_write_txwi(struct mt7615_dev *dev, __le32 *txwi,
 			  struct sk_buff *skb, struct mt76_wcid *wcid,
 			  struct ieee80211_sta *sta, int pid,
 			  struct ieee80211_key_conf *key, bool beacon)
 {
-	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)skb->data;
-	u8 fc_type, fc_stype, p_fmt, q_idx, omac_idx = 0, wmm_idx = 0;
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
 	struct ieee80211_tx_rate *rate = &info->control.rates[0];
+	struct ieee80211_hw *hw = mt76_hw(dev);
 	bool ext_phy = info->hw_queue & MT_TX_HW_QUEUE_EXT_PHY;
-	bool multicast = is_multicast_ether_addr(hdr->addr1);
 	struct ieee80211_vif *vif = info->control.vif;
+	bool is_8023 = info->flags & IEEE80211_TX_CTL_HW_80211_ENCAP;
 	bool is_mmio = mt76_is_mmio(&dev->mt76);
 	u32 val, sz_txd = is_mmio ? MT_TXD_SIZE : MT_USB_TXD_SIZE;
+	u8 p_fmt, q_idx, omac_idx = 0, wmm_idx = 0;
 	struct mt76_phy *mphy = &dev->mphy;
-	__le16 fc = hdr->frame_control;
 	int tx_count = 8;
-	u16 seqno = 0;
 
 	if (vif) {
 		struct mt76_vif *mvif = (struct mt76_vif *)vif->drv_priv;
@@ -641,9 +745,6 @@ int mt7615_mac_write_txwi(struct mt7615_dev *dev, __le32 *txwi,
 
 	if (ext_phy && dev->mt76.phy2)
 		mphy = dev->mt76.phy2;
-
-	fc_type = (le16_to_cpu(fc) & IEEE80211_FCTL_FTYPE) >> 2;
-	fc_stype = (le16_to_cpu(fc) & IEEE80211_FCTL_STYPE) >> 4;
 
 	if (beacon) {
 		p_fmt = MT_TX_TYPE_FW;
@@ -664,36 +765,19 @@ int mt7615_mac_write_txwi(struct mt7615_dev *dev, __le32 *txwi,
 
 	val = MT_TXD1_LONG_FORMAT |
 	      FIELD_PREP(MT_TXD1_WLAN_IDX, wcid->idx) |
-	      FIELD_PREP(MT_TXD1_HDR_FORMAT, MT_HDR_FORMAT_802_11) |
-	      FIELD_PREP(MT_TXD1_HDR_INFO,
-			 ieee80211_get_hdrlen_from_skb(skb) / 2) |
 	      FIELD_PREP(MT_TXD1_TID,
 			 skb->priority & IEEE80211_QOS_CTL_TID_MASK) |
 	      FIELD_PREP(MT_TXD1_PKT_FMT, p_fmt) |
 	      FIELD_PREP(MT_TXD1_OWN_MAC, omac_idx);
 	txwi[1] = cpu_to_le32(val);
 
-	val = FIELD_PREP(MT_TXD2_FRAME_TYPE, fc_type) |
-	      FIELD_PREP(MT_TXD2_SUB_TYPE, fc_stype) |
-	      FIELD_PREP(MT_TXD2_MULTICAST, multicast);
-	if (key) {
-		if (multicast && ieee80211_is_robust_mgmt_frame(skb) &&
-		    key->cipher == WLAN_CIPHER_SUITE_AES_CMAC) {
-			val |= MT_TXD2_BIP;
-			txwi[3] = 0;
-		} else {
-			txwi[3] = cpu_to_le32(MT_TXD3_PROTECT_FRAME);
-		}
-	} else {
-		txwi[3] = 0;
-	}
-	txwi[2] = cpu_to_le32(val);
+	txwi[2] = 0;
+	txwi[4] = 0;
+	txwi[6] = 0;
+	txwi[7] = cpu_to_le32(FIELD_PREP(MT_TXD7_SPE_IDX, 0x18));
 
 	if (!(info->flags & IEEE80211_TX_CTL_AMPDU))
 		txwi[2] |= cpu_to_le32(MT_TXD2_BA_DISABLE);
-
-	txwi[4] = 0;
-	txwi[6] = 0;
 
 	if (rate->idx >= 0 && rate->count &&
 	    !(info->flags & IEEE80211_TX_CTL_RATE_CTRL_PROBE)) {
@@ -722,48 +806,22 @@ int mt7615_mac_write_txwi(struct mt7615_dev *dev, __le32 *txwi,
 		tx_count = rate->count;
 	}
 
-	if (!ieee80211_is_beacon(fc)) {
-		struct ieee80211_hw *hw = mt76_hw(dev);
-
-		val = MT_TXD5_TX_STATUS_HOST | FIELD_PREP(MT_TXD5_PID, pid);
-		if (!ieee80211_hw_check(hw, SUPPORTS_PS))
-			val |= MT_TXD5_SW_POWER_MGMT;
-		txwi[5] = cpu_to_le32(val);
-	} else {
-		txwi[5] = 0;
-		/* use maximum tx count for beacons */
-		tx_count = 0x1f;
-	}
-
 	val = FIELD_PREP(MT_TXD3_REM_TX_COUNT, tx_count);
-	if (info->flags & IEEE80211_TX_CTL_INJECTED) {
-		seqno = le16_to_cpu(hdr->seq_ctrl);
-
-		if (ieee80211_is_back_req(hdr->frame_control)) {
-			struct ieee80211_bar *bar;
-
-			bar = (struct ieee80211_bar *)skb->data;
-			seqno = le16_to_cpu(bar->start_seq_num);
-		}
-
-		val |= MT_TXD3_SN_VALID |
-		       FIELD_PREP(MT_TXD3_SEQ, IEEE80211_SEQ_TO_SN(seqno));
-	}
-
-	txwi[3] |= cpu_to_le32(val);
-
+	if (key)
+		val |= MT_TXD3_PROTECT_FRAME;
 	if (info->flags & IEEE80211_TX_CTL_NO_ACK)
-		txwi[3] |= cpu_to_le32(MT_TXD3_NO_ACK);
+		val |= MT_TXD3_NO_ACK;
+	txwi[3] = cpu_to_le32(val);
 
-	val = FIELD_PREP(MT_TXD7_TYPE, fc_type) |
-	      FIELD_PREP(MT_TXD7_SUB_TYPE, fc_stype) |
-	      FIELD_PREP(MT_TXD7_SPE_IDX, 0x18);
-	txwi[7] = cpu_to_le32(val);
-	if (!is_mmio) {
-		val = FIELD_PREP(MT_TXD8_L_TYPE, fc_type) |
-		      FIELD_PREP(MT_TXD8_L_SUB_TYPE, fc_stype);
-		txwi[8] = cpu_to_le32(val);
-	}
+	val = MT_TXD5_TX_STATUS_HOST | FIELD_PREP(MT_TXD5_PID, pid);
+	if (!ieee80211_hw_check(hw, SUPPORTS_PS))
+		val |= MT_TXD5_SW_POWER_MGMT;
+	txwi[5] = cpu_to_le32(val);
+
+	if (is_8023)
+		mt7615_mac_write_txwi_8023(dev, txwi, skb, wcid);
+	else
+		mt7615_mac_write_txwi_80211(dev, txwi, skb, key);
 
 	return 0;
 }
