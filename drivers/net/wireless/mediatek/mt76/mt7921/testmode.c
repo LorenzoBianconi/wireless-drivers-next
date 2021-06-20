@@ -127,24 +127,21 @@ int mt7921_testmode_cmd(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 		return err;
 
 	if (tb[MT76_TM_ATTR_DRV_DATA]) {
-		struct nlattr *drv_tb[NUM_MT7921_TM_ATTRS], *cur;
-		int rem = 0;
+		struct nlattr *drv_tb[NUM_MT7921_TM_ATTRS], *data;
+		int rem = 0, ret;
 
-		nla_for_each_nested(cur, tb[MT76_TM_ATTR_DRV_DATA], rem) {
-			struct nlattr *data;
-			int ret;
-
-			ret = nla_parse_nested_deprecated(drv_tb,
-							  MT7921_TM_ATTR_MAX,
-							  cur, mt7921_tm_policy,
-							  NULL);
-			if (ret)
-				return ret;
-
-			data = drv_tb[MT7921_TM_ATTR_SET];
-			if (data)
-				return mt7921_tm_set(phy->dev, nla_data(data));
+		data = tb[MT76_TM_ATTR_DRV_DATA];
+		ret = nla_parse_nested_deprecated(drv_tb,
+						  MT7921_TM_ATTR_MAX,
+						  data, mt7921_tm_policy,
+						  NULL);
+		if (ret) {
+			return ret;
 		}
+
+		data = drv_tb[MT7921_TM_ATTR_SET];
+		if (data)
+			return mt7921_tm_set(phy->dev, nla_data(data));
 	}
 
 	return -EINVAL;
@@ -172,32 +169,28 @@ int mt7921_testmode_dump(struct ieee80211_hw *hw, struct sk_buff *msg,
 		return err;
 
 	if (tb[MT76_TM_ATTR_DRV_DATA]) {
-		struct nlattr *drv_tb[NUM_MT7921_TM_ATTRS], *cur;
-		int rem = 0;
+		struct nlattr *drv_tb[NUM_MT7921_TM_ATTRS], *data;
+		int rem = 0, ret;
 
-		nla_for_each_nested(cur, tb[MT76_TM_ATTR_DRV_DATA], rem) {
-			struct nlattr *data;
-			int ret;
+		data = tb[MT76_TM_ATTR_DRV_DATA];
+		ret = nla_parse_nested_deprecated(drv_tb,
+						  MT7921_TM_ATTR_MAX,
+						  data, mt7921_tm_policy,
+						  NULL);
+		if (ret)
+			return ret;
 
-			ret = nla_parse_nested_deprecated(drv_tb,
-							  MT7921_TM_ATTR_MAX,
-							  cur, mt7921_tm_policy,
-							  NULL);
-			if (ret)
-				return ret;
+		data = drv_tb[MT7921_TM_ATTR_QUERY];
+		if (data) {
+			struct mt7921_tm_evt evt_resp;
 
-			data = drv_tb[MT7921_TM_ATTR_QUERY];
-			if (data) {
-				struct mt7921_tm_evt evt_resp;
+			err = mt7921_tm_query(phy->dev, nla_data(data),
+					      &evt_resp);
+			if (err)
+				return err;
 
-				err = mt7921_tm_query(phy->dev, nla_data(data),
-						      &evt_resp);
-				if (err)
-					return err;
-
-				return nla_put(msg, MT7921_TM_ATTR_RSP,
-					       sizeof(evt_resp), &evt_resp);
-			}
+			return nla_put(msg, MT7921_TM_ATTR_RSP,
+				       sizeof(evt_resp), &evt_resp);
 		}
 	}
 
