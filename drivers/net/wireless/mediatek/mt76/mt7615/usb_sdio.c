@@ -121,7 +121,7 @@ static int mt7663_usb_sdio_set_rates(struct mt7615_dev *dev,
 
 	idx = sta->vif->mt76.omac_idx;
 	idx = idx > HW_BSSID_MAX ? HW_BSSID_0 : idx;
-	addr = idx > 1 ? MT_LPON_TCR2(idx): MT_LPON_TCR0(idx);
+	addr = idx > 1 ? MT_LPON_TCR2(idx) : MT_LPON_TCR0(idx);
 
 	mt76_rmw(dev, addr, MT_LPON_TCR_MODE, MT_LPON_TCR_READ); /* TSF read */
 	val = mt76_rr(dev, MT_LPON_UTTR0);

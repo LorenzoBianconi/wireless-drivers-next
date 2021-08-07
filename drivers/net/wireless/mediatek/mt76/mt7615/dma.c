@@ -216,7 +216,6 @@ void mt7615_dma_start(struct mt7615_dev *dev)
 
 		mt76_wr(dev, MT_MCU2HOST_INT_ENABLE, MT7663_MCU_CMD_ERROR_MASK);
 	}
-
 }
 
 int mt7615_dma_init(struct mt7615_dev *dev)
@@ -271,7 +270,7 @@ int mt7615_dma_init(struct mt7615_dev *dev)
 		return ret;
 
 	if (!is_mt7615(&dev->mt76))
-	    rx_ring_size /= 2;
+		rx_ring_size /= 2;
 
 	ret = mt76_queue_alloc(dev, &dev->mt76.q_rx[MT_RXQ_MAIN], 0,
 			       rx_ring_size, MT_RX_BUF_SIZE, MT_RX_RING_BASE);
@@ -296,9 +295,9 @@ int mt7615_dma_init(struct mt7615_dev *dev)
 
 	mask = MT_INT_RX_DONE_ALL | mt7615_tx_mcu_int_mask(dev);
 	if (is_mt7663(&dev->mt76))
-	    mask |= MT7663_INT_MCU_CMD;
+		mask |= MT7663_INT_MCU_CMD;
 	else
-	    mask |= MT_INT_MCU_CMD;
+		mask |= MT_INT_MCU_CMD;
 
 	mt7615_irq_enable(dev, mask);
 

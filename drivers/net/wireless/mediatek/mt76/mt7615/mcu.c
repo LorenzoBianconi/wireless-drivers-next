@@ -1875,7 +1875,7 @@ int mt7615_mcu_init(struct mt7615_dev *dev)
 	};
 	int ret;
 
-	dev->mt76.mcu_ops = &mt7615_mcu_ops,
+	dev->mt76.mcu_ops = &mt7615_mcu_ops;
 
 	ret = mt7615_mcu_drv_pmctrl(dev);
 	if (ret)
@@ -2483,7 +2483,6 @@ static int mt7615_dcoc_freq_idx(u16 freq, u8 bw)
 			break;
 
 		return -1;
-
 	}
 
 	return mt7615_find_freq_idx(freq_list, ARRAY_SIZE(freq_list), freq);
@@ -2602,7 +2601,6 @@ static int mt7615_dpd_freq_idx(u16 freq, u8 bw)
 
 	return mt7615_find_freq_idx(freq_list, ARRAY_SIZE(freq_list), freq);
 }
-
 
 int mt7615_mcu_apply_tx_dpd(struct mt7615_phy *phy)
 {

@@ -266,7 +266,7 @@ static void mt7615_remove_interface(struct ieee80211_hw *hw,
 
 	mt76_testmode_reset(phy->mt76, true);
 	if (vif == phy->monitor_vif)
-	    phy->monitor_vif = NULL;
+		phy->monitor_vif = NULL;
 
 	mt76_connac_free_pending_tx_skbs(&dev->pm, &msta->wcid);
 
@@ -835,16 +835,16 @@ static int
 mt7615_sta_add(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	       struct ieee80211_sta *sta)
 {
-    return mt76_sta_state(hw, vif, sta, IEEE80211_STA_NOTEXIST,
-			  IEEE80211_STA_NONE);
+	return mt76_sta_state(hw, vif, sta, IEEE80211_STA_NOTEXIST,
+			      IEEE80211_STA_NONE);
 }
 
 static int
 mt7615_sta_remove(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 		  struct ieee80211_sta *sta)
 {
-    return mt76_sta_state(hw, vif, sta, IEEE80211_STA_NONE,
-			  IEEE80211_STA_NOTEXIST);
+	return mt76_sta_state(hw, vif, sta, IEEE80211_STA_NONE,
+			      IEEE80211_STA_NOTEXIST);
 }
 
 static int
@@ -881,7 +881,7 @@ mt7615_get_tsf(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 	u32 reg;
 
 	idx = idx > HW_BSSID_MAX ? HW_BSSID_0 : idx;
-	reg = idx > 1 ? MT_LPON_TCR2(idx): MT_LPON_TCR0(idx);
+	reg = idx > 1 ? MT_LPON_TCR2(idx) : MT_LPON_TCR0(idx);
 
 	mt7615_mutex_acquire(dev);
 
@@ -909,7 +909,7 @@ mt7615_set_tsf(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	u32 reg;
 
 	idx = idx > HW_BSSID_MAX ? HW_BSSID_0 : idx;
-	reg = idx > 1 ? MT_LPON_TCR2(idx): MT_LPON_TCR0(idx);
+	reg = idx > 1 ? MT_LPON_TCR2(idx) : MT_LPON_TCR0(idx);
 
 	mt7615_mutex_acquire(dev);
 
@@ -935,7 +935,7 @@ mt7615_offset_tsf(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	u32 reg;
 
 	idx = idx > HW_BSSID_MAX ? HW_BSSID_0 : idx;
-	reg = idx > 1 ? MT_LPON_TCR2(idx): MT_LPON_TCR0(idx);
+	reg = idx > 1 ? MT_LPON_TCR2(idx) : MT_LPON_TCR0(idx);
 
 	mt7615_mutex_acquire(dev);
 
@@ -1181,9 +1181,9 @@ static int mt7615_cancel_remain_on_channel(struct ieee80211_hw *hw,
 }
 
 static void mt7615_sta_set_decap_offload(struct ieee80211_hw *hw,
-				 struct ieee80211_vif *vif,
-				 struct ieee80211_sta *sta,
-				 bool enabled)
+					 struct ieee80211_vif *vif,
+					 struct ieee80211_sta *sta,
+					 bool enabled)
 {
 	struct mt7615_dev *dev = mt7615_hw_dev(hw);
 	struct mt7615_sta *msta = (struct mt7615_sta *)sta->drv_priv;

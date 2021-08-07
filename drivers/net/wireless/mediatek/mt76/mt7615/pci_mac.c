@@ -356,5 +356,4 @@ void mt7615_mac_reset_work(struct work_struct *work)
 	if (phy2)
 		ieee80211_queue_delayed_work(ext_phy->hw,
 					     &phy2->mt76->mac_work, timeout);
-
 }

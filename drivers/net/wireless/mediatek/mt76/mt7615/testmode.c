@@ -14,7 +14,6 @@ enum {
 	NUM_TM_CHANGED
 };
 
-
 static const u8 tm_change_map[] = {
 	[TM_CHANGED_TXPOWER_CTRL] = MT76_TM_ATTR_TX_POWER_CONTROL,
 	[TM_CHANGED_TXPOWER] = MT76_TM_ATTR_TX_POWER,
@@ -186,7 +185,6 @@ mt7615_tm_set_tx_antenna(struct mt7615_phy *phy, bool en)
 		mt76_rmw_field(dev, MT_WF_PHY_RFINTF3_0(i),
 			       MT_WF_PHY_RFINTF3_0_ANT,
 			       (td->tx_antenna_mask & BIT(i)) ? 0 : 0xa);
-
 	}
 
 	/* 2.4 GHz band */
