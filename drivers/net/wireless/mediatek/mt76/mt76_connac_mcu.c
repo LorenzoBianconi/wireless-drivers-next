@@ -1742,7 +1742,7 @@ static void mt76_connac_mcu_parse_tx_resource(struct mt76_dev *dev,
 	sdio->sched.pse_data_quota = le32_to_cpu(tx_res->pse_data_quota);
 	sdio->sched.pse_mcu_quota = le32_to_cpu(tx_res->pse_mcu_quota);
 	sdio->sched.ple_data_quota = le32_to_cpu(tx_res->ple_data_quota);
-	sdio->sched.pse_page_size = le32_to_cpu(tx_res->pse_page_size);
+	sdio->sched.pse_page_size = le16_to_cpu(tx_res->pse_page_size);
 	sdio->sched.deficit = tx_res->pp_padding;
 }
 
