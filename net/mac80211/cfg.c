@@ -1081,6 +1081,9 @@ static int ieee80211_assign_beacon(struct ieee80211_sub_if_data *sdata,
 		new->mbssid_ies = (struct cfg80211_mbssid_elems *)pos;
 		pos += struct_size(new->mbssid_ies, elem, mbssid->cnt);
 		ieee80211_copy_mbssid_beacon(pos, new->mbssid_ies, mbssid);
+		/* update bssid_indicator */
+		sdata->vif.bss_conf.bssid_indicator =
+			const_ilog2(__roundup_pow_of_two(mbssid->cnt));
 	}
 
 	if (csa) {
