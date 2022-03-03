@@ -12,9 +12,6 @@
 #include "mcu.h"
 #include "mac.h"
 
-#define MT_USB_TYPE_VENDOR	(USB_TYPE_VENDOR | 0x1f)
-#define MT_USB_TYPE_UHW_VENDOR	(USB_TYPE_VENDOR | 0x1e)
-
 static const struct usb_device_id mt7921u_device_table[] = {
 	{ USB_DEVICE_AND_INTERFACE_INFO(0x0e8d, 0x7961, 0xff, 0xff, 0xff) },
 	{ },
@@ -51,26 +48,6 @@ static u32 mt7921u_rmw(struct mt76_dev *dev, u32 addr,
 	mutex_unlock(&dev->usb.usb_ctrl_mtx);
 
 	return val;
-}
-
-static u32 mt7921u_uhw_rr(struct mt76_dev *dev, u32 addr)
-{
-	u32 ret;
-
-	mutex_lock(&dev->usb.usb_ctrl_mtx);
-	ret = ___mt76u_rr(dev, MT_VEND_DEV_MODE,
-			  USB_DIR_IN | MT_USB_TYPE_UHW_VENDOR, addr);
-	mutex_unlock(&dev->usb.usb_ctrl_mtx);
-
-	return ret;
-}
-
-static void mt7921u_uhw_wr(struct mt76_dev *dev, u32 addr, u32 val)
-{
-	mutex_lock(&dev->usb.usb_ctrl_mtx);
-	___mt76u_wr(dev, MT_VEND_WRITE,
-		    USB_DIR_OUT | MT_USB_TYPE_UHW_VENDOR, addr, val);
-	mutex_unlock(&dev->usb.usb_ctrl_mtx);
 }
 
 static void mt7921u_copy(struct mt76_dev *dev, u32 offset,
@@ -180,124 +157,6 @@ static int mt7921u_mcu_init(struct mt7921_dev *dev)
 	set_bit(MT76_STATE_MCU_RUNNING, &dev->mphy.state);
 	mt76_clear(dev, MT_UDMA_TX_QSEL, MT_FW_DL_EN);
 
-	return 0;
-}
-
-static void mt7921u_dma_prefetch(struct mt7921_dev *dev)
-{
-	mt76_rmw(dev, MT_UWFDMA0_TX_RING_EXT_CTRL(0),
-		 MT_WPDMA0_MAX_CNT_MASK, 4);
-	mt76_rmw(dev, MT_UWFDMA0_TX_RING_EXT_CTRL(0),
-		 MT_WPDMA0_BASE_PTR_MASK, 0x80);
-
-	mt76_rmw(dev, MT_UWFDMA0_TX_RING_EXT_CTRL(1),
-		 MT_WPDMA0_MAX_CNT_MASK, 4);
-	mt76_rmw(dev, MT_UWFDMA0_TX_RING_EXT_CTRL(1),
-		 MT_WPDMA0_BASE_PTR_MASK, 0xc0);
-
-	mt76_rmw(dev, MT_UWFDMA0_TX_RING_EXT_CTRL(2),
-		 MT_WPDMA0_MAX_CNT_MASK, 4);
-	mt76_rmw(dev, MT_UWFDMA0_TX_RING_EXT_CTRL(2),
-		 MT_WPDMA0_BASE_PTR_MASK, 0x100);
-
-	mt76_rmw(dev, MT_UWFDMA0_TX_RING_EXT_CTRL(3),
-		 MT_WPDMA0_MAX_CNT_MASK, 4);
-	mt76_rmw(dev, MT_UWFDMA0_TX_RING_EXT_CTRL(3),
-		 MT_WPDMA0_BASE_PTR_MASK, 0x140);
-
-	mt76_rmw(dev, MT_UWFDMA0_TX_RING_EXT_CTRL(4),
-		 MT_WPDMA0_MAX_CNT_MASK, 4);
-	mt76_rmw(dev, MT_UWFDMA0_TX_RING_EXT_CTRL(4),
-		 MT_WPDMA0_BASE_PTR_MASK, 0x180);
-
-	mt76_rmw(dev, MT_UWFDMA0_TX_RING_EXT_CTRL(16),
-		 MT_WPDMA0_MAX_CNT_MASK, 4);
-	mt76_rmw(dev, MT_UWFDMA0_TX_RING_EXT_CTRL(16),
-		 MT_WPDMA0_BASE_PTR_MASK, 0x280);
-
-	mt76_rmw(dev, MT_UWFDMA0_TX_RING_EXT_CTRL(17),
-		 MT_WPDMA0_MAX_CNT_MASK, 4);
-	mt76_rmw(dev, MT_UWFDMA0_TX_RING_EXT_CTRL(17),
-		 MT_WPDMA0_BASE_PTR_MASK,  0x2c0);
-}
-
-static void mt7921u_wfdma_init(struct mt7921_dev *dev)
-{
-	mt7921u_dma_prefetch(dev);
-
-	mt76_clear(dev, MT_UWFDMA0_GLO_CFG, MT_WFDMA0_GLO_CFG_OMIT_RX_INFO);
-	mt76_set(dev, MT_UWFDMA0_GLO_CFG,
-		 MT_WFDMA0_GLO_CFG_OMIT_TX_INFO |
-		 MT_WFDMA0_GLO_CFG_OMIT_RX_INFO_PFET2 |
-		 MT_WFDMA0_GLO_CFG_FW_DWLD_BYPASS_DMASHDL |
-		 MT_WFDMA0_GLO_CFG_TX_DMA_EN |
-		 MT_WFDMA0_GLO_CFG_RX_DMA_EN);
-
-	/* disable dmashdl */
-	mt76_clear(dev, MT_UWFDMA0_GLO_CFG_EXT0,
-		   MT_WFDMA0_CSR_TX_DMASHDL_ENABLE);
-	mt76_set(dev, MT_DMASHDL_SW_CONTROL, MT_DMASHDL_DMASHDL_BYPASS);
-
-	mt76_set(dev, MT_WFDMA_DUMMY_CR, MT_WFDMA_NEED_REINIT);
-}
-
-static int mt7921u_dma_rx_evt_ep4(struct mt7921_dev *dev)
-{
-	if (!mt76_poll(dev, MT_UWFDMA0_GLO_CFG,
-		       MT_WFDMA0_GLO_CFG_RX_DMA_BUSY, 0, 1000))
-		return -ETIMEDOUT;
-
-	mt76_clear(dev, MT_UWFDMA0_GLO_CFG, MT_WFDMA0_GLO_CFG_RX_DMA_EN);
-	mt76_set(dev, MT_WFDMA_HOST_CONFIG,
-		 MT_WFDMA_HOST_CONFIG_USB_RXEVT_EP4_EN);
-	mt76_set(dev, MT_UWFDMA0_GLO_CFG, MT_WFDMA0_GLO_CFG_RX_DMA_EN);
-
-	return 0;
-}
-
-static void mt7921u_epctl_rst_opt(struct mt7921_dev *dev, bool reset)
-{
-	u32 val;
-
-	/* usb endpoint reset opt
-	 * bits[4,9]: out blk ep 4-9
-	 * bits[20,21]: in blk ep 4-5
-	 * bits[22]: in int ep 6
-	 */
-	val = mt7921u_uhw_rr(&dev->mt76, MT_SSUSB_EPCTL_CSR_EP_RST_OPT);
-	if (reset)
-		val |= GENMASK(9, 4) | GENMASK(22, 20);
-	else
-		val &= ~(GENMASK(9, 4) | GENMASK(22, 20));
-	mt7921u_uhw_wr(&dev->mt76, MT_SSUSB_EPCTL_CSR_EP_RST_OPT, val);
-}
-
-static int mt7921u_dma_init(struct mt7921_dev *dev)
-{
-	int err;
-
-	mt7921u_wfdma_init(dev);
-
-	mt76_clear(dev, MT_UDMA_WLCFG_0, MT_WL_RX_FLUSH);
-
-	mt76_set(dev, MT_UDMA_WLCFG_0,
-		 MT_WL_RX_EN | MT_WL_TX_EN |
-		 MT_WL_RX_MPSZ_PAD0 | MT_TICK_1US_EN);
-	mt76_clear(dev, MT_UDMA_WLCFG_0,
-		   MT_WL_RX_AGG_TO | MT_WL_RX_AGG_LMT);
-	mt76_clear(dev, MT_UDMA_WLCFG_1, MT_WL_RX_AGG_PKT_LMT);
-
-	err = mt7921u_dma_rx_evt_ep4(dev);
-	if (err)
-		return err;
-
-	mt7921u_epctl_rst_opt(dev, false);
-
-	return 0;
-}
-
-static int mt7921u_init_reset(struct mt7921_dev *dev)
-{
 	return 0;
 }
 
