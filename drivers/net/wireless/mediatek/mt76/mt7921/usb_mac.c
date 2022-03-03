@@ -145,6 +145,38 @@ int mt7921u_dma_init(struct mt7921_dev *dev)
 	return 0;
 }
 
+static int mt7921u_wfsys_reset(struct mt7921_dev *dev)
+{
+	u32 val;
+	int i;
+
+	mt7921u_epctl_rst_opt(dev, false);
+
+	val = mt7921u_uhw_rr(&dev->mt76, MT_CBTOP_RGU_WF_SUBSYS_RST);
+	val |= MT_CBTOP_RGU_WF_SUBSYS_RST_WF_WHOLE_PATH;
+	mt7921u_uhw_wr(&dev->mt76, MT_CBTOP_RGU_WF_SUBSYS_RST, val);
+
+	usleep_range(10, 20);
+
+	val = mt7921u_uhw_rr(&dev->mt76, MT_CBTOP_RGU_WF_SUBSYS_RST);
+	val &= ~MT_CBTOP_RGU_WF_SUBSYS_RST_WF_WHOLE_PATH;
+	mt7921u_uhw_wr(&dev->mt76, MT_CBTOP_RGU_WF_SUBSYS_RST, val);
+
+	mt7921u_uhw_wr(&dev->mt76, MT_UDMA_CONN_INFRA_STATUS_SEL, 0);
+	for (i = 0; i < MT7921_WFSYS_INIT_RETRY_COUNT; i++) {
+		val = mt7921u_uhw_rr(&dev->mt76, MT_UDMA_CONN_INFRA_STATUS);
+		if (val & MT_UDMA_CONN_WFSYS_INIT_DONE)
+			break;
+
+		msleep(100);
+	}
+
+	if (i == MT7921_WFSYS_INIT_RETRY_COUNT)
+		return -ETIMEDOUT;
+
+	return 0;
+}
+
 int mt7921u_init_reset(struct mt7921_dev *dev)
 {
 	set_bit(MT76_RESET, &dev->mphy.state);
@@ -155,10 +187,9 @@ int mt7921u_init_reset(struct mt7921_dev *dev)
 	mt76u_stop_rx(&dev->mt76);
 	mt76u_stop_tx(&dev->mt76);
 
-	/* XXX wfsys_reset */
+	mt7921u_wfsys_reset(dev);
 
 	clear_bit(MT76_RESET, &dev->mphy.state);
 
 	return mt76u_resume_rx(&dev->mt76);
 }
-
