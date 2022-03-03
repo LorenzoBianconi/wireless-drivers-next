@@ -13,6 +13,7 @@
 #include "mac.h"
 
 #define MT_USB_TYPE_VENDOR	(USB_TYPE_VENDOR | 0x1f)
+#define MT_USB_TYPE_UHW_VENDOR	(USB_TYPE_VENDOR | 0x1e)
 
 static const struct usb_device_id mt7921u_device_table[] = {
 	{ USB_DEVICE_AND_INTERFACE_INFO(0x0e8d, 0x7961, 0xff, 0xff, 0xff) },
@@ -50,6 +51,26 @@ static u32 mt7921u_rmw(struct mt76_dev *dev, u32 addr,
 	mutex_unlock(&dev->usb.usb_ctrl_mtx);
 
 	return val;
+}
+
+static u32 mt7921u_uhw_rr(struct mt76_dev *dev, u32 addr)
+{
+	u32 ret;
+
+	mutex_lock(&dev->usb.usb_ctrl_mtx);
+	ret = ___mt76u_rr(dev, MT_VEND_DEV_MODE,
+			  USB_DIR_IN | MT_USB_TYPE_UHW_VENDOR, addr);
+	mutex_unlock(&dev->usb.usb_ctrl_mtx);
+
+	return ret;
+}
+
+static void mt7921u_uhw_wr(struct mt76_dev *dev, u32 addr, u32 val)
+{
+	mutex_lock(&dev->usb.usb_ctrl_mtx);
+	___mt76u_wr(dev, MT_VEND_WRITE,
+		    USB_DIR_OUT | MT_USB_TYPE_UHW_VENDOR, addr, val);
+	mutex_unlock(&dev->usb.usb_ctrl_mtx);
 }
 
 static void mt7921u_copy(struct mt76_dev *dev, u32 offset,
@@ -234,8 +255,27 @@ static int mt7921u_dma_rx_evt_ep4(struct mt7921_dev *dev)
 	return 0;
 }
 
+static void mt7921u_epctl_rst_opt(struct mt7921_dev *dev, bool reset)
+{
+	u32 val;
+
+	/* usb endpoint reset opt
+	 * bits[4,9]: out blk ep 4-9
+	 * bits[20,21]: in blk ep 4-5
+	 * bits[22]: in int ep 6
+	 */
+	val = mt7921u_uhw_rr(&dev->mt76, MT_SSUSB_EPCTL_CSR_EP_RST_OPT);
+	if (reset)
+		val |= GENMASK(9, 4) | GENMASK(22, 20);
+	else
+		val &= ~(GENMASK(9, 4) | GENMASK(22, 20));
+	mt7921u_uhw_wr(&dev->mt76, MT_SSUSB_EPCTL_CSR_EP_RST_OPT, val);
+}
+
 static int mt7921u_dma_init(struct mt7921_dev *dev)
 {
+	int err;
+
 	mt7921u_wfdma_init(dev);
 
 	mt76_clear(dev, MT_UDMA_WLCFG_0, MT_WL_RX_FLUSH);
@@ -247,7 +287,13 @@ static int mt7921u_dma_init(struct mt7921_dev *dev)
 		   MT_WL_RX_AGG_TO | MT_WL_RX_AGG_LMT);
 	mt76_clear(dev, MT_UDMA_WLCFG_1, MT_WL_RX_AGG_PKT_LMT);
 
-	return mt7921u_dma_rx_evt_ep4(dev);
+	err = mt7921u_dma_rx_evt_ep4(dev);
+	if (err)
+		return err;
+
+	mt7921u_epctl_rst_opt(dev, false);
+
+	return 0;
 }
 
 static int mt7921u_init_reset(struct mt7921_dev *dev)
