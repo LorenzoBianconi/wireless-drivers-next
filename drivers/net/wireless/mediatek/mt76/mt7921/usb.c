@@ -220,6 +220,20 @@ static void mt7921u_wfdma_init(struct mt7921_dev *dev)
 	mt76_set(dev, MT_WFDMA_DUMMY_CR, MT_WFDMA_NEED_REINIT);
 }
 
+static int mt7921u_dma_rx_evt_ep4(struct mt7921_dev *dev)
+{
+	if (!mt76_poll(dev, MT_UWFDMA0_GLO_CFG,
+		       MT_WFDMA0_GLO_CFG_RX_DMA_BUSY, 0, 1000))
+		return -ETIMEDOUT;
+
+	mt76_clear(dev, MT_UWFDMA0_GLO_CFG, MT_WFDMA0_GLO_CFG_RX_DMA_EN);
+	mt76_set(dev, MT_WFDMA_HOST_CONFIG,
+		 MT_WFDMA_HOST_CONFIG_USB_RXEVT_EP4_EN);
+	mt76_set(dev, MT_UWFDMA0_GLO_CFG, MT_WFDMA0_GLO_CFG_RX_DMA_EN);
+
+	return 0;
+}
+
 static int mt7921u_dma_init(struct mt7921_dev *dev)
 {
 	mt7921u_wfdma_init(dev);
@@ -233,7 +247,7 @@ static int mt7921u_dma_init(struct mt7921_dev *dev)
 		   MT_WL_RX_AGG_TO | MT_WL_RX_AGG_LMT);
 	mt76_clear(dev, MT_UDMA_WLCFG_1, MT_WL_RX_AGG_PKT_LMT);
 
-	return 0;
+	return mt7921u_dma_rx_evt_ep4(dev);
 }
 
 static int mt7921u_init_reset(struct mt7921_dev *dev)

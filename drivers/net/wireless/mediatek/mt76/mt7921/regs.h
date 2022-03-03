@@ -459,6 +459,9 @@
 
 #define MT_DMASHDL_SCHED_SET(_n)	MT_DMA_SHDL(0x070 + ((_n) << 2))
 
+#define MT_WFDMA_HOST_CONFIG		0x7c027030
+#define MT_WFDMA_HOST_CONFIG_USB_RXEVT_EP4_EN	BIT(6)
+
 #define MT_UMAC(ofs)			(0x74000000 + (ofs))
 #define MT_UDMA_TX_QSEL			MT_UMAC(0x008)
 #define MT_FW_DL_EN			BIT(3)
