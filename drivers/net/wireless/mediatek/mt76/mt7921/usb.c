@@ -144,7 +144,7 @@ static int mt7921u_mcu_init(struct mt7921_dev *dev)
 			return ret;
 
 		if (!mt76_poll_msec(dev, MT_CONN_ON_MISC,
-				    MT_TOP_MISC2_FW_PWR_ON, 0, 500))
+				    MT_TOP_MISC2_FW_N9_RDY, 0, 500))
 			return -EIO;
 
 		ret = mt7921u_mcu_power_on(dev);
@@ -321,8 +321,8 @@ static int mt7921u_probe(struct usb_interface *usb_intf,
 		    (mt76_rr(dev, MT_HW_REV) & 0xff);
 	dev_dbg(mdev->dev, "ASIC revision: %04x\n", mdev->rev);
 
-	if (!mt76_poll_msec(dev, MT_CONN_ON_MISC, MT_TOP_MISC2_FW_PWR_ON,
-			    MT_TOP_MISC2_FW_PWR_ON, 500)) {
+	if (!mt76_poll_msec(dev, MT_CONN_ON_MISC, MT_TOP_MISC2_FW_N9_RDY,
+			    MT_TOP_MISC2_FW_N9_RDY, 500)) {
 		ret = mt7921u_mcu_power_on(dev);
 		if (ret)
 			goto error;
