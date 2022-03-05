@@ -171,6 +171,7 @@ static void mt7921u_stop(struct ieee80211_hw *hw)
 static void mt7921u_cleanup(struct mt7921_dev *dev)
 {
 	clear_bit(MT76_STATE_INITIALIZED, &dev->mphy.state);
+	mt7921u_wfsys_reset(dev);
 	mt7921_mcu_exit(dev);
 	mt76u_queues_deinit(&dev->mt76);
 }

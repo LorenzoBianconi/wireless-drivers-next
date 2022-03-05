@@ -145,7 +145,7 @@ int mt7921u_dma_init(struct mt7921_dev *dev)
 	return 0;
 }
 
-static int mt7921u_wfsys_reset(struct mt7921_dev *dev)
+int mt7921u_wfsys_reset(struct mt7921_dev *dev)
 {
 	u32 val;
 	int i;
