@@ -1702,3 +1702,26 @@ char *svc_fill_symlink_pathname(struct svc_rqst *rqstp, struct kvec *first,
 	return result;
 }
 EXPORT_SYMBOL_GPL(svc_fill_symlink_pathname);
+
+void svc_rpc_status(struct seq_file *m, struct svc_serv *serv)
+{
+	int i;
+
+	svc_get(serv);
+
+	rcu_read_lock();
+	for (i = 0; i < serv->sv_nrpools; i++) {
+		struct svc_pool *pool = &serv->sv_pools[i];
+		struct svc_rqst *rqstp;
+
+		list_for_each_entry_rcu(rqstp, &pool->sp_all_threads, rq_all) {
+			seq_printf(m, "XID 0x%x BUSY %d\n",
+				   be32_to_cpu(rqstp->rq_xid),
+				   !!test_bit(RQ_BUSY, &rqstp->rq_flags));
+		}
+	}
+	rcu_read_unlock();
+
+	svc_put(serv);
+}
+EXPORT_SYMBOL_GPL(svc_rpc_status);

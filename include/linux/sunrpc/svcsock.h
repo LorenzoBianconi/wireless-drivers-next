@@ -67,6 +67,7 @@ void		svc_init_xprt_sock(void);
 void		svc_cleanup_xprt_sock(void);
 struct svc_xprt *svc_sock_create(struct svc_serv *serv, int prot);
 void		svc_sock_destroy(struct svc_xprt *);
+void		svc_rpc_status(struct seq_file *m, struct svc_serv *serv);
 
 /*
  * svc_makesock socket characteristics

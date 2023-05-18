@@ -56,6 +56,8 @@ enum {
 	NFSD_RecoveryDir,
 	NFSD_V4EndGrace,
 #endif
+	NFSD_Rpc_Status,
+
 	NFSD_MaxReserved
 };
 
@@ -205,6 +207,21 @@ static inline struct net *netns(struct file *file)
 {
 	return file_inode(file)->i_sb->s_fs_info;
 }
+
+static int nfsd_rpc_status_show(struct seq_file *m, void *v)
+{
+	struct nfsd_net *nn = net_generic(file_inode(m->file)->i_sb->s_fs_info,
+					  nfsd_net_id);
+
+	mutex_lock(&nfsd_mutex);
+	if (nn->nfsd_serv)
+		svc_rpc_status(m, nn->nfsd_serv);
+	mutex_unlock(&nfsd_mutex);
+
+	return 0;
+}
+
+DEFINE_SHOW_ATTRIBUTE(nfsd_rpc_status);
 
 /*
  * write_unlock_ip - Release all locks used by a client
@@ -1400,6 +1417,7 @@ static int nfsd_fill_super(struct super_block *sb, struct fs_context *fc)
 		[NFSD_RecoveryDir] = {"nfsv4recoverydir", &transaction_ops, S_IWUSR|S_IRUSR},
 		[NFSD_V4EndGrace] = {"v4_end_grace", &transaction_ops, S_IWUSR|S_IRUGO},
 #endif
+		[NFSD_Rpc_Status] = {"rpc_status", &nfsd_rpc_status_fops, S_IRUGO},
 		/* last one */ {""}
 	};
 
