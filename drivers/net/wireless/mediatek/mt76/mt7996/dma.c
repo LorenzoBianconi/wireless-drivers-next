@@ -711,7 +711,7 @@ void mt7996_dma_reset(struct mt7996_dev *dev, bool force)
 
 	mt76_for_each_q_rx(&dev->mt76, i) {
 		if (mtk_wed_device_active(&dev->mt76.mmio.wed))
-			if (mt76_queue_is_wed_rro(&dev->mt76.q_rx[i]) ||
+			if (mt76_queue_is_rro(&dev->mt76.q_rx[i]) ||
 			    mt76_queue_is_wed_tx_free(&dev->mt76.q_rx[i]))
 				continue;
 

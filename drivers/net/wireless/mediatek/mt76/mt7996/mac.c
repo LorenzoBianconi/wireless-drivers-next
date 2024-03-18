@@ -1675,7 +1675,7 @@ mt7996_mac_restart(struct mt7996_dev *dev)
 	mt76_worker_disable(&dev->mt76.tx_worker);
 	mt76_for_each_q_rx(mdev, i) {
 		if (mtk_wed_device_active(&dev->mt76.mmio.wed) &&
-		    mt76_queue_is_wed_rro(&mdev->q_rx[i]))
+		    mt76_queue_is_rro(&mdev->q_rx[i]))
 			continue;
 
 		if (mdev->q_rx[i].ndesc)
@@ -1692,7 +1692,7 @@ mt7996_mac_restart(struct mt7996_dev *dev)
 	local_bh_disable();
 	mt76_for_each_q_rx(mdev, i) {
 		if (mtk_wed_device_active(&dev->mt76.mmio.wed) &&
-		    mt76_queue_is_wed_rro(&mdev->q_rx[i]))
+		    mt76_queue_is_rro(&mdev->q_rx[i]))
 			continue;
 
 		if (mdev->q_rx[i].ndesc) {
@@ -1897,7 +1897,7 @@ void mt7996_mac_reset_work(struct work_struct *work)
 	mt76_worker_disable(&dev->mt76.tx_worker);
 	mt76_for_each_q_rx(&dev->mt76, i) {
 		if (mtk_wed_device_active(&dev->mt76.mmio.wed) &&
-		    mt76_queue_is_wed_rro(&dev->mt76.q_rx[i]))
+		    mt76_queue_is_rro(&dev->mt76.q_rx[i]))
 			continue;
 
 		napi_disable(&dev->mt76.napi[i]);
@@ -1955,7 +1955,7 @@ void mt7996_mac_reset_work(struct work_struct *work)
 	local_bh_disable();
 	mt76_for_each_q_rx(&dev->mt76, i) {
 		if (mtk_wed_device_active(&dev->mt76.mmio.wed) &&
-		    mt76_queue_is_wed_rro(&dev->mt76.q_rx[i]))
+		    mt76_queue_is_rro(&dev->mt76.q_rx[i]))
 			continue;
 
 		napi_enable(&dev->mt76.napi[i]);

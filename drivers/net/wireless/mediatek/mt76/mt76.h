@@ -1625,20 +1625,20 @@ static inline bool mt76_queue_is_wed_tx_free(struct mt76_queue *q)
 	       FIELD_GET(MT_QFLAG_WED_TYPE, q->flags) == MT76_WED_Q_TXFREE;
 }
 
-static inline bool mt76_queue_is_wed_rro(struct mt76_queue *q)
+static inline bool mt76_queue_is_rro(struct mt76_queue *q)
 {
 	return q->flags & MT_QFLAG_RRO;
 }
 
-static inline bool mt76_queue_is_wed_rro_ind(struct mt76_queue *q)
+static inline bool mt76_queue_is_rro_ind(struct mt76_queue *q)
 {
-	return mt76_queue_is_wed_rro(q) &&
+	return mt76_queue_is_rro(q) &&
 	       FIELD_GET(MT_QFLAG_WED_TYPE, q->flags) == MT76_WED_RRO_Q_IND;
 }
 
-static inline bool mt76_queue_is_wed_rro_data(struct mt76_queue *q)
+static inline bool mt76_queue_is_rro_data(struct mt76_queue *q)
 {
-	return mt76_queue_is_wed_rro(q) &&
+	return mt76_queue_is_rro(q) &&
 	       (FIELD_GET(MT_QFLAG_WED_TYPE, q->flags) == MT76_WED_RRO_Q_DATA ||
 		FIELD_GET(MT_QFLAG_WED_TYPE, q->flags) == MT76_WED_RRO_Q_MSDU_PG);
 }
@@ -1649,7 +1649,7 @@ static inline bool mt76_queue_is_wed_rx(struct mt76_queue *q)
 		return false;
 
 	return FIELD_GET(MT_QFLAG_WED_TYPE, q->flags) == MT76_WED_Q_RX ||
-	       mt76_queue_is_wed_rro_ind(q) || mt76_queue_is_wed_rro_data(q);
+	       mt76_queue_is_rro_ind(q) || mt76_queue_is_rro_data(q);
 
 }
 
