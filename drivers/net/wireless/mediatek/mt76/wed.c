@@ -110,7 +110,7 @@ int mt76_wed_dma_setup(struct mt76_dev *dev, struct mt76_queue *q, bool reset)
 		return 0;
 
 	type = FIELD_GET(MT_QFLAG_WED_TYPE, q->flags);
-	ring = FIELD_GET(MT_QFLAG_WED_RING, q->flags);
+	ring = FIELD_GET(MT_QFLAG_RING, q->flags);
 
 	switch (type) {
 	case MT76_WED_Q_TX:

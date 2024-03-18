@@ -28,7 +28,7 @@
 
 #define MT76_TOKEN_FREE_THR	64
 
-#define MT_QFLAG_WED_RING	GENMASK(1, 0)
+#define MT_QFLAG_RING		GENMASK(1, 0)
 #define MT_QFLAG_WED_TYPE	GENMASK(4, 2)
 #define MT_QFLAG_WED		BIT(5)
 #define MT_QFLAG_RRO		BIT(6)
@@ -36,7 +36,7 @@
 
 #define __MT_WED_Q(_type, _n)	(MT_QFLAG_WED | \
 				 FIELD_PREP(MT_QFLAG_WED_TYPE, _type) | \
-				 FIELD_PREP(MT_QFLAG_WED_RING, _n))
+				 FIELD_PREP(MT_QFLAG_RING, _n))
 #define __MT_RRO_Q(_type, _n)	(MT_QFLAG_RRO | __MT_WED_Q(_type, _n))
 
 #define MT_WED_Q_TX(_n)		__MT_WED_Q(MT76_WED_Q_TX, _n)
