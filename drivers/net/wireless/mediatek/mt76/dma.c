@@ -189,7 +189,7 @@ static void
 mt76_dma_sync_idx(struct mt76_dev *dev, struct mt76_queue *q)
 {
 	Q_WRITE(q, desc_base, q->desc_dma);
-	if (q->flags & MT_QFLAG_WED_RRO_EN)
+	if (q->flags & MT_QFLAG_RRO_EN)
 		Q_WRITE(q, ring_size, MT_DMA_RRO_EN | q->ndesc);
 	else
 		Q_WRITE(q, ring_size, q->ndesc);

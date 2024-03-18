@@ -380,7 +380,7 @@ int mt7996_dma_rro_init(struct mt7996_dev *dev)
 	int ret;
 
 	/* ind cmd */
-	mdev->q_rx[MT_RXQ_RRO_IND].flags = MT_WED_RRO_Q_IND;
+	mdev->q_rx[MT_RXQ_RRO_IND].flags = MT_RRO_Q_IND;
 	mdev->q_rx[MT_RXQ_RRO_IND].wed = &mdev->mmio.wed;
 	ret = mt76_queue_alloc(dev, &mdev->q_rx[MT_RXQ_RRO_IND],
 			       MT_RXQ_ID(MT_RXQ_RRO_IND),
@@ -391,7 +391,7 @@ int mt7996_dma_rro_init(struct mt7996_dev *dev)
 
 	/* rx msdu page queue for band0 */
 	mdev->q_rx[MT_RXQ_MSDU_PAGE_BAND0].flags =
-		MT_WED_RRO_Q_MSDU_PG(0) | MT_QFLAG_WED_RRO_EN;
+		MT_RRO_Q_MSDU_PG(0) | MT_QFLAG_RRO_EN;
 	mdev->q_rx[MT_RXQ_MSDU_PAGE_BAND0].wed = &mdev->mmio.wed;
 	ret = mt76_queue_alloc(dev, &mdev->q_rx[MT_RXQ_MSDU_PAGE_BAND0],
 			       MT_RXQ_ID(MT_RXQ_MSDU_PAGE_BAND0),
@@ -404,7 +404,7 @@ int mt7996_dma_rro_init(struct mt7996_dev *dev)
 	if (mt7996_band_valid(dev, MT_BAND1)) {
 		/* rx msdu page queue for band1 */
 		mdev->q_rx[MT_RXQ_MSDU_PAGE_BAND1].flags =
-			MT_WED_RRO_Q_MSDU_PG(1) | MT_QFLAG_WED_RRO_EN;
+			MT_RRO_Q_MSDU_PG(1) | MT_QFLAG_RRO_EN;
 		mdev->q_rx[MT_RXQ_MSDU_PAGE_BAND1].wed = &mdev->mmio.wed;
 		ret = mt76_queue_alloc(dev, &mdev->q_rx[MT_RXQ_MSDU_PAGE_BAND1],
 				       MT_RXQ_ID(MT_RXQ_MSDU_PAGE_BAND1),
@@ -418,7 +418,7 @@ int mt7996_dma_rro_init(struct mt7996_dev *dev)
 	if (mt7996_band_valid(dev, MT_BAND2)) {
 		/* rx msdu page queue for band2 */
 		mdev->q_rx[MT_RXQ_MSDU_PAGE_BAND2].flags =
-			MT_WED_RRO_Q_MSDU_PG(2) | MT_QFLAG_WED_RRO_EN;
+			MT_RRO_Q_MSDU_PG(2) | MT_QFLAG_RRO_EN;
 		mdev->q_rx[MT_RXQ_MSDU_PAGE_BAND2].wed = &mdev->mmio.wed;
 		ret = mt76_queue_alloc(dev, &mdev->q_rx[MT_RXQ_MSDU_PAGE_BAND2],
 				       MT_RXQ_ID(MT_RXQ_MSDU_PAGE_BAND2),
@@ -587,7 +587,7 @@ int mt7996_dma_init(struct mt7996_dev *dev)
 	    dev->has_rro) {
 		/* rx rro data queue for band0 */
 		dev->mt76.q_rx[MT_RXQ_RRO_BAND0].flags =
-			MT_WED_RRO_Q_DATA(0) | MT_QFLAG_WED_RRO_EN;
+			MT_RRO_Q_DATA(0) | MT_QFLAG_RRO_EN;
 		dev->mt76.q_rx[MT_RXQ_RRO_BAND0].wed = wed;
 		ret = mt76_queue_alloc(dev, &dev->mt76.q_rx[MT_RXQ_RRO_BAND0],
 				       MT_RXQ_ID(MT_RXQ_RRO_BAND0),
@@ -612,7 +612,7 @@ int mt7996_dma_init(struct mt7996_dev *dev)
 		if (mt7996_band_valid(dev, MT_BAND2)) {
 			/* rx rro data queue for band2 */
 			dev->mt76.q_rx[MT_RXQ_RRO_BAND2].flags =
-				MT_WED_RRO_Q_DATA(1) | MT_QFLAG_WED_RRO_EN;
+				MT_RRO_Q_DATA(1) | MT_QFLAG_RRO_EN;
 			dev->mt76.q_rx[MT_RXQ_RRO_BAND2].wed = wed;
 			ret = mt76_queue_alloc(dev, &dev->mt76.q_rx[MT_RXQ_RRO_BAND2],
 					       MT_RXQ_ID(MT_RXQ_RRO_BAND2),

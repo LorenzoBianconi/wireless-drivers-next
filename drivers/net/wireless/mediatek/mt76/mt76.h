@@ -31,20 +31,20 @@
 #define MT_QFLAG_WED_RING	GENMASK(1, 0)
 #define MT_QFLAG_WED_TYPE	GENMASK(4, 2)
 #define MT_QFLAG_WED		BIT(5)
-#define MT_QFLAG_WED_RRO	BIT(6)
-#define MT_QFLAG_WED_RRO_EN	BIT(7)
+#define MT_QFLAG_RRO		BIT(6)
+#define MT_QFLAG_RRO_EN		BIT(7)
 
 #define __MT_WED_Q(_type, _n)	(MT_QFLAG_WED | \
 				 FIELD_PREP(MT_QFLAG_WED_TYPE, _type) | \
 				 FIELD_PREP(MT_QFLAG_WED_RING, _n))
-#define __MT_WED_RRO_Q(_type, _n)	(MT_QFLAG_WED_RRO | __MT_WED_Q(_type, _n))
+#define __MT_RRO_Q(_type, _n)	(MT_QFLAG_RRO | __MT_WED_Q(_type, _n))
 
 #define MT_WED_Q_TX(_n)		__MT_WED_Q(MT76_WED_Q_TX, _n)
 #define MT_WED_Q_RX(_n)		__MT_WED_Q(MT76_WED_Q_RX, _n)
 #define MT_WED_Q_TXFREE		__MT_WED_Q(MT76_WED_Q_TXFREE, 0)
-#define MT_WED_RRO_Q_DATA(_n)	__MT_WED_RRO_Q(MT76_WED_RRO_Q_DATA, _n)
-#define MT_WED_RRO_Q_MSDU_PG(_n)	__MT_WED_RRO_Q(MT76_WED_RRO_Q_MSDU_PG, _n)
-#define MT_WED_RRO_Q_IND	__MT_WED_RRO_Q(MT76_WED_RRO_Q_IND, 0)
+#define MT_RRO_Q_DATA(_n)	__MT_RRO_Q(MT76_WED_RRO_Q_DATA, _n)
+#define MT_RRO_Q_MSDU_PG(_n)	__MT_RRO_Q(MT76_WED_RRO_Q_MSDU_PG, _n)
+#define MT_RRO_Q_IND		__MT_RRO_Q(MT76_WED_RRO_Q_IND, 0)
 
 struct mt76_dev;
 struct mt76_phy;
@@ -1627,7 +1627,7 @@ static inline bool mt76_queue_is_wed_tx_free(struct mt76_queue *q)
 
 static inline bool mt76_queue_is_wed_rro(struct mt76_queue *q)
 {
-	return q->flags & MT_QFLAG_WED_RRO;
+	return q->flags & MT_QFLAG_RRO;
 }
 
 static inline bool mt76_queue_is_wed_rro_ind(struct mt76_queue *q)
