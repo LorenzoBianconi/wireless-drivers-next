@@ -29,22 +29,25 @@
 #define MT76_TOKEN_FREE_THR	64
 
 #define MT_QFLAG_RING		GENMASK(1, 0)
-#define MT_QFLAG_WED_TYPE	GENMASK(4, 2)
-#define MT_QFLAG_WED		BIT(5)
-#define MT_QFLAG_RRO		BIT(6)
-#define MT_QFLAG_RRO_EN		BIT(7)
+#define MT_QFLAG_WED_TYPE	GENMASK(3, 2)
+#define MT_QFLAG_WED		BIT(4)
+#define MT_QFLAG_RRO_TYPE	GENMASK(6, 5)
+#define MT_QFLAG_RRO		BIT(7)
+#define MT_QFLAG_RRO_EN		BIT(8)
 
 #define __MT_WED_Q(_type, _n)	(MT_QFLAG_WED | \
 				 FIELD_PREP(MT_QFLAG_WED_TYPE, _type) | \
 				 FIELD_PREP(MT_QFLAG_RING, _n))
-#define __MT_RRO_Q(_type, _n)	(MT_QFLAG_RRO | __MT_WED_Q(_type, _n))
+#define __MT_RRO_Q(_type, _n)	(MT_QFLAG_RRO | \
+				 FIELD_PREP(MT_QFLAG_RRO_TYPE, _type) | \
+				 FIELD_PREP(MT_QFLAG_RING, _n))
 
 #define MT_WED_Q_TX(_n)		__MT_WED_Q(MT76_WED_Q_TX, _n)
 #define MT_WED_Q_RX(_n)		__MT_WED_Q(MT76_WED_Q_RX, _n)
 #define MT_WED_Q_TXFREE		__MT_WED_Q(MT76_WED_Q_TXFREE, 0)
-#define MT_RRO_Q_DATA(_n)	__MT_RRO_Q(MT76_WED_RRO_Q_DATA, _n)
-#define MT_RRO_Q_MSDU_PG(_n)	__MT_RRO_Q(MT76_WED_RRO_Q_MSDU_PG, _n)
-#define MT_RRO_Q_IND		__MT_RRO_Q(MT76_WED_RRO_Q_IND, 0)
+#define MT_RRO_Q_DATA(_n)	__MT_RRO_Q(MT76_RRO_Q_DATA, _n)
+#define MT_RRO_Q_MSDU_PG(_n)	__MT_RRO_Q(MT76_RRO_Q_MSDU_PG, _n)
+#define MT_RRO_Q_IND		__MT_RRO_Q(MT76_RRO_Q_IND, 0)
 
 struct mt76_dev;
 struct mt76_phy;
@@ -66,9 +69,12 @@ enum mt76_wed_type {
 	MT76_WED_Q_TX,
 	MT76_WED_Q_TXFREE,
 	MT76_WED_Q_RX,
-	MT76_WED_RRO_Q_DATA,
-	MT76_WED_RRO_Q_MSDU_PG,
-	MT76_WED_RRO_Q_IND,
+};
+
+enum mt76_rro_type {
+	MT76_RRO_Q_DATA,
+	MT76_RRO_Q_MSDU_PG,
+	MT76_RRO_Q_IND,
 };
 
 struct mt76_bus_ops {
@@ -1633,14 +1639,14 @@ static inline bool mt76_queue_is_rro(struct mt76_queue *q)
 static inline bool mt76_queue_is_rro_ind(struct mt76_queue *q)
 {
 	return mt76_queue_is_rro(q) &&
-	       FIELD_GET(MT_QFLAG_WED_TYPE, q->flags) == MT76_WED_RRO_Q_IND;
+	       FIELD_GET(MT_QFLAG_RRO_TYPE, q->flags) == MT76_RRO_Q_IND;
 }
 
 static inline bool mt76_queue_is_rro_data(struct mt76_queue *q)
 {
 	return mt76_queue_is_rro(q) &&
-	       (FIELD_GET(MT_QFLAG_WED_TYPE, q->flags) == MT76_WED_RRO_Q_DATA ||
-		FIELD_GET(MT_QFLAG_WED_TYPE, q->flags) == MT76_WED_RRO_Q_MSDU_PG);
+	       (FIELD_GET(MT_QFLAG_RRO_TYPE, q->flags) == MT76_RRO_Q_DATA ||
+		FIELD_GET(MT_QFLAG_RRO_TYPE, q->flags) == MT76_RRO_Q_MSDU_PG);
 }
 
 static inline bool mt76_queue_is_wed_rx(struct mt76_queue *q)

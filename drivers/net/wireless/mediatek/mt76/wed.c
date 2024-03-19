@@ -94,6 +94,41 @@ int mt76_wed_offload_enable(struct mtk_wed_device *wed)
 }
 EXPORT_SYMBOL_GPL(mt76_wed_offload_enable);
 
+static int mt76_wed_dma_rro_setup(struct mt76_dev *dev, struct mt76_queue *q)
+{
+	u16 type = FIELD_GET(MT_QFLAG_RRO_TYPE, q->flags);
+	u16 ring = FIELD_GET(MT_QFLAG_RING, q->flags);
+	int ret = 0;
+
+	q->flags &= ~MT_QFLAG_WED;
+
+	switch (type) {
+	case MT76_RRO_Q_DATA:
+		__mt76_dma_queue_reset(dev, q, false);
+		mtk_wed_device_rro_rx_ring_setup(q->wed, ring, q->regs);
+		q->head = q->ndesc - 1;
+		q->queued = q->head;
+		break;
+	case MT76_RRO_Q_MSDU_PG:
+		__mt76_dma_queue_reset(dev, q, false);
+		mtk_wed_device_msdu_pg_rx_ring_setup(q->wed, ring, q->regs);
+		q->head = q->ndesc - 1;
+		q->queued = q->head;
+		break;
+	case MT76_RRO_Q_IND:
+		mt76_dma_queue_reset(dev, q);
+		mt76_dma_rx_fill(dev, q, false);
+		mtk_wed_device_ind_rx_ring_setup(q->wed, q->regs);
+		break;
+	default:
+		ret = -EINVAL;
+		break;
+	}
+	q->flags |= MT_QFLAG_WED;
+
+	return ret;
+}
+
 int mt76_wed_dma_setup(struct mt76_dev *dev, struct mt76_queue *q, bool reset)
 {
 	int ret = 0, type, ring;
@@ -111,6 +146,9 @@ int mt76_wed_dma_setup(struct mt76_dev *dev, struct mt76_queue *q, bool reset)
 
 	type = FIELD_GET(MT_QFLAG_WED_TYPE, q->flags);
 	ring = FIELD_GET(MT_QFLAG_RING, q->flags);
+
+	if (mt76_queue_is_rro(q))
+		return mt76_wed_dma_rro_setup(dev, q);
 
 	switch (type) {
 	case MT76_WED_Q_TX:
@@ -134,26 +172,6 @@ int mt76_wed_dma_setup(struct mt76_dev *dev, struct mt76_queue *q, bool reset)
 						   reset);
 		if (!ret)
 			q->wed_regs = q->wed->rx_ring[ring].reg_base;
-		break;
-	case MT76_WED_RRO_Q_DATA:
-		q->flags &= ~MT_QFLAG_WED;
-		__mt76_dma_queue_reset(dev, q, false);
-		mtk_wed_device_rro_rx_ring_setup(q->wed, ring, q->regs);
-		q->head = q->ndesc - 1;
-		q->queued = q->head;
-		break;
-	case MT76_WED_RRO_Q_MSDU_PG:
-		q->flags &= ~MT_QFLAG_WED;
-		__mt76_dma_queue_reset(dev, q, false);
-		mtk_wed_device_msdu_pg_rx_ring_setup(q->wed, ring, q->regs);
-		q->head = q->ndesc - 1;
-		q->queued = q->head;
-		break;
-	case MT76_WED_RRO_Q_IND:
-		q->flags &= ~MT_QFLAG_WED;
-		mt76_dma_queue_reset(dev, q);
-		mt76_dma_rx_fill(dev, q, false);
-		mtk_wed_device_ind_rx_ring_setup(q->wed, q->regs);
 		break;
 	default:
 		ret = -EINVAL;
