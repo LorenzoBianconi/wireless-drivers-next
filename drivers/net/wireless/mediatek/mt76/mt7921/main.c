@@ -829,6 +829,7 @@ int mt7921_mac_sta_add(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 
 	mt7921_regd_set_6ghz_power_type(vif, true);
 
+	mt76_sta_common_init(&dev->mphy, &msta->deflink.wcid, sta);
 	mt76_connac_power_save_sched(&dev->mphy, &dev->pm);
 
 	return 0;

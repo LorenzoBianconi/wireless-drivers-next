@@ -1471,6 +1471,15 @@ mt76_tx_complete_skb(struct mt76_dev *dev, u16 wcid, struct sk_buff *skb)
 }
 
 void mt76_tx_status_check(struct mt76_dev *dev, bool flush);
+void __mt76_sta_common_init(struct mt76_phy *phy, struct mt76_wcid *wcid,
+			    struct ieee80211_sta *sta, bool primary_link);
+static inline void mt76_sta_common_init(struct mt76_phy *phy,
+					struct mt76_wcid *wcid,
+					struct ieee80211_sta *sta)
+{
+	__mt76_sta_common_init(phy, wcid, sta, true);
+}
+
 int mt76_sta_state(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 		   struct ieee80211_sta *sta,
 		   enum ieee80211_sta_state old_state,
