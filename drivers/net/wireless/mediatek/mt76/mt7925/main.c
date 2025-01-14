@@ -972,6 +972,7 @@ int mt7925_mac_sta_add(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 	} else {
 		err = mt7925_mac_link_sta_add(mdev, vif, &sta->deflink);
 	}
+	mt76_sta_common_init(&dev->mphy, &msta->deflink.wcid, sta);
 
 	return err;
 }

@@ -666,6 +666,7 @@ int mt7615_mac_sta_add(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 	if (err)
 		return err;
 
+	mt76_sta_common_init(phy->mt76, &msta->wcid, sta);
 	mt76_connac_power_save_sched(phy->mt76, &dev->pm);
 
 	return err;
