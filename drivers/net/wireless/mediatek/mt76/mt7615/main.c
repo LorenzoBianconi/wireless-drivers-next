@@ -679,7 +679,11 @@ void mt7615_mac_sta_remove(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 	struct mt7615_dev *dev = container_of(mdev, struct mt7615_dev, mt76);
 	struct mt7615_sta *msta = (struct mt7615_sta *)sta->drv_priv;
 	struct mt7615_vif *mvif = (struct mt7615_vif *)vif->drv_priv;
+	int i, idx = msta->wcid.idx;
 	struct mt7615_phy *phy;
+
+	for (i = 0; i < ARRAY_SIZE(msta->wcid.aggr); i++)
+		mt76_rx_aggr_stop(mdev, &msta->wcid, i);
 
 	mt76_connac_free_pending_tx_skbs(&dev->pm, &msta->wcid);
 
@@ -698,6 +702,9 @@ void mt7615_mac_sta_remove(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 	spin_unlock_bh(&mdev->sta_poll_lock);
 
 	mt76_connac_power_save_sched(phy->mt76, &dev->pm);
+
+	mt76_wcid_cleanup(mdev, &msta->wcid);
+	mt76_wcid_mask_clear(mdev->wcid_mask, idx);
 }
 EXPORT_SYMBOL_GPL(mt7615_mac_sta_remove);
 

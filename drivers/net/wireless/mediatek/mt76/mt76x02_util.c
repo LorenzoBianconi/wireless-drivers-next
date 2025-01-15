@@ -271,10 +271,16 @@ void mt76x02_sta_remove(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 {
 	struct mt76x02_dev *dev = container_of(mdev, struct mt76x02_dev, mt76);
 	struct mt76_wcid *wcid = (struct mt76_wcid *)sta->drv_priv;
-	int idx = wcid->idx;
+	int i, idx = wcid->idx;
+
+	for (i = 0; i < ARRAY_SIZE(wcid->aggr); i++)
+		mt76_rx_aggr_stop(mdev, wcid, i);
 
 	mt76x02_mac_wcid_set_drop(dev, idx, true);
 	mt76x02_mac_wcid_setup(dev, idx, 0, NULL);
+
+	mt76_wcid_cleanup(mdev, wcid);
+	mt76_wcid_mask_clear(mdev->wcid_mask, idx);
 }
 EXPORT_SYMBOL_GPL(mt76x02_sta_remove);
 

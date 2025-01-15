@@ -871,6 +871,10 @@ void mt7921_mac_sta_remove(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 {
 	struct mt792x_dev *dev = container_of(mdev, struct mt792x_dev, mt76);
 	struct mt792x_sta *msta = (struct mt792x_sta *)sta->drv_priv;
+	int i, idx = msta->deflink.wcid.idx;
+
+	for (i = 0; i < ARRAY_SIZE(msta->deflink.wcid.aggr); i++)
+		mt76_rx_aggr_stop(mdev, &msta->deflink.wcid, i);
 
 	mt7921_roc_abort_sync(dev);
 	mt76_connac_free_pending_tx_skbs(&dev->pm, &msta->deflink.wcid);
@@ -899,6 +903,9 @@ void mt7921_mac_sta_remove(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 	mt7921_regd_set_6ghz_power_type(vif, false);
 
 	mt76_connac_power_save_sched(&dev->mphy, &dev->pm);
+
+	mt76_wcid_cleanup(mdev, &msta->deflink.wcid);
+	mt76_wcid_mask_clear(mdev->wcid_mask, idx);
 }
 EXPORT_SYMBOL_GPL(mt7921_mac_sta_remove);
 
