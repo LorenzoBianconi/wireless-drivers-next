@@ -1231,7 +1231,11 @@ void mt7925_mac_sta_remove(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 			.active = true,
 		},
 	};
+	int i, idx = msta->deflink.wcid.idx;
 	unsigned long rem;
+
+	for (i = 0; i < ARRAY_SIZE(msta->deflink.wcid.aggr); i++)
+		mt76_rx_aggr_stop(mdev, &msta->deflink.wcid, i);
 
 	rem = ieee80211_vif_is_mld(vif) ? msta->valid_links : BIT(0);
 
@@ -1252,6 +1256,9 @@ void mt7925_mac_sta_remove(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 		mvif->wep_sta = NULL;
 		ewma_rssi_init(&mvif->bss_conf.rssi);
 	}
+
+	mt76_wcid_cleanup(mdev, &msta->deflink.wcid);
+	mt76_wcid_mask_clear(mdev->wcid_mask, idx);
 }
 EXPORT_SYMBOL_GPL(mt7925_mac_sta_remove);
 
