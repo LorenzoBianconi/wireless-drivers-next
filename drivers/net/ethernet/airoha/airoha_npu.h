@@ -5,6 +5,7 @@
  */
 
 #define NPU_NUM_CORES		8
+#define NPU_NUM_IRQ		6
 
 enum airoha_npu_wlan_set_cmd {
 	WLAN_FUNC_SET_WAIT_PCIE_ADDR,
@@ -66,6 +67,8 @@ struct airoha_npu {
 		spinlock_t lock;
 		struct work_struct wdt_work;
 	} cores[NPU_NUM_CORES];
+
+	int irqs[NPU_NUM_IRQ];
 
 	struct airoha_foe_stats __iomem *stats;
 
