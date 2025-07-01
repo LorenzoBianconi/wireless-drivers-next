@@ -177,12 +177,17 @@ mt7996_set_hw_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 		links = BIT(0);
 
 	for_each_set_bit(link_id, &links, IEEE80211_MLD_MAX_NUM_LINKS) {
+		struct ieee80211_bss_conf *link_conf;
 		struct mt7996_sta_link *msta_link;
 		struct mt7996_vif_link *link;
 		u8 *wcid_keyidx;
 		int err;
 
-		link = mt7996_vif_link(dev, vif, link_id);
+		link_conf = link_conf_dereference_protected(vif, link_id);
+		if (!link_conf)
+			continue;
+
+		link = mt7996_vif_conf_link(dev, vif, link_conf);
 		if (!link)
 			continue;
 
@@ -217,13 +222,6 @@ mt7996_set_hw_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 		}
 
 		if (cmd == SET_KEY && !sta && !link->mt76.cipher) {
-			struct ieee80211_bss_conf *link_conf;
-
-			link_conf = link_conf_dereference_protected(vif,
-								    link_id);
-			if (!link_conf)
-				link_conf = &vif->bss_conf;
-
 			link->mt76.cipher =
 				mt76_connac_mcu_get_cipher(key->cipher);
 			mt7996_mcu_add_bss_info(link->phy, vif, link_conf,
@@ -756,7 +754,7 @@ mt7996_vif_cfg_changed(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 		for_each_vif_active_link(vif, link_conf, link_id) {
 			struct mt7996_vif_link *link;
 
-			link = mt7996_vif_link(dev, vif, link_id);
+			link = mt7996_vif_conf_link(dev, vif, link_conf);
 			if (!link)
 				continue;
 
@@ -1007,7 +1005,7 @@ mt7996_mac_sta_add_links(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 			goto error_unlink;
 		}
 
-		link = mt7996_vif_link(dev, vif, link_id);
+		link = mt7996_vif_conf_link(dev, vif, link_conf);
 		if (!link) {
 			err = -EINVAL;
 			goto error_unlink;
@@ -1096,7 +1094,7 @@ mt7996_mac_sta_event(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 		if (!link_conf)
 			continue;
 
-		link = mt7996_vif_link(dev, vif, link_id);
+		link = mt7996_vif_conf_link(dev, vif, link_conf);
 		if (!link)
 			continue;
 
