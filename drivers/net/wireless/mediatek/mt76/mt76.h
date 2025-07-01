@@ -1854,7 +1854,6 @@ mt76_vif_init(struct ieee80211_vif *vif, struct mt76_vif_data *mvif)
 	struct mt76_vif_link *mlink = (struct mt76_vif_link *)vif->drv_priv;
 
 	mlink->mvif = mvif;
-	rcu_assign_pointer(mvif->link[0], mlink);
 }
 
 void mt76_vif_cleanup(struct mt76_dev *dev, struct ieee80211_vif *vif);
