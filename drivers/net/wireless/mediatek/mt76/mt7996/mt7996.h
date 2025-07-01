@@ -517,12 +517,6 @@ mt7996_band_phy(struct mt7996_dev *dev, enum nl80211_band band)
 	return mphy->priv;
 }
 
-static inline struct mt7996_vif_link *
-mt7996_vif_link(struct mt7996_dev *dev, struct ieee80211_vif *vif, int link_id)
-{
-	return (struct mt7996_vif_link *)mt76_vif_link(&dev->mt76, vif, link_id);
-}
-
 static inline struct mt7996_phy *
 mt7996_vif_link_phy(struct mt7996_vif_link *link)
 {
@@ -540,6 +534,18 @@ mt7996_vif_conf_link(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 {
 	return (struct mt7996_vif_link *)mt76_vif_conf_link(&dev->mt76, vif,
 							    link_conf);
+}
+
+static inline struct mt7996_vif_link *
+mt7996_vif_link(struct mt7996_dev *dev, struct ieee80211_vif *vif, int link_id)
+{
+	struct ieee80211_bss_conf *link_conf;
+
+	link_conf = link_conf_dereference_protected(vif, link_id);
+	if (!link_conf)
+		return NULL;
+
+	return mt7996_vif_conf_link(dev, vif, link_conf);
 }
 
 #define mt7996_for_each_phy(dev, phy)					\
