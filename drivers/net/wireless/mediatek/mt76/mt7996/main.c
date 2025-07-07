@@ -138,6 +138,27 @@ static int get_omac_idx(enum nl80211_iftype type, u64 mask)
 	return -1;
 }
 
+static int get_own_mld_idx(u64 mask, bool group_mld)
+{
+	u8 start = group_mld ? 0 : 16;
+	u8 end = group_mld ? 15 : 63;
+	int idx;
+
+	idx = get_free_idx(mask, start, end);
+	if (idx)
+		return idx - 1;
+
+	/* If the 16-63 range is not available, perform another lookup in the
+	 * range 0-15 */
+	if (!group_mld) {
+		idx = get_free_idx(mask, 0, 15);
+		if (idx)
+			return idx - 1;
+	}
+
+	return -EINVAL;
+}
+
 static void
 mt7996_init_bitrate_mask(struct ieee80211_vif *vif, struct mt7996_vif_link *mlink)
 {
@@ -285,6 +306,10 @@ int mt7996_vif_link_add(struct mt76_phy *mphy, struct ieee80211_vif *vif,
 	if (mlink->idx >= mt7996_max_interface_num(dev))
 		return -ENOSPC;
 
+	link->own_mld_idx = get_own_mld_idx(dev->mld_idx_mask, false);
+	if (link->own_mld_idx)
+		return -ENOSPC;
+
 	idx = get_omac_idx(vif->type, phy->omac_mask);
 	if (idx < 0)
 		return -ENOSPC;
@@ -302,6 +327,7 @@ int mt7996_vif_link_add(struct mt76_phy *mphy, struct ieee80211_vif *vif,
 
 	dev->mt76.vif_mask |= BIT_ULL(mlink->idx);
 	phy->omac_mask |= BIT_ULL(mlink->omac_idx);
+	dev->mld_idx_mask |= BIT_ULL(link->own_mld_idx);
 
 	idx = MT7996_WTBL_RESERVED - mlink->idx;
 
@@ -381,6 +407,7 @@ void mt7996_vif_link_remove(struct mt76_phy *mphy, struct ieee80211_vif *vif,
 
 	dev->mt76.vif_mask &= ~BIT_ULL(mlink->idx);
 	phy->omac_mask &= ~BIT_ULL(mlink->omac_idx);
+	dev->mld_idx_mask &= ~BIT_ULL(link->own_mld_idx);
 
 	spin_lock_bh(&dev->mt76.sta_poll_lock);
 	if (!list_empty(&msta_link->wcid.poll_list))
@@ -2114,7 +2141,69 @@ mt7996_change_vif_links(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 			u16 old_links, u16 new_links,
 			struct ieee80211_bss_conf *old[IEEE80211_MLD_MAX_NUM_LINKS])
 {
-	return 0;
+	unsigned long rem = old_links & ~new_links & ~vif->dormant_links;
+	struct mt7996_vif *mvif = (struct mt7996_vif *)vif->drv_priv;
+	unsigned long add = new_links & ~old_links;
+	struct mt7996_dev *dev = mt7996_hw_dev(hw);
+	struct mt7996_vif_link *link;
+	int link_id, ret = 0;
+
+	if (old_links == new_links)
+		return 0;
+
+	mutex_lock(&dev->mt76.mutex);
+
+	if (rem && vif->type == NL80211_IFTYPE_AP) {
+		ret = mt7996_mcu_mld_reconf_stop_link(dev, vif, rem);
+		if (ret)
+			goto unlock;
+
+		for_each_set_bit(link_id, &rem, IEEE80211_MLD_MAX_NUM_LINKS) {
+			link = mt7996_vif_link(dev, vif, link_id);
+			if (!link)
+				continue;
+
+			ret = mt7996_mcu_mld_set_link_op(dev, old[link_id],
+							 link, false);
+			if (ret)
+				goto unlock;
+		}
+	}
+
+	for_each_set_bit(link_id, &add, IEEE80211_MLD_MAX_NUM_LINKS) {
+		struct ieee80211_bss_conf *link_conf;
+
+		link_conf = link_conf_dereference_protected(vif, link_id);
+		if (!link_conf)
+			continue;
+
+		link = mt7996_vif_conf_link(dev, vif, link_conf);
+		if (!link)
+			continue;
+
+		ret = mt7996_mcu_mld_set_link_op(dev, link_conf, link, true);
+		if (ret)
+			goto unlock;
+	}
+
+	if (!old_links) {
+		mvif->group_mld_idx = get_own_mld_idx(dev->mld_idx_mask, true);
+		dev->mld_idx_mask |= BIT_ULL(mvif->group_mld_idx);
+
+		mvif->mld_remap_idx = get_free_idx(dev->mld_remap_idx_mask,
+						   0, 15);
+		dev->mld_remap_idx_mask |= BIT_ULL(mvif->mld_remap_idx);
+	}
+
+	if (new_links)
+		goto unlock;
+
+	dev->mld_idx_mask &= ~BIT_ULL(mvif->group_mld_idx);
+	dev->mld_remap_idx_mask &= ~BIT_ULL(mvif->mld_remap_idx);
+unlock:
+	mutex_unlock(&dev->mt76.mutex);
+
+	return ret;
 }
 
 const struct ieee80211_ops mt7996_ops = {

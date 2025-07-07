@@ -2569,6 +2569,77 @@ int mt7996_mcu_add_dev_info(struct mt7996_phy *phy, struct ieee80211_vif *vif,
 				 &data, sizeof(data), true);
 }
 
+int mt7996_mcu_mld_set_link_op(struct mt7996_dev *dev,
+			       struct ieee80211_bss_conf *link_conf,
+			       struct mt7996_vif_link *link, bool add)
+{
+	struct ieee80211_vif *vif = link_conf->vif;
+	struct mt7996_vif *mvif = (struct mt7996_vif *)vif->drv_priv;
+	struct bss_mld_link_op_tlv *mld_op;
+	struct sk_buff *skb;
+	struct tlv *tlv;
+
+	skb = __mt7996_mcu_alloc_bss_req(&dev->mt76, &link->mt76,
+					 MT7996_BSS_UPDATE_MAX_SIZE);
+	if (IS_ERR(skb))
+		return PTR_ERR(skb);
+
+	tlv = mt7996_mcu_add_uni_tlv(skb, UNI_BSS_INFO_MLD_LINK_OP,
+				     sizeof(*mld_op));
+	mld_op = (struct bss_mld_link_op_tlv *)tlv;
+	mld_op->link_operation = add;
+	mld_op->own_mld_id = link->own_mld_idx;
+	mld_op->link_id = link_conf->link_id;
+	memcpy(mld_op->mac_addr, vif->addr, ETH_ALEN);
+
+	if (add) {
+		mld_op->group_mld_id = mvif->group_mld_idx;
+		mld_op->remap_idx = mvif->mld_remap_idx;
+	} else {
+		mld_op->group_mld_id = 0xff;
+		mld_op->remap_idx = 0xff;
+	}
+
+	return mt76_mcu_skb_send_msg(&dev->mt76, skb,
+				     MCU_WMWA_UNI_CMD(BSS_INFO_UPDATE), true);
+}
+
+int mt7996_mcu_mld_reconf_stop_link(struct mt7996_dev *dev,
+				    struct ieee80211_vif *vif,
+				    unsigned long removed_links)
+{
+	struct mld_reconf_stop_link *sl;
+	struct mld_req_hdr hdr = {};
+	struct sk_buff *skb;
+	struct tlv *tlv;
+	u8 link_id;
+
+	skb = mt76_mcu_msg_alloc(&dev->mt76, NULL,
+				 sizeof(hdr) + sizeof(*sl));
+	if (!skb)
+		return -ENOMEM;
+
+	memcpy(hdr.mld_addr, vif->addr, ETH_ALEN);
+	skb_put_data(skb, &hdr, sizeof(hdr));
+
+	tlv = mt7996_mcu_add_uni_tlv(skb, UNI_CMD_MLD_RECONF_STOP_LINK,
+				     sizeof(*sl));
+	sl = (struct mld_reconf_stop_link *)tlv;
+	sl->link_bitmap = cpu_to_le16(removed_links);
+
+	for_each_set_bit(link_id, &removed_links,
+			 IEEE80211_MLD_MAX_NUM_LINKS) {
+		struct mt7996_vif_link *link;
+
+		link = mt7996_vif_link(dev, vif, link_id);
+		if (link)
+			sl->bss_idx[link_id] = link->mt76.idx;
+	}
+
+	return mt76_mcu_skb_send_msg(&dev->mt76, skb, MCU_WM_UNI_CMD(MLD),
+				     true);
+}
+
 static void
 mt7996_mcu_beacon_cntdwn(struct sk_buff *rskb, struct sk_buff *skb,
 			 struct ieee80211_mutable_offsets *offs,

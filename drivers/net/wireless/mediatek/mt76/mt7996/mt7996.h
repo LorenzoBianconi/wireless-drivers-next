@@ -246,6 +246,8 @@ struct mt7996_vif_link {
 	struct mt7996_sta_link msta_link;
 	struct mt7996_phy *phy;
 
+	u8 own_mld_idx;
+
 	struct ieee80211_tx_queue_params queue_params[IEEE80211_NUM_ACS];
 	struct cfg80211_bitrate_mask bitrate_mask;
 };
@@ -253,6 +255,9 @@ struct mt7996_vif_link {
 struct mt7996_vif {
 	struct mt7996_vif_link deflink; /* must be first */
 	struct mt76_vif_data mt76;
+
+	u8 group_mld_idx;
+	u8 mld_remap_idx;
 };
 
 /* crash-dump */
@@ -347,6 +352,9 @@ struct mt7996_dev {
 	u16 chainmask;
 	u8 chainshift[__MT_MAX_BAND];
 	u32 hif_idx;
+
+	u64 mld_idx_mask;
+	u64 mld_remap_idx_mask;
 
 	struct work_struct init_work;
 	struct work_struct rc_work;
@@ -674,6 +682,12 @@ void mt7996_mcu_exit(struct mt7996_dev *dev);
 int mt7996_mcu_get_all_sta_info(struct mt7996_phy *phy, u16 tag);
 int mt7996_mcu_wed_rro_reset_sessions(struct mt7996_dev *dev, u16 id);
 int mt7996_mcu_set_sniffer_mode(struct mt7996_phy *phy, bool enabled);
+int mt7996_mcu_mld_set_link_op(struct mt7996_dev *dev,
+			       struct ieee80211_bss_conf *link_conf,
+			       struct mt7996_vif_link *link, bool add);
+int mt7996_mcu_mld_reconf_stop_link(struct mt7996_dev *dev,
+				    struct ieee80211_vif *vif,
+				    unsigned long removed_links);
 
 static inline u8 mt7996_max_interface_num(struct mt7996_dev *dev)
 {

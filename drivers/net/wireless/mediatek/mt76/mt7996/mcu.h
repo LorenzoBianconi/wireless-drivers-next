@@ -484,6 +484,18 @@ struct bss_mld_tlv {
 	u8 __rsv[3];
 } __packed;
 
+struct bss_mld_link_op_tlv {
+	__le16 tag;
+	__le16 len;
+	u8 group_mld_id;
+	u8 own_mld_id;
+	u8 mac_addr[ETH_ALEN];
+	u8 remap_idx;
+	u8 link_operation;
+	u8 link_id;
+	u8 rsv[2];
+} __packed;
+
 struct sta_rec_ht_uni {
 	__le16 tag;
 	__le16 len;
@@ -808,7 +820,8 @@ enum {
 					 sizeof(struct bss_power_save) +	\
 					 sizeof(struct bss_sec_tlv) +		\
 					 sizeof(struct bss_ifs_time_tlv) +	\
-					 sizeof(struct bss_mld_tlv))
+					 sizeof(struct bss_mld_tlv) +		\
+					 sizeof(struct bss_mld_link_op_tlv))
 
 #define MT7996_STA_UPDATE_MAX_SIZE	(sizeof(struct sta_req_hdr) +		\
 					 sizeof(struct sta_rec_basic) +		\
@@ -935,6 +948,29 @@ enum {
 	UNI_CMD_SER_ENABLE = 1,
 	UNI_CMD_SER_SET,
 	UNI_CMD_SER_TRIGGER
+};
+
+struct mld_req_hdr {
+	u8 ver;
+	u8 mld_addr[ETH_ALEN];
+	u8 mld_idx;
+	u8 flag;
+	u8 rsv[3];
+	u8 buf[];
+} __packed;
+
+struct mld_reconf_stop_link {
+	__le16 tag;
+	__le16 len;
+	__le16 link_bitmap;
+	u8 rsv[2];
+	u8 bss_idx[16];
+} __packed;
+
+enum {
+	UNI_CMD_MLD_ATTLM_RES_REQ = 0x02,
+	UNI_CMD_MLD_RECONF_AP_REM_TIMER = 0x03,
+	UNI_CMD_MLD_RECONF_STOP_LINK = 0x04,
 };
 
 enum {
