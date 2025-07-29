@@ -192,10 +192,10 @@ struct airoha_npu {
 		int (*wlan_init_reserved_memory)(struct airoha_npu *npu);
 		int (*wlan_send_msg)(struct airoha_npu *npu, int ifindex,
 				     enum airoha_npu_wlan_set_cmd func_id,
-				     u32 data, gfp_t gfp);
+				     void *data, int data_len, gfp_t gfp);
 		int (*wlan_get_msg)(struct airoha_npu *npu, int ifindex,
 				    enum airoha_npu_wlan_get_cmd func_id,
-				    u32 *data, gfp_t gfp);
+				    void *data, int data_len, gfp_t gfp);
 		u32 (*wlan_get_queue_addr)(struct airoha_npu *npu, int qid,
 					   bool xmit);
 		void (*wlan_set_irq_status)(struct airoha_npu *npu, u32 val);
@@ -218,16 +218,16 @@ static inline int airoha_npu_wlan_init_reserved_memory(struct airoha_npu *npu)
 static inline int airoha_npu_wlan_send_msg(struct airoha_npu *npu,
 					   int ifindex,
 					   enum airoha_npu_wlan_set_cmd cmd,
-					   u32 data, gfp_t gfp)
+					   void *data, int data_len, gfp_t gfp)
 {
-	return npu->ops.wlan_send_msg(npu, ifindex, cmd, data, gfp);
+	return npu->ops.wlan_send_msg(npu, ifindex, cmd, data, data_len, gfp);
 }
 
 static inline int airoha_npu_wlan_get_msg(struct airoha_npu *npu, int ifindex,
 					  enum airoha_npu_wlan_get_cmd cmd,
-					  u32 *data, gfp_t gfp)
+					  void *data, int data_len, gfp_t gfp)
 {
-	return npu->ops.wlan_get_msg(npu, ifindex, cmd, data, gfp);
+	return npu->ops.wlan_get_msg(npu, ifindex, cmd, data, data_len, gfp);
 }
 
 static inline u32 airoha_npu_wlan_get_queue_addr(struct airoha_npu *npu,
@@ -275,14 +275,14 @@ static inline int airoha_npu_wlan_init_reserved_memory(struct airoha_npu *npu)
 static inline int airoha_npu_wlan_send_msg(struct airoha_npu *npu,
 					   int ifindex,
 					   enum airoha_npu_wlan_set_cmd cmd,
-					   u32 data, gfp_t gfp)
+					   void *data, int data_len, gfp_t gfp)
 {
 	return -EOPNOTSUPP;
 }
 
 static inline int airoha_npu_wlan_get_msg(struct airoha_npu *npu, int ifindex,
 					  enum airoha_npu_wlan_get_cmd cmd,
-					  u32 *data, gfp_t gfp)
+					  void *data, int data_len, gfp_t gfp)
 {
 	return -EOPNOTSUPP;
 }

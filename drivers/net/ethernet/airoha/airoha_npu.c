@@ -11,6 +11,7 @@
 #include <linux/of_platform.h>
 #include <linux/of_reserved_mem.h>
 #include <linux/regmap.h>
+#include <linux/soc/airoha/airoha_offload.h>
 
 #include "airoha_eth.h"
 
@@ -139,21 +140,11 @@ struct ppe_mbox_data {
 	};
 };
 
-#define WLAN_MAX_STATS_SIZE	4408
 struct wlan_mbox_data {
 	u32 ifindex:4;
 	u32 func_type:4;
 	u32 func_id;
-	union {
-		u32 data;
-		struct {
-			u32 dir;
-			u32 in_counter_addr;
-			u32 out_status_addr;
-			u32 out_counter_addr;
-		} txrx_addr;
-		u8 stats[WLAN_MAX_STATS_SIZE];
-	};
+	DECLARE_FLEX_ARRAY(u8, d);
 };
 
 static int airoha_npu_send_msg(struct airoha_npu *npu, int func_id,
@@ -211,8 +202,8 @@ static int airoha_npu_run_firmware(struct device *dev, void __iomem *base,
 	}
 
 	addr = devm_ioremap_resource(dev, res);
-	if (!addr) {
-		ret = -ENOMEM;
+	if (IS_ERR(addr)) {
+		ret = PTR_ERR(addr);
 		goto out;
 	}
 
@@ -424,22 +415,22 @@ out:
 
 static int airoha_npu_wlan_msg_send(struct airoha_npu *npu, int ifindex,
 				    enum airoha_npu_wlan_set_cmd func_id,
-				    u32 data, gfp_t gfp)
+				    void *data, int data_len, gfp_t gfp)
 {
 	struct wlan_mbox_data *wlan_data;
-	int err;
+	int err, len;
 
-	wlan_data = kzalloc(sizeof(*wlan_data), gfp);
+	len = sizeof(*wlan_data) + data_len;
+	wlan_data = kzalloc(len, gfp);
 	if (!wlan_data)
 		return -ENOMEM;
 
 	wlan_data->ifindex = ifindex;
 	wlan_data->func_type = NPU_OP_SET;
 	wlan_data->func_id = func_id;
-	wlan_data->data = data;
+	memcpy(wlan_data->d, data, data_len);
 
-	err = airoha_npu_send_msg(npu, NPU_FUNC_WIFI, wlan_data,
-				  sizeof(*wlan_data));
+	err = airoha_npu_send_msg(npu, NPU_FUNC_WIFI, wlan_data, len);
 	kfree(wlan_data);
 
 	return err;
@@ -447,12 +438,13 @@ static int airoha_npu_wlan_msg_send(struct airoha_npu *npu, int ifindex,
 
 static int airoha_npu_wlan_msg_get(struct airoha_npu *npu, int ifindex,
 				   enum airoha_npu_wlan_get_cmd func_id,
-				   u32 *data, gfp_t gfp)
+				   void *data, int data_len, gfp_t gfp)
 {
 	struct wlan_mbox_data *wlan_data;
-	int err;
+	int err, len;
 
-	wlan_data = kzalloc(sizeof(*wlan_data), gfp);
+	len = sizeof(*wlan_data) + data_len;
+	wlan_data = kzalloc(len, gfp);
 	if (!wlan_data)
 		return -ENOMEM;
 
@@ -460,10 +452,9 @@ static int airoha_npu_wlan_msg_get(struct airoha_npu *npu, int ifindex,
 	wlan_data->func_type = NPU_OP_GET;
 	wlan_data->func_id = func_id;
 
-	err = airoha_npu_send_msg(npu, NPU_FUNC_WIFI, wlan_data,
-				  sizeof(*wlan_data));
+	err = airoha_npu_send_msg(npu, NPU_FUNC_WIFI, wlan_data, len);
 	if (!err)
-		*data = wlan_data->data;
+		memcpy(data, wlan_data->d, data_len);
 	kfree(wlan_data);
 
 	return err;
@@ -477,22 +468,26 @@ airoha_npu_wlan_set_reserved_memory(struct airoha_npu *npu,
 	struct device *dev = npu->dev;
 	struct resource res;
 	int err;
+	u32 val;
 
 	err = of_reserved_mem_region_to_resource_byname(dev->of_node, name,
 							&res);
 	if (err)
 		return err;
 
-	return airoha_npu_wlan_msg_send(npu, ifindex, func_id, res.start,
-					GFP_KERNEL);
+	val = res.start;
+	return airoha_npu_wlan_msg_send(npu, ifindex, func_id, &val,
+					sizeof(val), GFP_KERNEL);
 }
 
 static int airoha_npu_wlan_init_memory(struct airoha_npu *npu)
 {
 	enum airoha_npu_wlan_set_cmd cmd = WLAN_FUNC_SET_WAIT_NPU_BAND0_ONCPU;
+	u32 val = 0;
 	int err;
 
-	err = airoha_npu_wlan_msg_send(npu, 1, cmd, 0, GFP_KERNEL);
+	err = airoha_npu_wlan_msg_send(npu, 1, cmd, &val, sizeof(val),
+				       GFP_KERNEL);
 	if (err)
 		return err;
 
@@ -512,7 +507,8 @@ static int airoha_npu_wlan_init_memory(struct airoha_npu *npu)
 		return err;
 
 	cmd = WLAN_FUNC_SET_WAIT_IS_FORCE_TO_CPU;
-	return airoha_npu_wlan_msg_send(npu, 0, cmd, 0, GFP_KERNEL);
+	return airoha_npu_wlan_msg_send(npu, 0, cmd, &val, sizeof(val),
+					GFP_KERNEL);
 }
 
 static u32 airoha_npu_wlan_queue_addr_get(struct airoha_npu *npu, int qid,
