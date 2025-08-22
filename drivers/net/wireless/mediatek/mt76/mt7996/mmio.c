@@ -464,9 +464,6 @@ int mt7996_mmio_wed_init(struct mt7996_dev *dev, void *pdev_ptr,
 	if (!wed_enable)
 		return 0;
 
-	dev->mt76.hwrro_mode = is_mt7996(&dev->mt76) ? MT76_HWRRO_V3
-						     : MT76_HWRRO_V3_1;
-
 	hif1_ofs = dev->hif2 ? MT_WFDMA0_PCIE1(0) - MT_WFDMA0(0) : 0;
 
 	if (hif2)
@@ -609,10 +606,8 @@ int mt7996_mmio_wed_init(struct mt7996_dev *dev, void *pdev_ptr,
 		wed->wlan.reset_complete = mt76_wed_reset_complete;
 	}
 
-	if (mtk_wed_device_attach(wed)) {
-		dev->mt76.hwrro_mode = MT76_HWRRO_OFF;
+	if (mtk_wed_device_attach(wed))
 		return 0;
-	}
 
 	*irq = wed->irq;
 	dev->mt76.dma_dev = wed->dev;
