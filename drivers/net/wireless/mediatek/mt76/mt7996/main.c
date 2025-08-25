@@ -316,11 +316,14 @@ int mt7996_vif_link_add(struct mt76_phy *mphy, struct ieee80211_vif *vif,
 		mvif->mld_remap_idx = get_free_idx(dev->mld_remap_idx_mask,
 						   0, 15);
 	}
+
+	INIT_DELAYED_WORK(&link->conn_mon.work, mt7996_mac_conn_monitor_work);
 	link->mld_idx = get_own_mld_idx(dev->mld_idx_mask, false);
 	if (link->mld_idx < 0)
 		return -ENOSPC;
 
 	link->phy = phy;
+	link->vif = mvif;
 	mlink->omac_idx = idx;
 	mlink->band_idx = band_idx;
 	mlink->wmm_idx = vif->type == NL80211_IFTYPE_AP ? 0 : 3;
@@ -394,6 +397,7 @@ void mt7996_vif_link_remove(struct mt76_phy *mphy, struct ieee80211_vif *vif,
 	struct mt7996_dev *dev = phy->dev;
 	int idx = msta_link->wcid.idx;
 
+	cancel_delayed_work(&link->conn_mon.work);
 	mt7996_mcu_add_sta(dev, link_conf, NULL, link, NULL,
 			   CONN_STATE_DISCONNECT, false);
 	mt7996_mcu_add_bss_info(phy, vif, link_conf, mlink, msta_link, false);
@@ -2198,6 +2202,50 @@ mt7996_change_vif_links(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	return 0;
 }
 
+static void
+mt7996_event_callback(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
+		      const struct ieee80211_event *event)
+{
+	switch (event->type) {
+	case MLME_EVENT: {
+		struct mt7996_dev *dev = mt7996_hw_dev(hw);
+		struct ieee80211_bss_conf *link_conf;
+		unsigned int link_id;
+
+		if (event->u.mlme.data != ASSOC_EVENT ||
+		    event->u.mlme.status != MLME_SUCCESS) {
+			struct mt7996_vif *mvif;
+
+			mvif = (struct mt7996_vif *)vif->drv_priv;
+			mvif->lost_links = 0;
+			break;
+		}
+
+		for_each_vif_active_link(vif, link_conf, link_id) {
+			u32 timeout = MT7996_MAX_BEACON_LOSS *
+				      link_conf->beacon_int;
+			struct mt7996_vif_link *link;
+
+			link = mt7996_vif_link(dev, vif, link_id);
+			if (!link)
+				continue;
+
+			cancel_delayed_work(&link->conn_mon.work);
+			link->conn_mon.state = MT7996_MON_STATE_BEACON_MON;
+			link->conn_mon.last_received = jiffies;
+			link->conn_mon.probe_count = 0;
+
+			ieee80211_queue_delayed_work(hw, &link->conn_mon.work,
+						     msecs_to_jiffies(timeout));
+		}
+		break;
+	}
+	default:
+		break;
+	}
+
+}
+
 const struct ieee80211_ops mt7996_ops = {
 	.add_chanctx = mt76_add_chanctx,
 	.remove_chanctx = mt76_remove_chanctx,
@@ -2256,4 +2304,5 @@ const struct ieee80211_ops mt7996_ops = {
 #endif
 	.change_vif_links = mt7996_change_vif_links,
 	.change_sta_links = mt7996_mac_sta_change_links,
+	.event_callback = mt7996_event_callback,
 };

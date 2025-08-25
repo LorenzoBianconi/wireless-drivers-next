@@ -93,6 +93,10 @@
 #define MT7992_CFEND_RATE_DEFAULT	0x4b	/* OFDM 6M */
 #define MT7992_IBF_TIMEOUT		0xff
 
+#define MT7996_MAX_BEACON_LOSS		20
+#define MT7996_MAX_PROBE_TIMEOUT	500 /* ms */
+#define MT7996_MAX_PROBE_TRIES		2
+
 #define MT7996_SKU_RATE_NUM		417
 #define MT7996_SKU_PATH_NUM		494
 
@@ -240,16 +244,35 @@ struct mt7996_sta {
 	struct mt7996_vif *vif;
 };
 
+enum {
+	MT7996_MON_STATE_BEACON_MON,
+	MT7996_MON_STATE_SEND_PROBE,
+	MT7996_MON_STATE_LINK_LOST,
+	MT7996_MON_STATE_DISCONN,
+};
+
 struct mt7996_vif_link {
 	struct mt76_vif_link mt76; /* must be first */
 
 	struct mt7996_sta_link msta_link;
 	struct mt7996_phy *phy;
+	struct mt7996_vif *vif;
 
 	struct ieee80211_tx_queue_params queue_params[IEEE80211_NUM_ACS];
 	struct cfg80211_bitrate_mask bitrate_mask;
 
 	u8 mld_idx;
+
+	/* MLO link connection monitor */
+	struct {
+		unsigned long last_received;
+		unsigned long probe_tx_time;
+		struct sk_buff *probe;
+		int probe_count;
+		int state;
+
+		struct delayed_work work;
+	} conn_mon;
 };
 
 struct mt7996_vif {
@@ -258,6 +281,8 @@ struct mt7996_vif {
 
 	u8 mld_group_idx;
 	u8 mld_remap_idx;
+
+	unsigned long lost_links;
 };
 
 /* crash-dump */
@@ -764,6 +789,7 @@ void mt7996_queue_rx_skb(struct mt76_dev *mdev, enum mt76_rxq_id q,
 			 struct sk_buff *skb, u32 *info);
 bool mt7996_rx_check(struct mt76_dev *mdev, void *data, int len);
 void mt7996_stats_work(struct work_struct *work);
+void mt7996_mac_conn_monitor_work(struct work_struct *work);
 int mt76_dfs_start_rdd(struct mt7996_dev *dev, bool force);
 int mt7996_dfs_init_radar_detector(struct mt7996_phy *phy);
 void mt7996_set_stream_he_eht_caps(struct mt7996_phy *phy);

@@ -441,6 +441,40 @@ mt7996_wed_check_ppe(struct mt7996_dev *dev, struct mt76_queue *q,
 				 FIELD_GET(MT_DMA_PPE_ENTRY, info));
 }
 
+static void
+mt7996_mac_update_beacon_ts(struct ieee80211_hw *hw, struct ieee80211_hdr *hdr)
+{
+	struct mt7996_vif_link *link;
+	struct mt76_vif_link *mlink;
+	struct ieee80211_sta *sta;
+	unsigned int link_id = 0;
+	struct mt7996_sta *msta;
+	struct mt7996_vif *mvif;
+
+	sta = ieee80211_find_sta_by_link_addrs(hw, hdr->addr2, NULL, &link_id);
+	if (!sta)
+		sta = ieee80211_find_sta_by_ifaddr(hw, hdr->addr2, NULL);
+
+	if (!sta)
+		return;
+
+	msta = (struct mt7996_sta *)sta->drv_priv;
+	mvif = msta ? msta->vif : NULL;
+	if (!mvif)
+		return;
+
+	mlink = rcu_dereference(mvif->mt76.link[link_id]);
+	if (!mlink)
+		return;
+
+	link = (struct mt7996_vif_link *)mlink;
+	link->conn_mon.last_received = jiffies;
+	/* FIXME: This is a temporary workaround. Lost links should be resumed
+	 * via TTLM or link reconfig.
+	 */
+	clear_bit(link_id, &mvif->lost_links);
+}
+
 static int
 mt7996_mac_fill_rx(struct mt7996_dev *dev, enum mt76_rxq_id q,
 		   struct sk_buff *skb, u32 *info)
@@ -707,6 +741,8 @@ mt7996_mac_fill_rx(struct mt7996_dev *dev, enum mt76_rxq_id q,
 			 */
 			if (ieee80211_has_a4(fc) && is_mesh && status->amsdu)
 				*qos &= ~IEEE80211_QOS_CTL_A_MSDU_PRESENT;
+		} else if (ieee80211_is_beacon(fc)) {
+			mt7996_mac_update_beacon_ts(mphy->hw, hdr);
 		}
 		skb_set_mac_header(skb, (unsigned char *)hdr - skb->data);
 	} else {
@@ -1305,6 +1341,42 @@ next:
 	}
 }
 
+static void
+mt7996_mac_conn_monitor_check_probe(struct sk_buff *skb,
+				    struct mt76_wcid *wcid)
+{
+	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)skb->data;
+	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
+	struct mt7996_sta_link *msta_link;
+	struct mt7996_vif_link *link;
+	struct mt76_vif_link *mlink;
+	struct mt7996_vif *mvif;
+
+	if (!ieee80211_is_nullfunc(hdr->frame_control))
+		return;
+
+	if (!(info->flags & IEEE80211_TX_STAT_ACK))
+		return;
+
+	msta_link = container_of(wcid, struct mt7996_sta_link, wcid);
+	mvif = msta_link->sta->vif;
+	if (!mvif)
+		return;
+
+	mlink = rcu_dereference(mvif->mt76.link[wcid->link_id]);
+	if (!mlink)
+		return;
+
+	link = (struct mt7996_vif_link *)mlink;
+	if (link->conn_mon.probe != skb)
+		return;
+
+	/* Reset beacon monitoring */
+	link->conn_mon.state = MT7996_MON_STATE_BEACON_MON;
+	link->conn_mon.last_received = jiffies;
+	link->conn_mon.probe_count = 0;
+}
+
 static bool
 mt7996_mac_add_txs_skb(struct mt7996_dev *dev, struct mt76_wcid *wcid,
 		       int pid, __le32 *txs_data)
@@ -1337,6 +1409,7 @@ mt7996_mac_add_txs_skb(struct mt7996_dev *dev, struct mt76_wcid *wcid,
 				!!(info->flags & IEEE80211_TX_STAT_ACK);
 
 			info->status.rates[0].idx = -1;
+			mt7996_mac_conn_monitor_check_probe(skb, wcid);
 		}
 	}
 
@@ -2789,4 +2862,148 @@ void mt7996_mac_twt_teardown_flow(struct mt7996_dev *dev,
 	msta_link->twt.flowid_mask &= ~BIT(flowid);
 	dev->twt.table_mask &= ~BIT(flow->table_id);
 	dev->twt.n_agrt--;
+}
+
+static int
+mt7996_mac_send_conn_probe(struct mt7996_phy *phy, struct ieee80211_vif *vif,
+			   struct ieee80211_bss_conf *link_conf)
+{
+	struct mt7996_vif *mvif = (struct mt7996_vif *)vif->drv_priv;
+	struct mt76_phy *mphy = phy->mt76;
+	struct ieee80211_tx_info *info;
+	struct mt7996_vif_link *link;
+	struct mt76_vif_link *mlink;
+	struct sk_buff *skb;
+	int ret = 0;
+
+	if (!ieee80211_hw_check(mphy->hw, REPORTS_TX_ACK_STATUS))
+		return -EOPNOTSUPP;
+
+	if (!is_valid_ether_addr(link_conf->bssid) ||
+	    !is_valid_ether_addr(link_conf->addr))
+		return -EINVAL;
+
+	rcu_read_lock();
+
+	mlink = rcu_dereference(mvif->mt76.link[link_conf->link_id]);
+	if (!mlink) {
+		ret = -EINVAL;
+		goto unlock;
+	}
+
+	skb = ieee80211_nullfunc_get(mphy->hw, vif, link_conf->link_id, false);
+	if (!skb) {
+		ret = -ENOMEM;
+		goto unlock;
+	}
+
+	skb_set_queue_mapping(skb, IEEE80211_AC_VO);
+	info = IEEE80211_SKB_CB(skb);
+	/* frame injected by driver */
+	info->flags |= IEEE80211_TX_CTL_REQ_TX_STATUS |
+		       IEEE80211_TX_CTL_NO_PS_BUFFER |
+		       IEEE80211_TX_CTL_INJECTED;
+	if (ieee80211_vif_is_mld(vif))
+		info->control.flags |=
+			u32_encode_bits(link_conf->link_id,
+					IEEE80211_TX_CTRL_MLO_LINK);
+
+	 if (!ieee80211_tx_prepare_skb(mphy->hw, vif, skb,
+				       mphy->main_chandef.chan->band, NULL)) {
+		 rcu_read_unlock();
+		 ieee80211_free_txskb(mphy->hw, skb);
+		 return -EINVAL;
+	}
+
+	local_bh_disable();
+
+	link = (struct mt7996_vif_link *)mlink;
+	link->conn_mon.probe_tx_time = jiffies;
+	link->conn_mon.probe_count++;
+	link->conn_mon.probe = skb;
+	mt76_tx(mphy, NULL, mlink->wcid, skb);
+
+	local_bh_enable();
+unlock:
+	rcu_read_unlock();
+
+	return ret;
+}
+
+void mt7996_mac_conn_monitor_work(struct work_struct *work)
+{
+	struct mt7996_vif_link *link = container_of(work,
+						    struct mt7996_vif_link,
+						    conn_mon.work.work);
+	struct mt7996_phy *phy = mt7996_vif_link_phy(link);
+	unsigned long timeout, valid_links, work_timeout;
+	unsigned int link_id = link->mt76.link_idx;
+	struct ieee80211_bss_conf *link_conf;
+	struct mt7996_vif *mvif = link->vif;
+	struct ieee80211_vif *vif;
+	struct ieee80211_hw *hw;
+
+	work_timeout = msecs_to_jiffies(MT7996_MAX_PROBE_TIMEOUT);
+
+	if (!phy)
+		goto out;
+
+	if (test_bit(link_id, &mvif->lost_links))
+		goto out;
+
+	vif = container_of((void *)mvif, struct ieee80211_vif,
+			   drv_priv);
+	valid_links = vif->valid_links ?: BIT(0);
+	hw = phy->mt76->hw;
+
+	wiphy_lock(hw->wiphy);
+
+	link_conf = link_conf_dereference_protected(vif, link_id);
+	if (!link_conf)
+		goto unlock;
+
+	if (link->conn_mon.state == MT7996_MON_STATE_SEND_PROBE) {
+		timeout = link->conn_mon.probe_tx_time +
+			  msecs_to_jiffies(MT7996_MAX_PROBE_TIMEOUT);
+		if (time_is_before_eq_jiffies(timeout) &&
+		    link->conn_mon.probe_count == MT7996_MAX_PROBE_TRIES)
+			link->conn_mon.state = MT7996_MON_STATE_LINK_LOST;
+	} else {
+		timeout = link->conn_mon.last_received +
+			  msecs_to_jiffies(MT7996_MAX_PROBE_TIMEOUT *
+					   link_conf->beacon_int);
+		if (time_is_before_eq_jiffies(timeout)) {
+			wiphy_info(hw->wiphy,
+				   "link %d: detected %d beacon loss\n",
+				   link->mt76.link_idx,
+				   MT7996_MAX_BEACON_LOSS);
+			link->conn_mon.state = MT7996_MON_STATE_SEND_PROBE;
+		}
+	}
+
+	switch (link->conn_mon.state) {
+	case MT7996_MON_STATE_SEND_PROBE:
+		if (!mt7996_mac_send_conn_probe(phy, vif, link_conf)) {
+			timeout = link->conn_mon.probe_tx_time +
+				  msecs_to_jiffies(MT7996_MAX_PROBE_TIMEOUT);
+			break;
+		}
+		fallthrough;
+	case MT7996_MON_STATE_LINK_LOST:
+		set_bit(link_id, &mvif->lost_links);
+		link->conn_mon.probe_count = 0;
+		if (mvif->lost_links != valid_links)
+			break;
+		fallthrough;
+	case MT7996_MON_STATE_DISCONN:
+		ieee80211_connection_loss(vif);
+		break;
+	default:
+		break;
+	}
+	work_timeout = timeout - jiffies;
+unlock:
+	wiphy_unlock(hw->wiphy);
+out:
+	ieee80211_queue_delayed_work(hw, &link->conn_mon.work, work_timeout);
 }
